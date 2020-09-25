@@ -1,0 +1,13 @@
+
+clock { display: none; }
+.-clock { display: flex; justify-content: center; }
+.-clock input { border-width: 0 0 1px 0; font-size: 2rem; font-family: 'Open Sans', 'Microsoft YaHei'; border-bottom: 1px solid #999999; color: #333333; }
+.-clock-hour { width: 3rem; text-align: center;  }
+.-clock-minute { width: 3rem; text-align: center; }
+.-clock-second { width: 3rem; text-align: center; }
+.-clock-colon { width: 1rem; text-align: center; }
+
+.-clock-option-frame { background-color: #FFFFFF; border: 1px solid var(--primary); box-shadow: 3px 6px 9px #999999; }
+.-clock-option { border-width: 1px; border-style: solid; border-color: #FFFFFF #FFFFFF #EEEEEE #FFFFFF; padding: 0.2rem 1.2rem; font-size: 1.2rem; color: #666666; cursor: default; }
+.-clock-option:hover { border-color: #333333; }
+.-clock-checked-option { border: 1px solid var(--darker); padding: 0.2rem 1.2rem; font-size: 1.2rem; background-color: var(--lighter); color: #FFFFFF; cursor: default; text-align: center; }
