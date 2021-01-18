@@ -124,8 +124,8 @@ $root.prototype.firstChild = function () {
     let array = Array.from(this.objects);
     this.objects.length = 0;
     array.forEach(parent => {
-        if (parent.firstChild != null) {
-            this.objects.push(parent.firstChild);
+        if (parent.firstElementChild != null) {
+            this.objects.push(parent.firstElementChild);
         }        
     });
     return this;
@@ -135,8 +135,8 @@ $root.prototype.lastChild = function () {
     let array = Array.from(this.objects);
     this.objects.length = 0;
     array.forEach(parent => {
-        if (parent.lastChild != null) {
-            this.objects.push(parent.lastChild);
+        if (parent.lastElementChild != null) {
+            this.objects.push(parent.lastElementChild);
         }        
     });
     return this;
@@ -270,9 +270,42 @@ $root.prototype.bind = function (eventName, func, useCapture = false, attach = t
     return this;
 }
 
+$root.prototype.unbind = function(eventName, func, attach = true) {
+    eventName = eventName.toLowerCase();
+    for (let e of this.objects) {
+        if (attach) {
+            if (e.addEventListener != undefined) {
+                if (eventName.startsWith('on')) {
+                    eventName = eventName.substring(2);
+                }
+                e.removeEventListener(eventName, func);
+            }
+            else if (e.attachEvent != undefined) {
+                if (!eventName.startsWith('on')) {
+                    eventName = 'on' + eventName;
+                }
+                e.detachEvent(eventName, func);
+            }
+        }
+        else {
+            if (!eventName.startsWith('on')) {
+                eventName = 'on' + eventName;
+            }
+            e['on' + eventName] = null;
+        }
+    }
+}
+
 $root.prototype.on = function (eventName, func, useCapture = false, attach = true) {
     eventName.split(',').forEach(event => {
         this.bind(event, func, useCapture, attach);
+    });
+    return this;
+}
+
+$root.prototype.un = function(eventName, func, attach = true) {
+    eventName.split(',').forEach(event => {
+        this.unbind(event, func, useCapture, attach);
     });
     return this;
 }
@@ -470,7 +503,7 @@ $root.prototype.html = function (code) {
     }
 }
 
-$root.prototype.text = function (code) {
+$root.prototype.text = function (text) {
     if (code == null) {
         if (this.objects.length == 0) {
             return null;
@@ -484,7 +517,7 @@ $root.prototype.text = function (code) {
     }
     else {
         this.objects.forEach(obj => {
-            obj.textContent = code;
+            obj.textContent = text;
         });
         return this;
     }
@@ -580,15 +613,27 @@ $root.prototype.left = function(value) {
 }
 
 //right side to right
-$root.prototype.right = function() {
+$root.prototype.right = function(value) {
     if (this.objects.length == 0) {
         return null;
     }
     else if (this.objects.length == 1) {
-        return $root.offsetLeft(this.objects[0]) + this.objects[0].offsetWidth;
+        if (value == null) {
+            return $root.offsetLeft(this.objects[0]) + this.objects[0].offsetWidth;
+        }
+        else {
+            this.objects.forEach(obj => obj.style.right = value + 'px');
+            return this;
+        }        
     }
     else {
-        return this.objects.map(obj => $root.offsetLeft(obj) + obj.offsetWidth);
+        if (value == null) {
+            return this.objects.map(obj => $root.offsetLeft(obj) + obj.offsetWidth);
+        }
+        else {
+            this.objects.forEach(obj => obj.style.right = value + 'px');
+            return this;
+        }
     }
 }
 
@@ -635,15 +680,27 @@ $root.prototype.top = function(value) {
     }
 }
 
-$root.prototype.bottom = function() {
+$root.prototype.bottom = function(value) {
     if (this.objects.length == 0) {
         return null;
     }
     else if (this.objects.length == 1) {
-        return $root.offsetTop(this.objects[0]) + this.objects[0].offsetHeight;
+        if (value == null) {
+            return $root.offsetTop(this.objects[0]) + this.objects[0].offsetHeight;
+        }
+        else {
+            this.objects[0].style.bottom = value + 'px';
+            return this;
+        }
     }
     else {
-        return this.objects.map(obj => $root.offsetTop(obj) + obj.offsetHeight);
+        if (value == null) {
+            return this.objects.map(obj => $root.offsetTop(obj) + obj.offsetHeight);
+        }
+        else {
+            this.objects.forEach(obj => obj.style.bottom = value + 'px');
+            return this;
+        }
     }
 }
 
@@ -735,7 +792,7 @@ $root.scrollLeft = function(value) {
     } 
 }
 
-//获取当前可视范围的高度
+//获取当前可视范围的宽度
 $root.visibleWidth = function() {    
     return Math.max(document.body.clientWidth, document.documentElement.clientWidth);
 }
@@ -992,37 +1049,6 @@ $root.prototype.tocheck = function() {
     return this;
 }
 
-$root.prototype.load = function (url) {
-    let root = this;
-    $GET(url).success(function () {
-        root.objects.forEach(obj => {
-            obj.innerHTML = this.responseText;
-        });
-    });
-}
-
-$root.prototype.parse = function(attr) {
-    this.objects.forEach(obj => {
-        if (attr == null) {
-            if (obj.value != null) {
-                obj.value = obj.value.$p(obj);
-            }
-            else {
-                obj.innerHTML = obj.innerHTML.$p(obj);
-            }
-        }
-        else {
-            if (obj[attr] != null) {
-                obj[attr] = obj[attr].$p(obj);
-            }
-            else if (obj.getAttribute(attr) != null) {
-                obj.setAttribute(attr, obj.getAttribute(attr).$p(obj));
-            }
-        }
-    });
-    return this;
-}
-
 $root.PROPERTIES = [
     {
         selector: '[-html]',        
@@ -1090,6 +1116,7 @@ $s = function (o) {
 //all
 $a = function (...o) {
     let s = new Array();
+
     for (let b of o) {
         if (typeof (b) == 'string') {
             for (let e of document.querySelectorAll(o)) {
@@ -1105,54 +1132,68 @@ $a = function (...o) {
             s.push(b);
         }        
     }
+
     return s;
 }
 
-//last
-$l = function (o) {
-    let a = $a(o);
-    return a[a.length - 1];
+$t = function(o) {
+    return document.components.get(o.replace(/^#/, ''));
 }
 
-$lang = (function() {
-    return (navigator.language || navigator.userLanguage).substring(0, 2).toLowerCase();
-})();
+$c = function(...o) {
 
-//on document ready
-$ready = function (callback) {
-    //$bind('DOMContentLoaded', callback);
-    //onreadystatechange
-    if (document.addEventListener != undefined) {
-        document.addEventListener("DOMContentLoaded", callback, false);
-    }
-    else if (document.attachEvent != undefined) {
-        document.attachEvent('onreadystatechange', callback);
-    }
+    let s = new Array();
+
+    let t = o.filter(p => typeof(p) == 'string')
+                .map(p => p.split(','))
+                .reduce((r1, r2) => r1.concat(r2))
+                .distinct()
+                .map(p => p.trim());
+    
+    //tag name
+    t.filter(p => p.startsWith('#'))
+        .map(p => p.replace(/^#/, ''))
+        .forEach(p => {
+            if (document.components.has(p)) {
+                s.push(document.components.get(p));
+            } 
+        });
+
+    //tagName
+    t.filter(p => !p.startsWith('#'))
+        .map(p => p.toUpperCase())
+        .forEach(p => {
+            if (document.tags.has(p)) {
+                for (let component of document.components.values()) {
+                    if (component.tagName == p) {
+                        s.push(component);
+                    }
+                }
+            }
+        });
+
+    return o.filter(p => typeof(p) == 'object').concat(s);
 }
 
-$GET = function (url, path = '/') { return new $api('GET', url, '', path); }   //SELECT
-$POST = function (url, params = '', path = '/') { return new $api('POST', url, params, path); } //INSERT
-$PUT = function (url, params = '', path = '/') { return new $api('PUT', url, params, path); }  //UPDATE/INSERT
-$DELETE = function (url, path = '/') { return new $api('DELETE', url, path); }  //DELETE
+$GET = function (url, path = '/', element = null, p = true) { return new $api('GET', url, '', path, element, p); }   //SELECT
+$POST = function (url, params = '', path = '/', element = null, p = true) {return new $api('POST', url, params, path, element, p); } //INSERT
+$PUT = function (url, params = '', path = '/',  element = null, p = true) { return new $api('PUT', url, params, path, element, p); }  //UPDATE/INSERT
+$DELETE = function (url, path = '/', element = null, p = true) { return new $api('DELETE', url, path); }  //DELETE
 
-$TAKE = function(data, path, element, owner, func) {
+$TAKE = function(data, element, owner, func) {
     if (typeof(data) == 'string') {
         data = data.trim();
         if (data.startsWith('[') || data.startsWith('{')) {
-            func.call(owner, Json.parse(data).find(path));
+            func.call(owner, Json.parse(data).find());
         }
-        else if (data.includes('/') || (data.includes('?') && data.includes('=')) || /^url:/i.test(data)) {
-            //如果不能正确识别为url地址, 需要在地址前加 "url:", 比如 api 有可能是一个相对地址, 写成 url:api
-            if (/^url:/i.test(data)) {
-                data = data.substring(4).trim();
-            }
-            $ajax('GET', data, '', path, element)
-            .success(function(result) {
-                func.call(owner, result);
-            });
+        else if (/^(\/|[a-z]+(\s|#))/i.test(data) || /^(get|post|delete|put|http|https)\s*:/i.test(data) || data.includes('/') || (data.includes('?') && data.includes('='))) {
+            $cogo(data, element)
+                .then(result => {
+                    func.call(owner, result);
+                });            
         }
         else if (data.includes(",") && !data.includes("(") && !data.includes(")")) {
-            func.call(owner, Json.parse('["' + data.replace(/,/g, '","') + '"]').find(path));
+            func.call(owner, Json.parse('["' + data.replace(/,/g, '","') + '"]').find());
         }
         else {
             //如果是js变量
@@ -1166,23 +1207,24 @@ $TAKE = function(data, path, element, owner, func) {
         }
     }
     else {
-        func.call(owner, Json.find(data, path));
+        func.call(owner, data);
     }
 }
 
-$ajax = function (method, url, params = '', path = '/', element = null) {
-    return new $api(method, url, params, path, element);
+$ajax = function (method, url, params = '', path = '/', element = null, p = true) {
+    return new $api(method, url, params, path, element, p);
 }
 
-$api = function (method, url, params = '', path = '/', element = null) {
+// p - if to be $p
+$api = function (method, url, params = '', path = '/', element = null, p = true) {
 
     this.method = method.toUpperCase();
 
     this.cache = false;
 
-    this.url = url.$p(element);
+    this.url = p ? url.$p(element) : url;
     this.params = params;
-    if (typeof (this.params) == 'string' && this.params != '') {
+    if (p && typeof (this.params) == 'string' && this.params != '') {
         this.params = this.params.$p(element);
     }
 
@@ -1214,14 +1256,6 @@ $api = function (method, url, params = '', path = '/', element = null) {
                         }
                         api.onsuccess.call(this, result);
                     }
-                    //字符串类型
-                    else if (api.elements != null) {
-                        api.elements.forEach(element => {
-                            if (element instanceof HTMLElement) {
-                                element.innerHTML = this.responseText;
-                            }
-                        });
-                    }
                 }
             }
             else {
@@ -1237,8 +1271,6 @@ $api = function (method, url, params = '', path = '/', element = null) {
         }
     };
     
-    this.elements = null;
-
     this.onsend = function(url, params) { };
     this.oncompelete = function() { };
     this.onerror = function(status, statusText) { };
@@ -1320,11 +1352,6 @@ $api.prototype.success = function (func) {
     this.$send();
 }
 
-$api.prototype.fill = function (...elements) {
-    this.elements = $a(...elements);
-    this.$send();
-}
-
 $api.prototype.parseDataURL = function(element, text, value = '') {
     this.url = $api.$parseDataURL(this.url, element, text, value);
     this.params = $api.$parseDataURL(this.params, element, text, value);
@@ -1336,11 +1363,6 @@ $api.$parseDataURL = function (url, element, text = '', value = '') {
     if (value == '') {
         value = text;
     }
-
-    //;  for api in one only
-    // 11.16 注释掉，好像已经没什么用了，在编辑SQL时会把正常的分号替换成~u003b，逻辑是错的
-    //text = text.replace(/;/g, '~u003b');
-    //value = value.replace(/;/g, '~u003b');
 
     url = url.replace(/\{text\}/ig, encodeURIComponent(text));
     url = url.replace(/\{value\}/ig, encodeURIComponent(value));
@@ -1354,125 +1376,77 @@ $api.$parseDataURL = function (url, element, text = '', value = '') {
     return url;
 }
 
-Event.s = new Map();
+$cogo = function(todo, element) {
+    todo = todo.trim();
+    let method = 'GET';
 
-Event.bind = function (tagGroup, name, eventName, func) {
-    eventName = eventName.toLowerCase();    
-    if (!eventName.startsWith('on')) {
-        eventName = 'on' + eventName;
+    if (/^(get|post|delete|put)\s*:/i.test(todo)) {
+        method = todo.takeBefore(':').trim().toUpperCase();
+        todo = todo.takeAfter(':').trim();
     }
 
-    if (!Event.s.has(tagGroup)) {
-        Event.s.set(tagGroup, new Map());
+    if (/^[a-z]+\s*/i.test(todo)) {
+        return $run(todo, element);
     }
-    if (!Event.s.get(tagGroup).has(name)) {
-        Event.s.get(tagGroup).set(name, new Map());
+    else {
+        let path = '';
+        if (todo.includes('->')) {
+            path = todo.takeAfter('->').trim();
+            todo = todo.takeBefore('->').trim();            
+        }
+        return $request(method, todo, null, path, element);
     }
-    if (!Event.s.get(tagGroup).get(name).has(eventName)) {
-        Event.s.get(tagGroup).get(name).set(eventName, new Array());
-    }
-    Event.s.get(tagGroup).get(name).get(eventName).push(func);
 }
 
-Event.execute = function (tagGroup, name, eventName, ...args) {
-    /// <summary>执行事件</summary>
-    /// <param name="tag" type="String">事件对象</param>
-    /// <param name="eventName" type="String">事件名</param>
-    /// <param name="args" type="Array">事件参数列表</param>
-
-    if (document[tagGroup] == null || document[tagGroup][name] == null) {
-        throw new Error('Tag ' + ' ' + name + ' in ' + tagGroup + ' does not exists.');
-    }
-
-    let tag = document[tagGroup][name];
-    if (!eventName.startsWith('on')) {
-        eventName = 'on' + eventName;
-    }
-
-    let final = true;
-    if (tag[eventName] != null) {
-        if (typeof (tag[eventName]) == 'function') {
-            final = tag[eventName].call(tag, ...args);
-        }
-        else if (typeof (tag[eventName]) == 'string') {
-            final = eval('final = function() {' + tag[eventName] + '}').call(tag, ...args);
-        }
-        if (typeof (final) != 'boolean') { final = true; };
-    }
-
-    if (Event.s.has(tagGroup) && Event.s.get(tagGroup).has(name)) {
-        let funcs = Event.s.get(tagGroup).get(name).get(eventName.toLowerCase());
-        if (funcs != null) {            
-            for (let func of funcs) {
-                let result = true;
-                //key code
-                if (typeof (func) == 'function') {
-                    result = func.call(tag, ...args);
-                }
-                else if (typeof (func) == 'string') {
-                    result = eval('result = function() {' + func + '}').call(tag, ...args);
-                }
-                if (typeof (result) != 'boolean') { result = true; };
-
-                if (!result && final) {
-                    final = false;
-                }
-            }            
-        }
-    }
-
-    return final;
+//run PQL
+$run = function(pql, element) {
+    return $request('POST', '/api/cogo/pql', 'statement=' + encodeURIComponent(pql.$p(element)), '/', element);
 }
 
-//执行某一个具体对象的事件非bind事件，再比如对象没有name，如for和if标签
-Event.fire = function(tag, eventName, ...args) {
-
-    if (!eventName.startsWith('on')) {
-        eventName = 'on' + eventName;
+//cross domain
+$request = function(method, url, params, path, element) {
+    if (/^https?:/i.test(url)) {
+        url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element)));
     }
 
-    let final = true;
-    if (tag[eventName] != null) {
-        if (typeof (tag[eventName]) == 'function') {
-            final = tag[eventName].call(tag, ...args);
-        }
-        else if (typeof (tag[eventName]) == 'string') {
-            final = eval('final = function() {' + tag[eventName] + '}').call(tag, ...args);
-        }
-        if (typeof (final) != 'boolean') { final = true; };
+    return new Promise((resolve, reject) => {
+                $ajax(method, url, params, path, element, false)
+                    .error((status, statusText) => {
+                        reject(statusText);
+                    })
+                    .success(result => {
+                        resolve(result);
+                    });
+            });
+}
+
+$lang = (function() {
+    return (navigator.language || navigator.userLanguage).substring(0, 2).toLowerCase();
+})();
+
+//on document ready
+$ready = function (callback) {
+    //$bind('DOMContentLoaded', callback);
+    //onreadystatechange
+    if (document.addEventListener != undefined) {
+        document.addEventListener("DOMContentLoaded", callback, false);
     }
-    return final;
-}
-
-Event.Entity = function(tagGroup, name) {
-    this.tagGroup = tagGroup;
-    this.name = name.replace(/^#/, '');
-}
-
-Event.Entity.prototype.on = function(eventName, func) {
-    eventName.split(',').forEach(event => {
-        Event.bind(this.tagGroup, this.name, event.trim(), func);
-    });    
-    return this;
-}
-
-Event.Entity.prototype.execute = function(eventName, ...args) {
-    return Event.execute(this.tagGroup, this.name, eventName, ...args);
+    else if (document.attachEvent != undefined) {
+        document.attachEvent('onreadystatechange', callback);
+    }
 }
 
 $finish = function(func) {
-    if (document['models'] != null) {
-        Event.bind('models', '$global', 'onfinish', func);
+    if (document.models != null) {
+        Event.bind('$global', 'onfinish', func);
     }
     else {
         $ready(func);
     }
 }
 
-$query = function (n = '') {
-	/// <summary>queryString, query()方法不区分大小写, query[]区分大小写</summary>
-	/// <param name="n" type="String" mayBeNull="false">请求的参数名</param>
-	
+//queryString, query()方法不区分大小写
+$query = function (n = '') {	
 	if (n != '') {
 	    if ($query[n] != null) {
 	        return $query[n];
@@ -1551,15 +1525,6 @@ String.prototype.$includes = function(str, delimiter = ',') {
 
 String.prototype.$remove = function(str, delimiter = ',') {
     return (delimiter + this.toString().trim() + delimiter).replace(delimiter + str + delimiter, delimiter).$trim(delimiter);
-}
-
-String.prototype.$union = function(strOrArray, delimiter = ',') {
-    if (typeof(strOrArray) == 'string') {
-        strOrArray = strOrArray.split(delimiter);
-    }
-
-    let me = this.toString();
-    return Array.from(new Set(me == '' ? strOrArray : me.split(delimiter).concat(strOrArray))).join(delimiter);
 }
 
 String.prototype.take = function(length) {
@@ -1708,6 +1673,28 @@ String.prototype.takeAfterLast = function(value) {
     else {
         throw new Error('Unsupported data type in takeAfterLast: ' + value);
     }
+}
+
+Array.prototype.head = function() {
+    if (this.length > 0) {
+        return this[0];
+    }
+    else {
+        return null;
+    }
+}
+
+Array.prototype.last = function() {
+    if (this.length > 0) {
+        return this[this.length - 1];
+    }
+    else {
+        return null;
+    }
+}
+
+Array.prototype.toSet = function() {
+    return new Set(this);
 }
 
 Array.prototype.distinct = function() {
@@ -1984,18 +1971,14 @@ String.prototype.toHyphen = function() {
 }
 
 String.prototype.toCamel = function() {
-    return this.toString().replace(/-([a-z])/g, ($0, $1) => $1.toUpperCase());
+    return this.toString().replace(/-([a-z])/g, ($0, $1) => $1.toUpperCase()).replace(/^([A-Z])/, ($0, $1) => $0.toLowerCase());
 }
 
 String.prototype.toPascal = function() {
     return this.toString().replace(/(_|-)([a-z])/g, ($0, $1, $2) => $2.toUpperCase()).replace(/^[a-z]/, $0 => $0.toUpperCase());
 }
 
-String.prototype.toPhrase = function() {
-    return this.toString().replace(/(_|-)([a-z])/g, ($0, $1, $2) => ' ' + $2.toUpperCase()).replace(/^[a-z]/, $0 => $0.toUpperCase());
-}
-
-String.prototype.recoginze = function() {
+String.prototype.recognize = function() {
     let value = this.toString();
     if (/^true|false|yes|no$/i.test(value)) {
         return value.toBoolean();
@@ -2022,6 +2005,7 @@ String.prototype.$length = function (min = 0) {
     return l;
 }
 
+// private
 $value = function(t) {
     let v = null;
     if (t.value != undefined) {
@@ -2048,6 +2032,7 @@ $value = function(t) {
     return v;
 }
 
+// private
 $attr = function(t, a) {
     if (t.nodeType != null && t.nodeType == 1) {
         if (t[a] == null || typeof(t[a]) != 'string') {
@@ -2123,25 +2108,8 @@ String.prototype.$p = function(element) {
     let query = /\&(amp;)?\(([a-z0-9_]+)\)/i;
     while(query.test(data)) {
         let match = query.exec(data);
-        data = data.replace(match[0], $query.contains(match[2]) ? $query(match[2]) : '');
+        data = data.replace(match[0], $query.contains(match[2]) ? $query(match[2]) : 'null');
     }
-
-    //~{{complex expression}}
-    //must return a value 
-    let complex = /\~\{\{([\s\S]+?)\}\}/;
-    while (complex.test(data)) {
-        let match = complex.exec(data);
-        data = data.replace(match[0], element == null ? eval('_ = function() { ' + match[1].decode() + ' }();') : eval('_ = function() { ' + match[1].decode() + ' }').call(element));
-    }
-
-    //~{simple expression}
-    let expression = /\~\{([\s\S]+?)\}/;
-    while (expression.test(data)) {
-        let match = expression.exec(data);
-        data = data.replace(match[0], element == null ?  eval('_ = function() { return ' + match[1].decode() + '; }();') : eval('_ = function() { return ' + match[1].decode() + ' }').call(element));
-    }
-
-    data = data.replace(/~u0040/g, '@');
 
     //$(selector)+-><[n][attr]?(1)
     // + next
@@ -2182,10 +2150,24 @@ String.prototype.$p = function(element) {
                 data = data.replace(holder, String.$p(element, p, a, d));
             }
         }
-
     }
 
-    return data;
+    //~{{complex expression}}
+    //must return a value 
+    let complex = /\~\{\{([\s\S]+?)\}\}/;
+    while (complex.test(data)) {
+        let match = complex.exec(data);
+        data = data.replace(match[0], element == null ? eval('_ = function() { ' + match[1].decode() + ' }();') : eval('_ = function() { ' + match[1].decode() + ' }').call(element));
+    }
+
+    //~{simple expression}
+    let expression = /\~\{([\s\S]+?)\}/;
+    while (expression.test(data)) {
+        let match = expression.exec(data);
+        data = data.replace(match[0], element == null ?  eval('_ = function() { return ' + match[1].decode() + '; }();') : eval('_ = function() { return ' + match[1].decode() + ' }').call(element));
+    }
+
+    return data.replace(/~u0040/g, '@');
 }
 
 String.prototype.isEmpty = function() {
@@ -2281,43 +2263,6 @@ Number.prototype.toPercent = function(digits = 2) {
     }
 }
 
-Number.prototype.toTimeSpan = function(max) {
-    let span = '';
-    let rem = this;
-    let over = '';
-    if (rem >= 0) {
-        if (max != null) {
-            if (rem > max) {
-                rem = max;
-                over = '+';
-            }
-        }
-
-        if (rem > 3600 * 24) {
-            span += Math.floor(rem / 3600 / 24) + 'd';
-            rem = rem % (3600 * 24);
-        }
-        if (rem > 3600) {
-            span += Math.floor(rem / 3600) + 'h';
-            rem = rem % 3600;
-        }
-        if (rem > 60) {
-            span += Math.floor(rem / 60) + 'm';
-            rem = rem % 60;
-        }
-        if (span == '' || rem > 0) {
-            span += rem + 's';
-        }
-
-        span += over;
-    }
-    else {
-        span = 'N/A';
-    }
-    
-    return span;
-}
-
 Json = function(strOrObj) {
     if (typeof (strOrObj) == 'string') {
         strOrObj = strOrObj.replace(/&quot;/g, '"');        
@@ -2340,10 +2285,6 @@ Json = function(strOrObj) {
 
 Json.parse = function(json) {
     return new Json(json);
-}
-
-Json.eval = function(json) {
-    return new Json(json).find();
 }
 
 Json.prototype.toString = function() {
@@ -2373,6 +2314,10 @@ Json.find = function(jsonObject, path = '/') {
     else {
         return jsonObject;
     }    
+}
+
+Json.eval = function(json) {
+    return new Json(json).find();
 }
 
 Json.prototype.find = function(path = '/') {
@@ -2461,6 +2406,119 @@ Enum.Entity.prototype.validate = function(value) {
     return value.toUpperCase();
 }
 
+//all components
+// name -> component
+// name doesn't start with '#'
+document.components = new Map();
+//all nodeName
+document.tags = new Set();
+
+// <clock name="watch"></clock> tagName = watch 
+$listen = function(tagName) {
+    return new Event.Entity(tagName);
+}
+
+Event.s = new Map();
+
+Event.bind = function (tagName, eventName, func) {
+    
+    eventName = eventName.toLowerCase();    
+    if (!eventName.startsWith('on')) {
+        eventName = 'on' + eventName;
+    }
+
+    if (!Event.s.has(tagName)) {
+        Event.s.set(tagName, new Map());
+    }
+    if (!Event.s.get(tagName).has(eventName)) {
+        Event.s.get(tagName).set(eventName, new Array());
+    }
+
+    Event.s.get(tagName).get(eventName).push(func);
+}
+
+Event.execute = function (tagName, eventName, ...args) {
+
+    if (!document.components.has(tagName)) {
+        throw new Error('Tag ' + tagName + ' does not exists.');
+    }
+
+    let tag = document.components.get(tagName);
+    if (!eventName.startsWith('on')) {
+        eventName = 'on' + eventName;
+    }
+
+    let final = true;
+    if (tag[eventName] != null) {
+        if (typeof (tag[eventName]) == 'function') {
+            final = tag[eventName].call(tag, ...args);
+        }
+        else if (typeof (tag[eventName]) == 'string') {
+            final = eval('final = function() {' + tag[eventName] + '}').call(tag, ...args);
+        }
+        if (typeof (final) != 'boolean') { final = true; };
+    }
+
+    if (Event.s.has(tagName)) {
+        let funcs = Event.s.get(tagName).get(eventName.toLowerCase());
+        if (funcs != null) {
+            for (let func of funcs) {
+                let result = true;
+                //key code
+                if (typeof (func) == 'function') {
+                    result = func.call(tag, ...args);
+                }
+                else if (typeof (func) == 'string') {
+                    result = eval('result = function() {' + func + '}').call(tag, ...args);
+                }
+                if (typeof (result) != 'boolean') { result = true; };
+
+                if (!result && final) {
+                    final = false;
+                }
+            }            
+        }
+    }
+
+    return final;
+}
+
+//执行某一个具体对象的事件非bind事件，再比如对象没有name，如for和if标签
+Event.fire = function(tag, eventName, ...args) {
+
+    if (!eventName.startsWith('on')) {
+        eventName = 'on' + eventName;
+    }
+
+    let final = true;
+    if (tag[eventName] != null) {
+        if (typeof (tag[eventName]) == 'function') {
+            final = tag[eventName].call(tag, ...args);
+        }
+        else if (typeof (tag[eventName]) == 'string') {
+            final = eval('final = function() {' + tag[eventName] + '}').call(tag, ...args);
+        }
+        if (typeof (final) != 'boolean') { final = true; };
+    }
+    return final;
+}
+
+Event.Entity = function(name) {
+    this.tagName = name.trim().replace(/^#/, '');
+}
+
+Event.Entity.prototype.on = function(eventName, func) {
+    eventName.split(',')
+        .forEach(event => {
+            Event.bind(this.tagName, event.trim(), func);
+        });
+
+    return this;
+}
+
+Event.Entity.prototype.execute = function(eventName, ...args) {
+    return Event.execute(this.tagName, eventName, ...args);
+}
 
 $initialize = function(object) {
     return new $Settings(object);
@@ -2471,6 +2529,10 @@ $Settings = function(object) {
     this.object = object;
     this.isElement = false;
     this.$burn = false;
+
+    this.object['nodeName'] = object.constructor != null ? (object.constructor.name != null ? object.constructor.name.toUpperCase() : 'UNKONWN') : 'UNKONWN';
+    this.object['tagName'] = this.object['nodeName'];
+    document.tags.add(this.object['tagName']);
 }
 
 $Settings.prototype.with = function(elementOrSettings) {
@@ -2584,8 +2646,7 @@ $Settings.prototype.declare = function(variables) {
             }
             //enum 枚举, 默认值为第1项
             else if (value.includes('|')) {
-                let result = this.get(property);
-                this.object[name] = !new RegExp('^(' + value + ')$', 'i').test(result) ? value.substring(0, value.indexOf('|')) : result.toLowerCase();
+                this.object[name] = Enum(...value.split('|').map(v => v.trim())).validate(this.get(property));                
             }
             else {
                 this.object[name] = $parseString(this.get(property), value);
@@ -2618,6 +2679,19 @@ $Settings.prototype.declare = function(variables) {
             this.object[name] = this.get(property);
         }
     }
+
+    this.object.constructor.prototype.on = function (eventName, func) {
+        Event.bind(this.name, eventName, func);
+        return this;
+    }
+    
+    this.object.constructor.prototype.execute = function (eventName, ...args) {
+        return Event.execute(this.name, eventName, ...args);
+    }
+    
+    if (this.object['name'] != null && this.object['name'] != '') {
+        document.components.set(this.object['name'], this.object);
+    }    
 
     return this;
 }
@@ -2745,7 +2819,7 @@ $randomPassword = function(digit = 7) {
 }
 
 $guid = function() {
-    return new Date().valueOf() + '-' + $randomX();
+    return new Date().valueOf() + '-' + $randomPassword(10);
 }
 
 $ready(function() {
@@ -2790,7 +2864,7 @@ $finish(function() {
 
     //enter event
     for (let enter of $a('input[enter]')) {
-        $x(enter).bind('keypress', function(ev) {
+        $x(enter).on('keypress', function(ev) {
             if (ev.keyCode == 13 && this.value != this.defaultValue) {
                 window.location.href = this.getAttribute('enter').$p(this);
             }
@@ -2833,6 +2907,7 @@ $finish(function() {
         $x(window).bind('resize', layout);
     }
 
+    //fixed
     let fixed = $a('div[fixed=yes],table[fixed=yes]');
     let fix = function() {
         fixed.forEach(tag => {
@@ -2853,6 +2928,7 @@ $finish(function() {
         window.setTimeout(ajust, 1000);
     }
 
+    //iframe
     if (document.body.getAttribute('iframe') != null) {
         let flex = function() {
             parent.$x(document.body.getAttribute('iframe')).height($root.documentHeight());

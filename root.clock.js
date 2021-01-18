@@ -1,12 +1,10 @@
 
-document.clocks = new Object();
-
 class Clock {
     constructor(elementOrSettings) {
         $initialize(this)
         .with(elementOrSettings)
         .declare({
-            name: 'Clock_' + $size(document.clocks),
+            name: 'Clock_' + document.components.size,
            
             $value: 'HH:mm:ss',
 
@@ -55,9 +53,7 @@ class Clock {
         }
         else if (this.maxTime != '') {
             this.maxTime = new DateTime(this.maxTime);
-        }        
-
-        document.clocks[this.name] = this;
+        }
     }    
 
     get tick() {
@@ -160,6 +156,16 @@ class Clock {
     }
 }
 
+$clock = function(name) {
+    let clock = $t(name);
+    if (clock != null && clock.tagName == 'CLOCK') {
+        return clock;
+    }
+    else {
+        return null;
+    }
+}
+
 Clock.prototype.hourInput = null;
 Clock.prototype.minuteInput = null;
 Clock.prototype.secondInput = null;
@@ -171,23 +177,6 @@ Clock.prototype.onHourChanged = function(hour) {};
 Clock.prototype.onMinuteChanged = function(minute) {};
 Clock.prototype.onSecondChanged = function(second) {};
 Clock.prototype.onTimeChanged = function(time) {};
-
-$clock = function(name) {
-    return document.clocks[name.replace(/^#/, '')];
-}
-
-Clock$ = function(name) {
-    return new Event.Entity('clocks', name.replace(/^#/, ''));
-}
-
-Clock.prototype.on = function (eventName, func) {
-    Event.bind('clocks', this.name, eventName, func);
-    return this;
-}
-
-Clock.prototype.execute = function (eventName, ...args) {
-    return Event.execute('clocks', this.name, eventName, ...args);
-}
 
 Clock.prototype.getHourList = function() {
 

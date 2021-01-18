@@ -1,13 +1,10 @@
-
-document.calendars = new Object();
-
 class Calendar {
 
     constructor(elementOrSettings) {
         $initialize(this)
         .with(elementOrSettings)
         .declare({
-            name: 'Calendar_' + $size(document.calendars),
+            name: 'Calendar_' + document.components.size,
             //单日/周/日期期间
             mode: Enum('DAY', 'WEEK', 'RANGE', 'NONE'),
             //显示的月数
@@ -216,8 +213,6 @@ class Calendar {
         if (this.$endDate == 'today') {
             this.$endDate = this.today;
         }
-
-        document.calendars[this.name] = this;
     }
 
     get today() {
@@ -440,6 +435,16 @@ class Calendar {
     }
 }
 
+$calendar = function(name) {
+    let calendar = $t(name);
+    if (calendar != null && calendar.tagName == 'CALENDAR') {
+        return calendar;
+    }
+    else {
+        return null;
+    }
+}
+
 Calendar.LUNAR = { };
 
 //Calendar.prototype.headFrame = null;
@@ -474,10 +479,6 @@ Calendar.prototype.setFocusDayClass = function(day) {
 
 Calendar.prototype.resetDayClass = function(day) {
     let selector = (day == undefined ? 'range' : 'day=v' + day);
-    // $x(this.container).select('td[' + selector + '][sign=OTHER-MONTH-DAY]').css(this.daysOfOtherMonthClass);
-    // $x(this.container).select('td[' + selector + '][sign=HOLIDAY]').css(this.holidayClass);
-    // $x(this.container).select('td[' + selector + '][sign=WORKDAY]').css(this.workdayClass);
-    // $x(this.container).select('td[' + selector + '][sign=TODAY]').css(this.todayClass);
     $x(this.container).select('td[' + selector + ']').reset('className').objects.forEach(td => td.removeAttribute('range'));
 }
 
@@ -497,23 +498,6 @@ Calendar.prototype.setSelectionClass = function() {
             start.plusDays(1);
         }
     }
-}
-
-$calendar = function(name) {
-    return document.calendars[name.replace(/^#/, '')];
-}
-
-Calendar$ = function(name) {
-    return new Event.Entity('calendars', name.replace(/^#/, ''));
-}
-
-Calendar.prototype.on = function (eventName, func) {
-    Event.bind('calendars', this.name, eventName, func);
-    return this;
-}
-
-Calendar.prototype.execute = function (eventName, ...args) {
-    return Event.execute('calendars', this.name, eventName, ...args);
 }
 
 //判断是否开启快速切换年和月
@@ -626,7 +610,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                 }
                 if (this.months == 12) {
                     td.firstChild.style.position = 'absolute';
-                }                
+                }
 
                 if ((this.minDate != '' && days[j][k+1].date < this.minDate) || (this.maxDate != '' && days[j][k+1].date > this.maxDate)) {
                     td.className = this.disabledDayClass;
@@ -1464,7 +1448,9 @@ Calendar.prototype.loadExtraInfo = function() {
                             if (day != null) {
                                 if (day.workday > -1) {
                                     cell.corner = calendar.cornerNames[day.workday];
-                                    cell.className = day.workday == 1 ? calendar.workdayClass  : calendar.holidayClass;
+                                    if (cell.className != calendar.disabledDayClass) {
+                                        cell.className = day.workday == 1 ? calendar.workdayClass  : calendar.holidayClass;
+                                    }                                    
                                 }
 
                                 if (calendar.lunar) {

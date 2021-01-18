@@ -642,3 +642,40 @@ String.prototype.isDate = function() {
 String.prototype.isTime = function() {
     return /^(\d\d:)?\d\d:\d\d$/.test(this.toString());
 }
+
+Number.prototype.toTimeSpan = function(max) {
+    let span = '';
+    let rem = this;
+    let over = '';
+    if (rem >= 0) {
+        if (max != null) {
+            if (rem > max) {
+                rem = max;
+                over = '+';
+            }
+        }
+
+        if (rem > 3600 * 24) {
+            span += Math.floor(rem / 3600 / 24) + 'd';
+            rem = rem % (3600 * 24);
+        }
+        if (rem > 3600) {
+            span += Math.floor(rem / 3600) + 'h';
+            rem = rem % 3600;
+        }
+        if (rem > 60) {
+            span += Math.floor(rem / 60) + 'm';
+            rem = rem % 60;
+        }
+        if (span == '' || rem > 0) {
+            span += rem + 's';
+        }
+
+        span += over;
+    }
+    else {
+        span = 'N/A';
+    }
+    
+    return span;
+}
