@@ -52,13 +52,10 @@ FocusView = function(element) {
 	}
 	
 	this.defaultClass = element.getAttribute('default-class') || element.getAttribute('defaultClass') || '';
-	// this.hoverClass = element.getAttribute('hover-class') || element.getAttribute('hoverClass') || '';
-	// this.activeClass = element.getAttribute('active-class') || element.getAttribute('activeClass') || '';
 	this.focusClass = element.getAttribute('focus-class') || element.getAttribute('focusClass') || '';
 
 	this.nodeName = 'FOCUSVIEW';
 	this.tagName = 'FOCUSVIEW';
-
 	if (this.name != '') {
 		document.components.set(this.name, this);
 	}	
@@ -106,7 +103,7 @@ FocusView.prototype.change = function(element) {
 		element.className = this.focusClass.$css(element);
 		this.focusElement = element;
 
-		FocusView$(this.name).execute('onchange', element);
+		$listen(this.name).execute('onchange', element);
 	}
 }
 
@@ -127,23 +124,6 @@ FocusView.prototype.bind = function() {
 			focusView.focusElement = element;
 		}
 
-		// element.onmouseover = function(ev) {
-		// 	if (element.className != focusView.focusClass.$css(element) && focusView.hoverClass != '' && element.className != focusView.hoverClass.$css(element)) {
-		// 		element.className = focusView.hoverClass.$css(element);
-		// 	}
-		// }
-		// element.onmouseout = function(ev) { 
-		// 	if (element.className != focusView.focusClass.$css(element) && element.className == focusView.hoverClass.$css(element)) {
-		// 		element.className = focusView.defaultClass.$css(element);
-		// 	}			
-		// }
-		// element.onmousedown = function(ev) { 
-		// 	if (ev.button == 0) {
-		// 		if (element.className != focusView.focusClass.$css(element) && focusView.activeClass != '') {
-		// 			element.className = focusView.activeClass.$css(element);
-		// 		}
-		// 	}			
-		// }
 		element.onclick = function(ev) {
 			if (ev.button == 0) {
 				focusView.change(element);

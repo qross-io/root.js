@@ -1,0 +1,127 @@
+body { font-size: 87.5%; color: #333333; } /* font-size: 62.5%; */
+
+.content {  padding: 1em 2em 3em 2em; }
+
+h1 {
+    display: block;
+    font-size: 1.8rem;
+    margin-block-start: 0.67em;
+    margin-block-end: 0.67em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: normal;
+    color: var(--primary);
+    margin-bottom: 1.0em;
+}
+
+h2 {
+    padding-top: 1.0em;
+    color: #333333;
+    display: block;
+    font-size: 1.4rem;
+    margin-block-start: 0em;
+    margin-block-end: 0em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: normal;
+}
+
+h3 {
+    padding-top: 0.8em;
+    color: var(--darker);
+    display: block;
+    font-size: 1.2rem;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: normal;
+}
+
+h4 {
+    display: block;
+    font-size: 1rem;
+    margin-block-start: 1.33em;
+    margin-block-end: 1.33em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: bold;
+}
+
+h5 {
+    display: block;
+    font-size: 1rem;
+    margin-block-start: 1.67em;
+    margin-block-end: 1.67em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: bold;
+}
+
+h6 {
+    display: block;
+    font-size: 0.8em;
+    margin-block-start: 2.33em;
+    margin-block-end: 2.33em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+    font-weight: bold;
+}
+
+p {
+    display: block;
+    line-height: 200%;
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+    margin-inline-start: 0px;
+    margin-inline-end: 0px;
+}
+
+li {
+    line-height: 200%;
+    display: list-item;
+    text-align: -webkit-match-parent;
+}
+
+ul {
+    list-style-type: disc;
+}
+
+code {
+    font-family: "Consolas", "Microsoft YaHei" !important;
+    background-color: #F0F0F0;
+    border-radius: 0.3em;
+    margin-inline-start: 0.2em;
+    margin-inline-end: 0.2em;
+    padding: 0.1em 0.3em;
+    color: #666666;
+}
+
+pre {
+    font-family: "Consolas", "Microsoft YaHei" !important;
+    background-color: #F0F0F0;
+    white-space: pre;
+    padding: 0.5em 1em;
+    border-radius: 0.3em;
+}
+
+pre code {
+    line-height: 200%;
+    line-height: 150% !important;
+    margin-inline-start: 0em;
+    margin-inline-end: 0em;
+    padding: 0em 0em;
+}
+
+hr { margin: 3em 0em; }
+
+a { color: var(--darker); text-decoration: none; margin-inline-start: 0.2em; margin-inline-end: 0.2em; }
+a:hover { color: var(--lighter); text-decoration: underline; }
+a:active { color: var(--primary); text-decoration: none; }
+
+b, strong { color: var(--lighter); }
+
+th { border-bottom: 1px solid #EEEEEE; padding: 5px 10px; }
+td { border-bottom: 1px dotted #EEEEEE; padding: 5px 10px; }
+
+.cm-s-qross.CodeMirror { line-height: 200%; }

@@ -32,11 +32,10 @@ class SelectButton {
             
             $disabled: false,
 
-            onchange: null,
-            onsend: null,
-            onerror: null,
-            onsuccess: null,
-            oncomplete: null
+            onchange: function(beforeOption, ev) { },
+            onerror: function(statusText) {  },
+            onsuccess: function(result) { }
+
         }).elementify(element => {
             if (element.nodeName == 'SPAN') {
                 this.container = element;
@@ -56,7 +55,7 @@ class SelectButton {
         });        
 
         let selectButton = this;
-        this.container.onclick = function(ev) {            
+        this.container.onclick = function(ev) { 
             let index = ev.target.getAttribute('index').toInt();
             if (selectButton.multiple) {
                 selectButton.options[index].selected = !selectButton.options[index].selected;
@@ -365,6 +364,15 @@ SelectButton.prototype.$rollback = function(before, after) {
             this.container.setAttribute('text', options.map(option => option.text).join(','));
             this.container.setAttribute('value', options.map(option => option.value).join(','));
             this.$selectedIndex = options[0].index;
+
+            options.forEach(option => {
+                if (option.hide != '') {
+                    $x(option.hide).hide();
+                }
+                if (option.show != '') {
+                    $x(option.show).show();
+                }
+            })
         }
     }
     else {
@@ -380,6 +388,13 @@ SelectButton.prototype.$rollback = function(before, after) {
         this.$selectedIndex = before;
         this.container.setAttribute('text', before != -1 ? this.options[before].text : '');
         this.container.setAttribute('value', before != -1 ? this.options[before].value : '');
+
+        if (this.options[before].hide != '') {
+            $x(this.options[before].hide).hide();
+        }
+        if (this.options[before].show != '') {
+            $x(this.options[before].show).show();
+        }
     }
 }
 
@@ -399,7 +414,9 @@ class ButtonOption {
                 },
                 $disabled: function(value) {
                     return value === '' || value == 'disabled' || $parseBoolean(value, false);
-                }
+                },
+                show: '', //切换到当前选项时显示哪些元素
+                hide: '' //切换到当前选项时隐藏哪些元素
             })
             .elementify(element => {
                 if (element.nodeName == 'BUTTON') {
@@ -527,6 +544,13 @@ class ButtonOption {
             
                         this.selectButton.container.setAttribute('text', this.text);
                         this.selectButton.container.setAttribute('value', this.value);
+
+                        if (this.hide != '') {
+                            $x(this.hide).hide();
+                        }
+                        if (this.show != '') {
+                            $x(this.show).show();
+                        }
                     }
                     else {
                         $x(this.element).swap(this.focusClass, this.blurClass);
@@ -545,16 +569,6 @@ class ButtonOption {
                         if (option.selectButton.action != '') {
                             $ajax(option.selectButton.method, option.selectButton.action)
                                 .parseDataURL(option.selectButton.element, option.selectButton.text, option.selectButton.value)
-                                .send(
-                                    function(url, data) {
-                                        option.selectButton.execute('onsend', url, data);
-                                    }
-                                )
-                                .complete(
-                                    function(req) {
-                                        option.selectButton.execute('oncomplete', req);
-                                    }
-                                )
                                 .error(
                                     function (status, statusText) {
                                         option.selectButton.execute('onerror', status, statusText);
@@ -565,7 +579,7 @@ class ButtonOption {
                                 .success(
                                     function (result) {
                                         if (!option.selectButton.execute('onsuccess', result)) {
-                                            //back on incorrect
+                                            //rollback on incorrect
                                             option.selectButton.$rollback(before, option.index);
                                         }
                                     }

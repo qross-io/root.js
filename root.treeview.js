@@ -90,7 +90,6 @@ class TreeView {
             target: '',
 
             data: '',
-            path: '/',
             template: '$root', //root template
 
             imagesBaseUrl: $root.home + 'images/', //图片存放目录
@@ -805,7 +804,7 @@ TreeView.prototype.load = function() {
         this.templateObject
             //owner, ownerElement
             .of(this, this.element)
-            .load(this.data, this.path)
+            .load(this.data)
             .on('lazyload', function() {
                 this.owner.$populateChildren();
                 this.owner.execute('onLazyLoaded');
@@ -819,6 +818,7 @@ TreeView.prototype.load = function() {
         this.$appendLoadingNode();
     
         this.templateObject
+            .of(this, this.element)
             .setPage(0)            
             .append(function() {
                 //移除"加载中"节点
@@ -2164,10 +2164,13 @@ TreeNode.prototype.load = function (repopulate) {
     /// <summary>加载子节点项</summary>
     /// <param name="repopulate" type="Boolean">是否重新装配<param>
     this.loading = true;
-    //添加"加载中"节点
-    this.treeView.$appendLoadingNode(this);
 
     if (this.templateObject != null) {
+        if (this.data != '') {
+            //添加"加载中"节点
+            this.treeView.$appendLoadingNode(this);
+        }
+
         this.templateObject 
             //owner, ownerElement
             .of(this, this.element)
@@ -2177,8 +2180,10 @@ TreeNode.prototype.load = function (repopulate) {
                 this.owner.$populateChildren();
             })
             .append(function(data) {
-                //移除"加载中"节点
-                this.treeView.$removeLoadingNode(this);
+                if (this.data != '') {
+                    //移除"加载中"节点
+                    this.treeView.$removeLoadingNode(this);
+                }
     
                 this.$populateChildren();
     
@@ -2199,10 +2204,10 @@ TreeNode.prototype.load = function (repopulate) {
                 //执行TreeNode事件
                 this.fire('onLoaded');
             });
+        
     }
     else {
         //无模板时当无子节点处理
-        this.treeView.$removeLoadingNode(this);
         this.loading = false;
         this.loaded = true;
         //当没有子节点时, 处理burl为blank
@@ -2676,19 +2681,17 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
 
     //启用dragAndDrop 或者 spacing大于0并且lines == 'VISIBLE'时, 创建分隔DIV
     if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.treeView.lines == 'VISIBLE')) {
-        //before
+        
+        //ahead spacing        
+        //创建新的，只在节点羰有间隔
         let divB = $create('DIV');
         divB.setAttribute('sign', 'SPACING');
-        divB.style.height = this.children[0].spacing + 'px';
+        divB.style.height = this.children[length].spacing + 'px';
         //divB.style.backgroundColor = '#F0C';
         divB.setAttribute('parent', this.name);
         divB.setAttribute('prev', (length == 0 ? '' : this.children[length - 1].name));
         divB.setAttribute('next', this.children[length].name);
-        this.childrenDiv.insertBefore(divB, this.children[length].element);
-
-        if (length > 0) {
-            this.children[length].childrenDiv.nextSibling.setAttribute('prev', this.children[length].name);
-        }
+        this.childrenDiv.insertBefore(divB, this.children[length].primeDiv);
 
         if (this.treeView.lines == 'VISIBLE' && this.children[length].spacing > 0) {
             divB.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
@@ -2697,29 +2700,30 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
         if (this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) {
             divB.appendChild(TreeView.$populateDropLine(this.children[length]));
         }
+        
+        //只更新上一级
+        // this.children[length - 1].childrenDiv.nextSibling.setAttribute('prev', this.children[length].name);
+        
+        //after
+        // let divA = $create('DIV');
+        // divA.setAttribute('sign', 'SPACING');
+        // divA.style.height = '0px';
+        // divA.setAttribute('parent', this.name);
+        // divA.setAttribute('prev', this.children[length].name);
+        // divA.setAttribute('next', '');
+        // if (this.childrenDiv.lastChild.getAttribute('sign') == 'CHILDRENPADDING') {
+        //     this.childrenDiv.insertBefore(divA, this.childrenDiv.lastChild);
+        // }
+        // else {
+        //     this.childrenDiv.appendChild(divA);
+        // }
 
-        if (length == 0) {
-            //after
-            let divA = $create('DIV');
-            divA.setAttribute('sign', 'SPACING');
-            divA.style.height = '0px';
-            //divA.style.borderBottom = '1px dotted #F0C';
-            //divB.style.backgroundColor = '#F0C';
-            divA.setAttribute('parent', this.name);
-            divA.setAttribute('prev', this.children[0].name);
-            divA.setAttribute('next', '');
-            if (this.childrenDiv.lastChild.getAttribute('sign') == 'CHILDRENPADDING') {
-                this.childrenDiv.insertBefore(divA, this.childrenDiv.lastChild);
-            }
-            else {
-                this.childrenDiv.appendChild(divA);
-            }
+        // if (this.treeView.lines == 'VISIBLE' && this.children[length].spacing > 0) {
+        //     divA.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
+        // }
 
-            if (this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) {
-                divA.appendChild(TreeView.$populateDropLine(this.children[0], true));
-            }
-
-            //因为高度为0, 忽略lines == 'VISIBLE'
+        if (this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) {
+            divA.appendChild(TreeView.$populateDropLine(this.children[0], true));
         }
 
         //dropLine
@@ -3918,18 +3922,20 @@ TreeNode.$setLines = function (node, t) {
             //设置间隔中的lines
             if (node.spacing > 0) {
                 //TreeNode.DIV<ROW>.DIV<SPACING>.TABLE
-                TreeView.$setPaddingOrSpacingLines(node, node.element.previousSibling.firstChild);
+                TreeView.$setPaddingOrSpacingLines(node, node.primeDiv.previousElementSibling.firstElementChild);
+                //TreeView.$setPaddingOrSpacingLines(node, node.childrenDiv.nextElementSibling.firstElementChild);
             }
+            
 
             //设置childrenPadding的lines
             if (node.depth > 1 && node.parentNode.childrenPadding > 0) {
                 if (node.isFirst()) {
                     //TreeNode.DIV<ROW>.DIV<CHILDREN>.DIV<CHILDRENPADDING>.TABLE
-                    TreeView.$setPaddingOrSpacingLines(node, node.element.parentNode.firstChild.firstChild);
+                    TreeView.$setPaddingOrSpacingLines(node, node.primeDiv.parentNode.firstElementChild.firstElementChild);
                 }
 
                 if (node.isLast()) {
-                    TreeView.$setPaddingOrSpacingLines(node, node.element.parentNode.lastChild.firstChild);
+                    TreeView.$setPaddingOrSpacingLines(node, node.primeDiv.parentNode.lastElementChild.firstElementChild);
                 }
             }
 

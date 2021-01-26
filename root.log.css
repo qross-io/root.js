@@ -1,0 +1,10 @@
+
+.logs div { line-height: 180%; }
+.datetime { color: #999999; }
+.INFO { color: #40BB00; }
+.WARN { color: #f6b70b; }
+.ERROR { color: #CC3333; }
+.DEBUG { color: #0080CC; }
+.STRING { color: #009900; }
+.NUMBER { color: #8800FF; }
+.DATETIME { color: #FF2277; }

@@ -245,8 +245,8 @@ Coder.prototype.on = function(eventName, func) {
 Coder.prototype.onsave = null;
 
 Coder.save = function(cm) {
-    let coder = document.coders[cm.getTextArea().id];
-    if (coder.textArea.value != coder.value) {
+    let coder = $coder(cm.getTextArea().id);
+    if (!coder.readOnly && coder.textArea.value != coder.value) {
         if (Event.execute(coder.name, 'onsave')) {
             if (coder.action != '') {
                 $ajax(coder.method, coder.action, coder.data)

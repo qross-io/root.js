@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Work Calendar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="/root.js"></script>        
+    <script type="text/javascript" src="/root.datetime.js"></script>
+    <script type="text/javascript" src="/root.animation.js"></script>
+    <script type="text/javascript" src="/root.calendar.js"></script>
+    <script type="text/javascript" src="/root.clock.js"></script>
+    <link href="/root.css" rel="stylesheet" type="text/css" />
+    <link href="/iconfont.css" rel="stylesheet" type="text/css" />
+    <link href="/root.calendar.css" rel="stylesheet" type="text/css" />
+    <link href="/root.clock.css" rel="stylesheet" type="text/css" />
+    <link href="/iconfont.css" rel="stylesheet" type="text/css" />
+</head>
+<body>
+<div id="Area" style="overflow: auto; width: 30rem; border: 1px solid #000000;">
+    <div id="Years" style="display: flex; flex-wrap: wrap;  ">
+    </div>
+</div>
+<div class="full-frame">
+    <div class="form-title-tip"># work-calendar-tip #</div>
+    <div class="form-title center"><input type="date" /><input type="datetime-local" /><input type="time" /><input type="week" /></div>
+    <div class="form-row">
+        <!---->
+        <calendar id="WorkCalendar" type="calendar" mode="day" size="30" daysOfOtherMonth="visible"  months="1" lunar="yes" corner-names="休,班" week-title="周" week-names="一,二,三,四,五,六,日" month-names="一月,二月,三月,四月,五月,六月,七月,八月,九月,十月,十一月,十二月" title-format="yyyy年" this-year-text="今年" head-format="yyyy年M月" this-month-text="本月" today-text="今天" min-date="today" max-date="2052-12-31"></calendar>
+        <div class="space20"></div>
+        <clock hour-interval="1" minute-interval="10,15,30,50,55" second-interval="0" min-time="now" max-time="2020-09-13 12:00:00" calendar="WorkCalendar" value="HH:mm:00"></clock>
+    </div>    
+</div>
+
+<div class="space"></div>
+<script type="text/javascript">
+$finish(function() {
+    // for (let i = 1900; i <= 2100; i++) {
+    //     $x('#Years').append('DIV', { innerHTML: i }, { border: '1px solid var(--primary)', padding: '1rem 2rem', fontSize: '1.2rem' }, { sign: 'y' + i });
+    // }
+
+    // $s('div[sign=y2012]').scrollIntoView();
+
+    // let min = 2012;
+    // let max = 2027;
+    // let sum = 0;
+    // let height = $s('#Area').offsetHeight;
+    // let loading = false;
+    $s('#Area').onmousewheel = function(ev) {
+        /*
+        if (!loading) {
+            loading = true;
+            let range = ev.wheelDelta;
+            sum += range;
+            if (Math.abs(sum) > 200) {
+                //判断第一个元素top是否为负值
+                if (range > 0) {
+                    //向上
+                    if (min > 1900) {
+                        if ($s('#Years').firstElementChild.getBoundingClientRect().top >= 0) {
+                            for (let i = min - 1; i >= min - 4; i --) {
+                                $x('#Years').insertFirst('DIV', { innerHTML: i }, { border: '1px solid var(--primary)', padding: '1rem 2rem', fontSize: '1.2rem' });
+                            }
+                            min -= 4;
+                            return false;
+                        }                        
+                    }           
+                }
+                //判断最后一个元素的top+height是否等于窗体高度
+                else {
+                    //向下
+                    if (max <= 2100) {
+                        if (height - $s('#Years').lastElementChild.getBoundingClientRect().top - $s('#Years').lastElementChild.offsetHeight <= 10) {
+                            for (let i = max + 1; i <= max + 4; i ++) {
+                                $x('#Years').append('DIV', { innerHTML: i }, { border: '1px solid var(--primary)', padding: '1rem 2rem', fontSize: '1.2rem' });
+                            }
+                            max += 4;
+                            return false;
+                        }
+                    }
+                }
+                sum = 0;
+            }
+
+            window.setTimeout(function() {
+                loading = false;
+            }, 100);
+        }
+        
+        //ev.stopPropagation();
+        //ev.preventDefault();
+        */
+    }
+});
+</script>
+</body>
+</html>

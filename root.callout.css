@@ -1,0 +1,5 @@
+.callout { position: absolute; background-color: var(--lighter); border: 1px solid var(--darker); color: #FFFFFF; padding: 1em; border-radius: .4em; box-shadow: 2px 4px 8px #CCCCCC; position: absolute; z-index: 9999; visibility: hidden; }
+.callout-bottom::before { content: ""; position: absolute; bottom: -7px; left: 50%; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateX(-50%) rotate(45deg); }
+.callout-left::before { content: ""; position: absolute; top: 50%; left: -7px; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateY(-50%) rotate(135deg); }
+.callout-top::before { content: ""; position: absolute; top: -7px; left: 50%; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateX(-50%) rotate(225deg); }
+.callout-right::before { content: ""; position: absolute; top: 50%; right: -7px; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateY(-50%) rotate(315deg); }

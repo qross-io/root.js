@@ -1090,17 +1090,12 @@ $root.PROPERTIES = [
 $root.home = function () {
     let scripts = document.getElementsByTagName('SCRIPT');
     let src = scripts[scripts.length - 1].src;
-    let h = src.substring(0, src.lastIndexOf('/') + 1);
-    if (h.toLowerCase().startsWith('http') && h.includes('://')) {
-        h = h.substring(h.indexOf('://') + 3);
-        if (h.includes('/')) {
-            h = h.substring(h.indexOf('/'));
-        }
-        else {
-            h = '/';
-        }
+    if (src.includes('/')) {        
+        return src.substring(0, src.lastIndexOf('/') + 1);
     }
-    return (h != '' ? h : '/');
+    else {
+        return '';
+    }
 }();
 
 //first
@@ -1195,7 +1190,7 @@ $TAKE = function(data, element, owner, func) {
         else if (data.includes(",") && !data.includes("(") && !data.includes(")")) {
             func.call(owner, Json.parse('["' + data.replace(/,/g, '","') + '"]').find());
         }
-        else {
+        else if (data != '') {
             //如果是js变量
             let js = eval(data);
             if (js != null) {
@@ -1204,6 +1199,9 @@ $TAKE = function(data, element, owner, func) {
             else {
                 func.call(owner, []);
             }            
+        }
+        else {
+            func.call(owner, []);
         }
     }
     else {
@@ -1407,6 +1405,9 @@ $run = function(pql, element) {
 $request = function(method, url, params, path, element) {
     if (/^https?:/i.test(url)) {
         url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element)));
+    }
+    else {
+        url = url.$p(element);
     }
 
     return new Promise((resolve, reject) => {
@@ -1673,6 +1674,16 @@ String.prototype.takeAfterLast = function(value) {
     else {
         throw new Error('Unsupported data type in takeAfterLast: ' + value);
     }
+}
+
+String.prototype.fill = function(...element) {
+    $a(...element).forEach(tag => tag.innerHTML = this.toString());
+    return this;
+}
+
+String.prototype.print = function() {
+    console.log(this);
+    return this;
 }
 
 Array.prototype.head = function() {
@@ -2554,7 +2565,7 @@ $Settings.prototype.declare = function(variables) {
     
     for (let name in variables) {
         let property = name;
-        if (property.startsWith('$')) {
+        if (/^[_\$]/.test(property)) {
             property = property.substring(1);
         }
 

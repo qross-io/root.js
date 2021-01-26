@@ -452,13 +452,11 @@ Model.$ForOrIf = function(tag) {
     return null;
 }
 
-
-Model.initializeForOrIf = function(place) {
-
-    let _for = Model.$ForOrIf('FOR'); //document.querySelector('for');
-    let _if = Model.$ForOrIf('IF,TR[IF],OPTION[IF]'); //document.querySelector('if');
-
-    if (_for == null && _if == null) {
+Model.initializeForOrIf = function() {
+    //find first for/if
+    let next = Model.$ForOrIf('FOR,IF,TR[IF],OPTION[IF]');    
+    if (next == null) {
+        //nothing
         if (!document.models.$loaded) {            
             if (!document.templates.$loaded) {
                 //model加载完成并且页面上的for和if加载已完成, -1表示还未进行standalone检查
@@ -496,31 +494,13 @@ Model.initializeForOrIf = function(place) {
         //template已加载完 
         //结束加载templates
     }
-    else if (_for != null && _if == null) {
-        new For(_for).on('load', _for.getAttribute('onload')).load();
-    }
-    else if (_for == null && _if != null) {
-        new If(_if).on('load', _if.getAttribute('onload')).load();
+    else  if (next.nodeName == 'FOR') {
+        //for
+        new For(next).on('load', next.getAttribute('onload')).load();
     }
     else {
-        //2 第一个元素位于第二个元素后
-        //4 第一个元素位于第二个元素前
-        //8 第一个元素位于第二个元素内
-        //16 第一个元素是第二元素的父元素，即第二个元素位于第一个元素内
-        //10=2+8 第一个元素位于第二个元素内
-        //20=4+16 第二个元素位于第一个元素内
-        //所以在同一个文档内的元素可能的情况只有2,4,10,20共四种
-        let compare = _for.compareDocumentPosition(_if);
-        if (compare == 2 || compare == 10 || compare == 8) {
-            //IF
-            _for.removeAttribute('loading');
-            new If(_if).on('load', _if.getAttribute('onload')).load();
-        }
-        else {
-            //FOR
-            _if.removeAttribute('loading');
-            new For(_for).on('load', _for.getAttribute('onload')).load();
-        }
+        //if
+        new If(next).on('load', next.getAttribute('onload')).load();
     }
 }
 
