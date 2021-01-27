@@ -60,14 +60,14 @@ $root.prototype.size = function () {
 }
 
 // = single
-$root.prototype.first = function () {
+$root.prototype.head = function () {
     if (this.objects.length > 0) {
         this.objects.splice(1);
     }
     return this;
 }
 
-$root.prototype.last = function () {
+$root.prototype.tail = function () {
     if (this.objects.length > 0) {
         this.objects.splice(0, this.objects.length - 1);        
     }
@@ -120,7 +120,7 @@ $root.prototype.children = function () {
     return this;
 }
 
-$root.prototype.firstChild = function () {
+$root.prototype.first = function () {
     let array = Array.from(this.objects);
     this.objects.length = 0;
     array.forEach(parent => {
@@ -131,7 +131,7 @@ $root.prototype.firstChild = function () {
     return this;
 }
 
-$root.prototype.lastChild = function () {
+$root.prototype.last = function () {
     let array = Array.from(this.objects);
     this.objects.length = 0;
     array.forEach(parent => {
@@ -143,7 +143,7 @@ $root.prototype.lastChild = function () {
 }
 
 //指定某一个子元素
-$root.prototype.nthChild = function (index) {
+$root.prototype.nth = function (index) {
     let array = Array.from(this.objects);
     this.objects.length = 0;
     array.forEach(parent => {
@@ -2129,7 +2129,7 @@ String.prototype.$p = function(element) {
     // < parent
     // \d child \d
     // n last child
-    let selector = /\$\((.+?)\)([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?/i;
+    let selector = /\$\((.+?)\)([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/i;
     while(selector.test(data)) {
         let match = selector.exec(data);
         data = data.replace(match[0], String.$p(document.querySelector(match[1]), match[2], match[4], match[6]));
@@ -2139,7 +2139,7 @@ String.prototype.$p = function(element) {
     // $:<0
     // $:[attr]
     if (element != null) {
-        let holders = data.match(/\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?/ig);
+        let holders = data.match(/\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/ig);
         if (holders != null) {
             for (let holder of holders) {
                 let s = holder, p, a, d;

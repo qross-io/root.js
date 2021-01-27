@@ -1,5 +1,5 @@
 
-//<backtop anchor="name" class="backtop">Top</backtop>
+//<div backtop anchor="name" class="backtop">Top</div>
 
 class BackTop {
     constructor(element) {
@@ -8,34 +8,61 @@ class BackTop {
         .declare({
             name: 'BackTop_' + document.components.size,
             text: 'html',
-            anchor: 'top',
+            anchor: function(value) {
+                if (value == null || value == '') {
+                    value = 'BackTopAnchor';
+                    if (document.body.firstElementChild != null) {
+                        if (document.body.firstElementChild.id == '') {
+                            document.body.firstElementChild.id = value;
+                        }
+                        else {
+                            value = document.body.firstElementChild.id;
+                        }
+                    }
+                }                
+                return value;
+            },
             className: '',
-            opacity: 0
+            opacity: 0,
+            onback: null
         })
         .elementify(function(element) {
-            this.element = element;
+            if (element.nodeName != 'BACKTOP') {
+                this.element = element;
+            }
+            else {
+                element.remove();
+            }    
         });
     }
 }
 
 BackTop.prototype.element = null;
 
+$backtop = function(name) {
+    let backtop = $t(name);
+    if (backtop.tagName == 'BACKTOP') {
+        return backtop;
+    }
+    else {
+        return null;
+    }
+}
+
 BackTop.prototype.initialize = function() {
 
-    if ($s('a[name=' + this.anchor + ']') == null) {
-        let a = $create('A', { name: this.anchor });
-        if (document.body.firstChild != null) {
-            document.body.insertBefore(a, document.body.firstChild);
-        }
-        else {
-            document.body.appendChild(a);
-        }
+    if ($s('#' + this.anchor + ',[name=' + this.anchor + ']') == null) {
+        $x(document.body).insertFirst($create('A', { id: this.anchor, name: this.anchor }));        
     }
 
     if (this.element == null) {
-        //创建元素    
         this.element = $create('DIV', { id: this.id, innerHTML: `<a href="#${this.anchor}">${this.text}</a>`, className: this.className });
-
+        if (this.className == '') {
+            $x(this.element)
+                .styles({ width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--darker)', backgroundColor: 'var(--primary)' })
+                .first()
+                .styles({ textDecoration: 'none', fontWeight: 'bold', color: '#FFFFFF', fontSize: '1rem' });
+        }
         document.body.appendChild(this.element);
     }
 
@@ -47,16 +74,26 @@ BackTop.prototype.initialize = function() {
         display: 'none'
     });
    
+    let backTop = this;
 
     if (self != parent) {
-        this.element.onclick = function() {
+        $x(this.element).on('click', function() {
             $root.scrollTop(0);
+            backTop.execute('onback');
+        });
+    }
+    else {
+        for (let a of $a(`[href$=${this.anchor}]`)) {
+            if (a.href.endsWith('#' + this.anchor)) {
+                $x(a).on('click', function() {
+                    backTop.execute('onback');
+                });
+                break;
+            }
         }
     }
 
-    let backTop = this;
-
-    $x(window).bind('scroll', function() {
+    $x(window).on('scroll', function() {
         let scrollTop = $root.scrollTop();
         if (scrollTop > 200) {
             scrollTop -= 200;
@@ -73,17 +110,17 @@ BackTop.prototype.initialize = function() {
         }
     });
 
-    $x(this.element).bind('mouseover', function() {
+    $x(this.element).on('mouseover', function() {
         this.style.opacity = 1;
     });
 
-    $x(this.element).bind('mouseout', function() {
+    $x(this.element).on('mouseout', function() {
         this.style.opacity = backTop.opacity;
     });
 }
 
 $finish(function() {
-    let backTop = $s('[backtop]');
+    let backTop = $s('backtop,[backtop]');
     if (backTop != null) {
         new BackTop(backTop).initialize();
     }
