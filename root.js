@@ -7,7 +7,7 @@ $x = function (...o) {
     let root = new $root();
     for (let b of o) {
         if (typeof (b) == 'string') {
-            for (let e of document.querySelectorAll(o)) {
+            for (let e of document.querySelectorAll(b)) {
                 root.push(e);
             }
         }
