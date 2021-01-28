@@ -1,0 +1,135 @@
+.html {
+    color: #606266;
+}
+.formItem {
+    display: inline-block;
+}
+/*选择框默认样式 对应尺寸middle 默认值*/
+.select-frame {
+    width: 12.5rem;
+    height: 2.5rem;
+    position: relative;
+}
+/*small尺寸正常*/
+.select-frame-small {
+    width: 10rem;
+    height: 2rem;
+    position: relative;
+}
+/*large尺寸正常*/
+.select-frame-large {
+    width:16rem;
+    height:3.2rem;
+    position: relative;
+}
+/*外框禁用 默认尺寸*/
+.select-frame-disabled {
+    width: 12.5rem;
+    height: 2.5rem;
+    position: relative;
+    color: #c0c4cc;
+}
+/*外框禁用 small尺寸*/
+.select-frame-disabled-small {
+    width: 10rem;
+    height: 2rem;
+    position: relative;
+    color: #c0c4cc;
+}
+/*外框禁用 large尺寸*/
+.select-frame-disabled-large {
+    width: 16rem;
+    height: 3.2rem;
+    position: relative;
+    color: #c0c4cc;
+}
+/*input默认样式*/
+.input {
+    cursor: pointer;
+    padding-right: 35px;
+    -webkit-appearance: none;
+    background-color: #fff;
+    background-image: none;
+    border-radius: 4px;
+    border: 1px solid #dcdfe6;
+    box-sizing: border-box;
+    color: #606266;
+    display: inline-block;
+    font-size: 1rem;
+    height: 100%;
+    line-height: 40px;
+    outline: none;
+    padding: 0 15px;
+    transition: border-color .2s cubic-bezier(.645, .045, .355, 1);
+    width: 100%;
+}
+/*禁用select样式*/
+.disabled-input {
+    background-color: #f5f7fa;
+    border-color: #e4e7ed;
+    border: 1px solid #e4e7ed;
+    /*color: #c0c4cc;*/
+    cursor: not-allowed;
+    font-size: 1rem;
+    height: 100%;
+    line-height: 40px;
+    width: 100%;
+    border-radius: 4px;
+    outline: none;
+    padding: 0 15px;
+}
+
+.input:hover {
+    border-color: #409eff;
+}
+/*箭头样式*/
+.arrowIcon {
+    position: absolute;
+    right: 5%;
+    top: 25%;
+    transition: transform .3s;
+    transform: rotate(0deg);
+}
+/*选项外框样式*/
+.option-frame {
+    background: #ffffff;
+    position: absolute;
+    z-index: 9999;
+    width: 99%;
+    height: 13.5rem;
+    overflow-y: scroll;
+    top: 105%;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    transition: .4s;
+    /* display: none; */
+}
+/*滚动条样式*/
+.option-frame::-webkit-scrollbar {
+    width: 10%;
+    background: #00AA48;
+}
+
+/*选项样式*/
+.option-item {
+    width: 100%;
+    height: 30px;
+    text-indent: 20px;
+    cursor: pointer;
+    margin-top: 5px;
+    line-height: 35px;
+}
+/*选项划过样式*/
+.option-item:hover {
+    background: #f5f7fa;
+}
+/*选项选中样式 替换css*/
+.option-item-selected {
+    width: 100%;
+    height: 30px;
+    text-indent: 20px;
+    cursor: pointer;
+    margin-top: 5px;
+    line-height: 35px;
+    background: #f5f7fa;
+}
