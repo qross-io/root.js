@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Button</title>
+    <script type="text/javascript" src="/root.js"></script>
+</head>
+<body>
+    <button id="B" onclick="alert(1)">ABC</button>
+    <form>
+    <input id="I" type="text" required />
+    <input type="submit" value="SUBMIT" />
+</form>
+
+    <script type="text/javascript">
+    $s('#B').removeAttribute('onclick');
+
+    Object.defineProperty($s('#I'), 'status', {
+                get: function() {
+                    return this.getAttribute('value');
+                },
+                set: function(value) {
+                    this.setAttribute('value',  value);
+                }
+            });
+    </script>
+</body>
+</html>

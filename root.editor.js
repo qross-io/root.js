@@ -178,7 +178,7 @@ Editor = function(elementOrSettings) {
             selectClass: '' //选择框样式
         })
         .elementify(element => {
-            element.setAttribute('root', 'editor');
+            element.setAttribute('root', 'EDITOR');
             this.tag = element;
         });
 }

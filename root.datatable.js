@@ -674,7 +674,7 @@ DataTable.apply = function (table) {
 
     if (table.nodeName != null && table.nodeName == 'TABLE') {
         if (table.getAttribute('root') == null) {
-            table.setAttribute('root', 'datatable');
+            table.setAttribute('root', 'DATATABLE');
 
             new DataTable(table).apply(table);
         }

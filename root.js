@@ -1101,12 +1101,20 @@ $root.home = function () {
 //first
 $s = function (o) {
     if (typeof (o) == 'string') {
-        return document.querySelector(o);
+        let t = document.querySelector(o);
+        if (t.id != '' && document.components.has(t.id)) {
+            return document.components.get(t.id);
+        }
+        else {
+            return t;
+        }
     }    
     else {
         return o;
     }
 }
+
+//尝试选择自定义组件，自定义组件都设置 root="tagName" 属性
 
 //all
 $a = function (...o) {
@@ -1116,6 +1124,12 @@ $a = function (...o) {
         if (typeof (b) == 'string') {
             for (let e of document.querySelectorAll(o)) {
                 s.push(e);
+                // if (e.id != '' && document.components.has(t.id)) {
+                //     e.push(document.components.get(e.id));
+                // }
+                // else {
+                //     s.push(e);
+                // }
             }            
         }        
         else if (b instanceof NodeList || b instanceof HTMLCollection) {
@@ -1145,7 +1159,7 @@ $c = function(...o) {
                 .distinct()
                 .map(p => p.trim());
     
-    //tag name
+    //tag id
     t.filter(p => p.startsWith('#'))
         .map(p => p.replace(/^#/, ''))
         .forEach(p => {
@@ -1403,22 +1417,29 @@ $run = function(pql, element) {
 
 //cross domain
 $request = function(method, url, params, path, element) {
-    if (/^https?:/i.test(url)) {
-        url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element)));
+    if (url != '') {
+        if (/^https?:/i.test(url)) {
+            url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element)));
+        }
+        else {
+            url = url.$p(element);
+        }
+
+        return new Promise((resolve, reject) => {
+                    $ajax(method, url, params, path, element, false)
+                        .error((status, statusText) => {
+                            reject(statusText);
+                        })
+                        .success(result => {
+                            resolve(result);
+                        });
+                });
     }
     else {
-        url = url.$p(element);
+        return new Promise(resolve => {
+            resolve(null);
+        });
     }
-
-    return new Promise((resolve, reject) => {
-                $ajax(method, url, params, path, element, false)
-                    .error((status, statusText) => {
-                        reject(statusText);
-                    })
-                    .success(result => {
-                        resolve(result);
-                    });
-            });
 }
 
 $lang = (function() {
@@ -1483,7 +1504,7 @@ $query();
 String.prototype.$trim = function(char = '', char2 = '') {
     if (this != null) {
         if (char == '') {
-            return  this.trim().replace(/^(&nbsp;|\s)+/g, '').replace(/(&nbsp;|\s)+$/g, '');
+            return this.trim().replace(/^(&nbsp;|\s)+/g, '').replace(/(&nbsp;|\s)+$/g, '');
         }
         else if (char2 != '') {
             let str = this.trim();
@@ -2543,6 +2564,7 @@ $Settings = function(object) {
 
     this.object['nodeName'] = object.constructor != null ? (object.constructor.name != null ? object.constructor.name.toUpperCase() : 'UNKONWN') : 'UNKONWN';
     this.object['tagName'] = this.object['nodeName'];
+    this.object['nodeType'] = 0; // 0 为自定义标签
     document.tags.add(this.object['tagName']);
 }
 
