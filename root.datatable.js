@@ -68,7 +68,6 @@ DataTable = function(element) {
 
         tBodyIndex: 0, //默认的tbody容器索引
         data: '',
-        path: '',
         template: '',
 
         reloadOnFilterOrSorting: false, //如果为true, 则到后端请求数据, 如果为false, 则仅在前端过滤和筛选
@@ -570,6 +569,35 @@ DataTable.prototype.__initializeSettings = function () {
     }
 }
 
+DataTable.prototype.__formatCellData = function(row) {
+    for (let name in this.columns) {
+        let col = this.columns[name];
+        if (col.map != null) {            
+            let data = row.cells[col.index].innerHTML;
+            if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
+                row.cells[col.index].innerHTML = col.map[data];
+                row.cells[col.index].setAttribute('formatted');
+            }
+        }
+    }
+}
+
+DataTable.prototype.__formatAllCellData = function() {
+    //初始化列的值
+    for (let name in this.columns) {
+        let col = this.columns[name];
+        if (col.map != null) {
+            for (let row of this.table.rows) {
+                let data = row.cells[col.index].innerHTML;
+                if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
+                    row.cells[col.index].innerHTML = col.map[data];
+                    row.cells[col.index].setAttribute('formatted', '');
+                }                
+            }
+        }
+    }
+}
+
 DataTable.prototype.clear = function() {
     for (let i = this.table.tBodies[this.tBodyIndex].children.length - 1; i >= 0; i--) {
         this.table.tBodies[this.tBodyIndex].children[i].remove();        
@@ -578,20 +606,19 @@ DataTable.prototype.clear = function() {
 
 //添加新行 Object row as list
 DataTable.prototype.append = function(row) {
+
     this.template
         .load([row])
         .append(function(data) {
             this.__initializeAllRows();
+            this.__formatCellData(row);
         });    
 }
 
-DataTable.prototype.load = function(data, path) {
+DataTable.prototype.load = function(data) {
 
     if (data != null) {
         this.data = data;
-    }
-    if (path != null) {
-        this.path = path;
     }
 
      //数据格式未实现
@@ -601,7 +628,7 @@ DataTable.prototype.load = function(data, path) {
     // #{name:0:00%}
     // #{name:yyyMMdd}
     this.template
-        .load(this.data, this.path)
+        .load(this.data)
         .asArray()
         .append(function(data) {
             //主要是设置样式
@@ -618,6 +645,8 @@ DataTable.prototype.load = function(data, path) {
                 //reload执行事件
                 this.execute('onreload');
             }
+            
+            this.__formatAllCellData();
         });   
 }
 
@@ -648,7 +677,10 @@ DataColumn = function (name, index, col) {
             filterable: false,
             filterStyle: Enum('INPUT', 'LIST'), //PC模式下是下拉菜单, MOBILE模式下是弹出框
             sortable: false,
-            sortingStyle: Enum('LINK', 'LIST')
+            sortingStyle: Enum('LINK', 'LIST'),
+            map: function(value) {
+                return value != null ? value.toMap('&', '=') : null;
+            }
         });
 
     //通过 datatable[name=1,2,3] 来设置初始过滤器

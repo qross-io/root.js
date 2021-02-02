@@ -1,4 +1,6 @@
 
+// 提交按钮扩展
+
 class Button {
     constructor(element) {
         $initialize(this)
@@ -9,14 +11,12 @@ class Button {
             confirmButtonText: 'OK', //确定框确定按钮
             cancelButtonText: 'Cancel', //确定框取消按钮
             confirmTitle: 'Confirm', //确定框标题
-            jumpingText: 'Jumping...', //跳转提醒文字
+            jumpingText: '', //跳转提醒文字
             jumpTo: '', //当动作action完成后要跳转到哪个页面
     
-            className: '',
-            disabledClass: '',
-    
-            enabledOnComplete: false,
-   
+            className: 'normal-button new',
+            disabledClass: 'normal-button old',
+       
             action: '', //要执行的PQL语句或要请求的接口
             watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
 
@@ -24,14 +24,17 @@ class Button {
             successText: '',
             errorText: '',
             
-            onsuccess: function(result) { },
-            onerror: function(error) { },
-            oncomplete: function(error) { },
+            onclick: null, //function(ev) { },
+            onsuccess: null, // function(result) { },
+            onfailed: null, //function(result) { },
+            onerror: null, //function(error) { },
+            oncomplete: null //function(error) { },
         })
         .elementify(element => {
-            this.element = element;            
-
+            this.element = element;
             this.defaultText = this.text;
+            this.element.className = this.className;
+            this.element.removeAttribute('onclick');
         });
     }
 
@@ -45,7 +48,7 @@ class Button {
     }
 
     set text(text) {
-        if (text != null) {
+        if (text != null && text != '') {
             if (this.element.nodeName == 'INPUT') {
                 this.element.value = text;
             }
@@ -77,11 +80,12 @@ class Button {
 
 Button.prototype.relatived = 0;
 Button.prototype.satisfied = 0;
+Button.prototype.relations = new Set();
 
 //响应用户输入
 Button.prototype.response = function(correct) {
     if (this.relatived > 0) {
-        this.satisfied += correct;
+        this.satisfied += correct == 0 ? -1 : correct;
         this.disabled = (this.satisfied < this.relatived);        
     }
     else {
@@ -91,8 +95,6 @@ Button.prototype.response = function(correct) {
 
 // input id -> [button1, button2]
 Button.relationByInput = new Map();
-// button id -> [input1, input2, input3]
-Button.relationByButton = new Map();
 
 $button = function(name) {
     let button = $t(name);
@@ -125,11 +127,14 @@ Button.prototype.go = function() {
             }
 
             button.text = button.successText;
-            button.execute('onsuccess', result);
-
+            button.execute('onsuccess', data);
             if (button.jumpTo != '') {
                 button.text = button.jumpingText;
                 window.location.href = button.jumpTo.$p(data);
+            }
+            else {
+                button.text = button.defaultText;
+                button.element.className = button.className;
             }
         })
         .catch(error => {
@@ -145,16 +150,14 @@ Button.prototype.initialize = function() {
     let todo = [];
 
     if (this.watch != '') {
-        todo.concat(this.watch.split(',').map(tag => tag.trim()))
-            
+        this.watch.split(',').map(tag => tag.trim()).forEach(tag => todo.push(tag));
     }
 
     if (this.action != '') {
-        todo.concat(this.action.match(/\$\(#[^)]+\)/ig).map(tag => tag.$trim('$(', ')')));
-    }
-
-    if (!Button.relationByButton.has(this.name)) {
-        Button.relationByButton.set(this.name, new Set());
+        let holders = this.action.match(/\$\(#[^)]+\)/ig);
+        if (holders != null) {
+            holders.map(tag => tag.$trim('$(', ')')).forEach(tag => todo.push(tag));
+        }        
     }
 
     todo.forEach(tag => {
@@ -162,33 +165,84 @@ Button.prototype.initialize = function() {
             Button.relationByInput.set(tag, new Set());
         }
         Button.relationByInput.get(tag).add(this.name);
-        Button.relationByButton.get(this.name).add(tag);
+        this.relations.add(tag);
     });
 
-    this.relatived = Button.relationByButton.get(this.name).size;
-
+    this.relatived = this.relations.size;
+    if (this.relatived > 0) {
+        this.disabled = true;
+    }
 
     let button = this;
     $x(button.element).bind('click', function(ev) {
-        if (button.confirmText != '') {
-            if ($root.confirm != null) {
-                $root.confirm(button.confirmText, button.confirmButtonText, button.cancelButtonText, button.confirmTitle)
-                    .on('confirm', function() {                            
-                        button.go();      
-                    })
+        if (button.execute('click', ev)) {
+            if (button.confirmText != '') {
+                if ($root.confirm != null) {
+                    $root.confirm(button.confirmText, button.confirmButtonText, button.cancelButtonText, button.confirmTitle)
+                        .on('confirm', function() {                            
+                            button.go();      
+                        })
+                }
+                else if (window.confirm(button.confirmText)) {
+                    button.go();         
+                }
             }
-            else if (window.confirm(button.confirmText)) {
-                button.go();         
+            else {
+                button.go();
             }
-        }
-        else {
-            button.go();
         }
     });
 }
 
+Button.observe = function() {
+    //为每个自定义标签添加监控
+    for (let [name, buttons] of Button.relationByInput) {
+        let tag = $t(name);
+        if (tag != null) {
+            if (tag.required) {
+                Object.defineProperty(tag, 'status', {
+                    get: function() {
+                        return this._status == null ? 2 : this._status;
+                    },
+                    set: function(value) {
+                        if (this._status == null) {
+                            this._status = 0;
+                        }
+                        if (this._status > 1) {
+                            this._status -= 2;
+                        }
+                        if (value != this._status) {
+                            buttons.forEach(button => $t(button).response(value));
+                        }                
+                        this._status = value;
+                    }
+                });
+                
+                if (tag.status == 1) {
+                    buttons.forEach(button => $t(button).response(1));
+                }
+            }
+            else {
+                buttons.forEach(name => {
+                    let button = $button(name);
+                    button.satisfied ++;
+                    if (button.satisfied == button.relatived) {
+                        button.disabled = false;
+                    }
+                });
+            }
+
+            Button.relationByInput.delete(name);
+        }
+    }
+
+    if (Button.relationByInput.size > 0) {
+        window.setTimeout(Button.observe, 200);
+    }
+}
+
 Button.initializeAll = function () {
-    for (let button of $a('button[action],input[type=button][action],button[watch],input[type=button][watch]')) {
+    for (let button of $a('input[type=submit],input[type=image],button[action],input[type=button][action]')) {
         // root 设置为 button 表示组件已初始化
         if (button.getAttribute('root') == null) {
             button.setAttribute('root', 'BUTTON');
@@ -196,34 +250,12 @@ Button.initializeAll = function () {
         }
     }
 
-    //为每个自定义标签添加监控
-    for (let [tag, buttons] of Button.relationByInput) {
-        Object.definePropertiy($t(tag), 'status', {
-            get: function() {
-                return this._status == null ? 'origin' : this._status;
-            },
-            set: function(value) {
-                if (this._status == null) {
-                    this._status = 'origin';
-                }
-                if (value != this._status) {
-                    if (value == 'correct') {
-                        buttons.forEach(button => button.response(1));
-                    }
-                    else if (this._status == 'correct') {
-                        buttons.forEach(button => button.response(-1));
-                    }
-                }                
-                this._status = value;
-            }
-        }); 
-    }    
+    Button.observe();
 }
 
 $finish(function () {
     Button.initializeAll();
 });
-
 
 /*
 观察者算法逻辑

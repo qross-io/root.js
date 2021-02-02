@@ -161,10 +161,10 @@ Model.refresh = function(name, interval, terminal) {
         }, interval * 1000);
 }
 
-//加载完成后触发
-Model.prototype.onload = function() { };
+//第一次加载完成后触发
+Model.prototype.onload = null; //function(data) { }
 //每次刷新后触发
-Model.prototype.onrefresh = function() { };
+Model.prototype.onrefresh = null; //function(data) { }
 
 Model.prototype.loaded = false;
 
@@ -452,7 +452,7 @@ Model.$ForOrIf = function(tag) {
     return null;
 }
 
-Model.initializeForOrIf = function() {
+Model.initializeForOrIf = function(tagName) {
     //find first for/if
     let next = Model.$ForOrIf('FOR,IF,TR[IF],OPTION[IF]');    
     if (next == null) {
@@ -464,28 +464,24 @@ Model.initializeForOrIf = function() {
                     Model.initializeStandaloneTemplates();
                 }                
             }
-            else if ($s('o') != null) {
-                //<o> 标签 = output
-                let os = $a('o');
-                let f = 0;
-                let l = os.length;
-                for (let o of os) {
-                    $cogo(o.innerHTML, o)
-                        .then(data => {
-                            o.parentNode.insertBefore(document.createTextNode(data), o);
-                            o.remove();
-
-                            f++;
-                            if (f == l) {
-                                Model.initializeForOrIf('MODEL.O');
-                            }
-                        });
-                }
-            }
             else {
                 //所有加载完成
                 document.models.$loaded = true;
                 Event.execute('$global', 'onfinish');
+
+                //<o> 标签 = output
+                for (let o of $a('o')) {
+                    $cogo(o.innerHTML, o)
+                        .then(data => {                           
+                            o.parentNode.insertBefore(document.createTextNode(data), o);
+                            o.remove();
+                        });
+                }
+
+                //<span data=""> 标签
+                for (let span of $a('span[data]')) {
+                    new Span(span).load();   
+                }
             }            
         }
         //model已经加载完
@@ -553,9 +549,6 @@ $model = function(name) {
 // </for>
 
 For = function(element) {
-    
-    this.name = element.getAttribute('name') || '';
-
     this.var = element.getAttribute('var') || element.getAttribute('let') || '';
     if (this.var.includes(',')) {
         this.var = this.var.split(',');
@@ -573,28 +566,17 @@ For = function(element) {
         }
         this.position = 'beforeEnd';
     }
-
-    this.nodeName = 'FOR';
-    this.tagname = 'FOR';
-    document.tags.add('FOR');
-    if (this.name != '') {
-        document.components.set(this.name, this);
-    }
 }
 
-For.prototype.onload = function() { }
+//第一次加载完成后触发
+For.prototype.onload = null; //function(data) { }
 
 For.prototype.on = function(eventName, func) {
-    if (this.name != '') {
-        $listen(this.name).on(eventName, func);
+    eventName = eventName.toLowerCase();
+    if (!eventName.startsWith('on')) {
+        eventName = 'on' + eventName;
     }
-    else {
-        eventName = eventName.toLowerCase();
-        if (!eventName.startsWith('on')) {
-            eventName = 'on' + eventName;
-        }
-        this[eventName] = func;
-    }
+    this[eventName] = func;
     return this;
 }
 
@@ -673,13 +655,9 @@ For.prototype.load = function(data) {
         
         this.element.remove();
 
-        if (this.name != '') {
-            Event.execute(this.name, 'onload');
-        }
-        else if (this.onload != null) {
-            Event.fire(this, 'onload');
-        }
-        
+        if (this.onload != null) {
+            Event.fire(this, 'onload', data);
+        }        
         
         Model.initializeForOrIf('FOR');
     });
@@ -826,16 +804,6 @@ For.prototype.$eachIn = function($key, $value, key, value) {
     return content.$eval();
 }
 
-$for = function(name) {
-    let _for = $t(name);
-    if (_for != null && _for.tagName == 'FOR') {
-        return _for;
-    }
-    else {
-        return null;
-    }
-}
-
 //在替换完占位符之后执行js表达式
 String.prototype.$eval = function() {
 
@@ -885,9 +853,7 @@ String.prototype.$eval = function() {
 // $if('name').on(event, func).load();
 
 If = function(element) {
-    
-    this.name = element.getAttribute('name') || '';
-    
+
     this.if = element;
     this.elsif = element.querySelectorAll('elsif');
     this.else = element.querySelector('else');
@@ -896,25 +862,16 @@ If = function(element) {
     this.isTag = element.nodeName == 'IF';
     this.onreturntrue = element.getAttribute('onreturntrue');
     this.onreturnfalse = element.getAttribute('onreturnfalse');
-
-    if (this.name != '') {
-        document.ifs[this.name] = this;
-    }
 }
 
-If.prototype.onload = function() { }
+If.prototype.onload = null; //function() { }
 
 If.prototype.on = function(eventName, func) {
-    if (this.name != '') {
-        $listen(this.name).on(eventName, func);
+    eventName = eventName.toLowerCase();
+    if (!eventName.startsWith('on')) {
+        eventName = 'on' + eventName;
     }
-    else {
-        eventName = eventName.toLowerCase();
-        if (!eventName.startsWith('on')) {
-            eventName = 'on' + eventName;
-        }
-        this[eventName] = func;
-    }
+    this[eventName] = func;
     return this;
 }
 
@@ -971,10 +928,7 @@ If.prototype.load = function() {
         }
     }
     
-    if (this.name != '') {
-        Event.execute(this.name, 'onload');
-    }
-    else if (this.onload != null) {
+    if (this.onload != null) {
         Event.fire(this, 'onload');
     }
 
@@ -992,14 +946,106 @@ If.prototype.load = function() {
     Model.initializeForOrIf('IF');
 }
 
-$if = function(name) {
-    let _if = $t(name);
-    if (_if != null && _if.tagName == 'IF') {
-        return _if;
+// 扩展的 Span 标签，带 data 属性
+Span = function(span) {
+    //this.name = span.getAttribute('name') || span.getAttribute('id') || '';
+    this.data = span.getAttribute('data');
+    this.content = span.innerHTML;
+    this.element = span;
+
+    this.loaded = false;
+    this.onload = span.getAttribute('onload');
+    this.onrelad = span.getAttribute('onreload');
+    this.reloadOn  = span.getAttribute('reload-on') || span.getAttribute('reloadOn'); //click:#abc
+
+    if (this.reloadOn != null) {
+        Event.watch(this, 'reload', this.reloadOn);
     }
-    else {
-        return null;
-    }
+}
+
+Span.prototype.$represent = function(data) {
+
+    let content = this.content;
+
+    //占位符规则与 TEMPLATE 相同
+    //@: 表示整个数据
+    //@:/ 表示根数据
+    //@:key!
+    //@:[0].key
+    //@:key?(default)
+    //@:key[0].name!
+
+    [
+        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
+        /@:\//g
+    ].map(place => {
+        let hs = content.match(place);
+        return hs != null ? hs : [];        
+    })
+    .reduce((r1, r2) => r1.concat(r2))
+    .distinct()
+    .forEach(holder => {
+        let d = null; //defaultValue
+        let p = holder; //path
+        if (p.includes('?(')) {
+            d = p.takeAfter('?(').replace(/\)$/, '');
+            p = p.takeBefore('?(');
+        }
+
+        p = p.replace(/^\@|\!$/g, '')
+                .replace(/\[/g, '.')
+                .replace(/\]/g, '')
+                .replace(/\/$/, '')
+                .replace(/^:/, '.');
+                
+        let v = data;
+        if (p != '.') {
+            let ps = p.split('.');        
+            for (let i = 1; i < ps.length; i++) {
+                if (v != null) {
+                    v = v[ps[i]];
+                }            
+                else {
+                    break;
+                }
+            }
+        }
+
+        if (v == null) {
+            if (d != null) {
+                v = d;
+            }
+        }
+
+        if (v != null) {
+            if (typeof(v) != 'string') {
+                v = Json.toString(v);
+            }
+            content = content.$replace(holder, v.replace(/"/g, '&quot;'));            
+        }
+    });
+
+    return content.$eval();
+}
+
+Span.prototype.load = function() {
+    let span = this;  
+    $cogo(this.data, this.element)
+        .then(data => {            
+            span.element.innerHTML = this.$represent(data);            
+            span.loaded = true;
+            Event.fire(span, 'onload', data);
+        });
+}
+
+Span.prototype.reload = function() {
+    let span = this;  
+    $cogo(this.data, this.element)
+        .then(data => {
+            span.element.innerHTML = this.$represent(data);
+            Event.fire(span, 'onreload', data);
+        });
 }
 
 //new Template(element)
@@ -1014,7 +1060,7 @@ document.templates.$loaded = false;
 //parentName 内嵌模板的父级名称, null表示独立template
 Template = function(element, container, parentName) {
     
-    this.name = element.getAttribute('name') || 'Template_' + document.components.size;
+    this.name = element.getAttribute('name') || 'Template_' + document.components.size; //必须有 name
     if (parentName != null) {
         this.name = parentName + ':' + this.name;
     }
@@ -1140,7 +1186,7 @@ Template.refresh = function(name, interval, terminal) {
 Template.prototype.owner = null;
 //每次加载完成后触发
 Template.prototype.onload = null; //function(data) { };
-//增量加载完成后触发
+//仅每次增量加载完成后触发
 Template.prototype.onlazyload = null; //function(data) { };
 //所有数据加载完成之后触发
 Template.prototype.ondone = null; //function() { };
@@ -1199,7 +1245,7 @@ Template.prototype.setIrremovable = function(children) {
 }
 
 Template.prototype.$represent = function(data) {
-    //for object and eachOf
+
     let content = this.content;
 
     //@: 表示整个数据
@@ -1520,13 +1566,16 @@ Template.prototype.append = function(func) {
             }
 
             Model.initializeForOrIf('TEMPLATE');
-
-            if (this.name != '') {
-                Event.execute(this.name, 'onload', data);
-                if (this.page > this.$page) {
-                    Event.execute(this.name, 'onlazyload', data);
-                }
+                      
+            //当前值大于初始值为"增量加载"
+            Event.execute(this.name, 'onload', data);
+            if (this.page > this.$page) {
+                Event.execute(this.name, 'onlazyload', data);
             }
+            else {
+                Event.execute(this.name, 'onload', data);
+            }
+            
             if (func != null) {
                 if (typeof (func) == 'string') {
                     eval('_ = function() {' + func + '}').call(this.owner, data);

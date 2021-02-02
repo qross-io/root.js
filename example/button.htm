@@ -4,25 +4,45 @@
     <meta charset="UTF-8">
     <title>Button</title>
     <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.input.js"></script>
+    <link href="/root.input.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
     <button id="B" onclick="alert(1)">ABC</button>
     <form>
-    <input id="I" type="text" required />
+    <input id="I" type="text" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
     <input type="submit" value="SUBMIT" />
 </form>
-
     <script type="text/javascript">
-    $s('#B').removeAttribute('onclick');
+    class ABC {
+        constructor() {
+            this._status = 0;
+        }
 
-    Object.defineProperty($s('#I'), 'status', {
-                get: function() {
-                    return this.getAttribute('value');
-                },
+        get status() {
+            return this._status;
+        }
+
+        set status(status) {
+            console.log('1');
+            this._status = status;
+        }
+    }
+
+    let abc = new ABC();
+
+    //$s('#B').removeAttribute('onclick');
+
+    abc.status = 10;
+
+    Object.defineProperty(abc, 'status', {
                 set: function(value) {
-                    this.setAttribute('value',  value);
+                    console.log('2');
+                    this._status = value;
                 }
             });
+
+    abc.status = 20;
     </script>
 </body>
 </html>

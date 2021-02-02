@@ -1,0 +1,16 @@
+/* DataTable */
+table[datatable] { table-layout: fixed; border-left: 1px solid #CCCCCC; border-right: 1px solid #CCCCCC; border-collapse: collapse; }
+table[datatable] td { border-bottom: 1px solid #DDDDDD; }
+.header-row th { background-color: #F0F0F0; color: #333333; color: var(--darker); border-top: 1px solid var(--lighter); border-bottom: 2px solid var(--primary); }
+.header-simple-row th { color: #333333; text-align: left; color: var(--darker); border-top: 1px solid var(--lighter); border-bottom: 2px solid var(--primary); }
+.row td { color: 333333; }
+.row a { text-decoration: none; }
+.alternate-row td { background-color: #EEEEEE; color: #333333; }
+.alternate-row a { text-decoration: none; }
+.row-hover td { background-color: var(--lighter); color: #FFFFFF; }
+.row-hover a { color: #FFFFFF; text-decoration: underline; }
+.row-active td { background-color: var(--darker); color: #FFFFFF; }
+.row-active a { color: #FFFFFF; }
+.row-focus td { background-color: var(--primary); color: #FFFFFF; }
+.row-focus a { color: #FFFFFF; }
+.row-focus a:hover { text-decoration:underline; }

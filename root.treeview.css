@@ -1,0 +1,27 @@
+/* TreeView */
+treeview,treenode { display: none; }
+.treeView-default-class { background-color:transparent; }
+.treeNode-default-class { border: 1px solid transparent; border-radius: 3px; background-color: transparent; }
+.treeNode-default-class a { text-decoration: none; color: inherit; }
+.treeNode-default-hover-class { border: 1px solid var(--darker); border-radius: 3px; background-image: linear-gradient(to bottom, var(--lighter), var(--primary)); color: #FFFFFF; } /*#999999 #EEEEEE*/
+.treeNode-default-hover-class a { text-decoration: none; color: inherit; }
+.treeNode-default-selected-class { border: 1px solid var(--darker); border-radius: 3px; background-image: linear-gradient(to bottom, var(--primary), var(--darker));  color: #FFFFFF; } /*#0F6D39 #3DBC77*/
+.treeNode-default-selected-class a { text-decoration: none; color: inherit; }
+.treeNode-default-selected-hover-class { border: 1px solid var(--darker); border-radius: 3px; background-image: linear-gradient(to bottom, var(--darker), var(--primary));;  color: #FFFFFF; } /*#0F6D39 #5FDE99*/
+.treeNode-default-selected-hover-class a { text-decoration: none; color: inherit; }
+@keyframes treeView-fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+@keyframes treeView-fade-out { 0% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes dropLine-fade-in-out { 0% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+.treeNode-fade-in { animation-name: treeView-fade-in; animation-duration: 0.4s; animation-timing-function: ease-in; animation-fill-mode: forwards; }
+.dropLine { box-shadow: 1px 1px 6px #999999; animation-name: dropLine-fade-in-out; animation-duration: 1s; animation-timing-function: ease; animation-iteration-count: infinite; }
+.treeView-contextMenu-normal { opacity: 1; box-shadow: 1px 2px 6px #999999; border-radius: 2px; }
+.treeView-contextMenu-fade-out { opacity: 0; box-shadow: 1px 2px 6px #999999; border-radius: 2px; animation-name: treeView-fade-out; animation-duration: 0.4s; animation-timing-function: ease-in; }
+.treeView-contextmenu-icon-default { background-color: #F8F8F8; padding: 2px 3px; border-style: dotted; border-width: 1px 0px 1px 1px; border-color: transparent;  border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+.treeView-contextmenu-icon-hover { cursor: default; padding: 2px 3px; border-style: solid; border-width: 1px 0px 1px 1px; border-color: #FFCC66;  border-top-left-radius: 2px; border-bottom-left-radius: 2px; }
+.treeView-contextmenu-text-default { padding: 2px 9px 2px 8px; border-style: solid; border-width: 1px 0px 1px 1px; border-color: transparent transparent transparent #F0F0F0; border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+.treeView-contextmenu-text-hover { padding: 2px 8px 2px 9px; cursor: default; border-style: solid; border-width: 1px 1px 1px 0px; border-color: #FFCC66 #FFCC66 #FFCC66 transparent;  border-top-right-radius: 2px; border-bottom-right-radius: 2px; }
+.treeView-contextmenu-text-disabled { padding: 2px 9px 2px 8px; cursor: default; border-style: solid; border-width: 1px 0px 1px 1px; border-color: transparent transparent transparent #F0F0F0; border-top-right-radius: 2px; border-bottom-right-radius: 2px; color:#AAAAAA; }
+.treeView-option-button { padding: 2px 3px; cursor: default; border: 1px solid transparent; background-color: inherit; border-radius: 2px; }
+.treeView-option-button:hover { border: 1px solid #FFCC66;  }
+.treeView-option-button:active { border: 1px solid #CC9933; background-color: #FFCC66; }
+.treeView-option-button-disabled { padding: 2px 3px; cursor: default; color: #AAAAAA; background-color: #FFFFFF; border-radius: 2px; }

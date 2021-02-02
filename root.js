@@ -1101,20 +1101,24 @@ $root.home = function () {
 //first
 $s = function (o) {
     if (typeof (o) == 'string') {
-        let t = document.querySelector(o);
-        if (t.id != '' && document.components.has(t.id)) {
-            return document.components.get(t.id);
+        if (o.includes('@')) {
+            let t = o.replace(/^@/, '');
+            if (document.components.has(t)) {
+                return document.components.get(t);
+            }
+            else {
+                return null;
+            }
         }
         else {
-            return t;
+            return document.querySelector(o);
         }
     }    
     else {
         return o;
     }
 }
-
-//尝试选择自定义组件，自定义组件都设置 root="tagName" 属性
+ 
 
 //all
 $a = function (...o) {
@@ -1122,15 +1126,32 @@ $a = function (...o) {
 
     for (let b of o) {
         if (typeof (b) == 'string') {
-            for (let e of document.querySelectorAll(o)) {
-                s.push(e);
-                // if (e.id != '' && document.components.has(t.id)) {
-                //     e.push(document.components.get(e.id));
-                // }
-                // else {
-                //     s.push(e);
-                // }
-            }            
+            if (b.includes('@')) {
+                b.split(',')
+                .forEach(selector => {
+                    if (selector.startsWith('@')) {
+                       let name = selector.substring(1);
+                       if (document.components.has(name)) {
+                           s.push(document.components.get(name));
+                       }
+                       else {
+                           for (let e of document.querySelectorAll(selector)) {
+                               s.push(e);
+                           }
+                       }
+                    }
+                    else {
+                       for (let e of document.querySelectorAll(selector)) {
+                           s.push(e);
+                       }
+                    }
+                });     
+            }
+            else {
+                for (let e of document.querySelectorAll(b)) {
+                    s.push(e);
+                }
+            }                   
         }        
         else if (b instanceof NodeList || b instanceof HTMLCollection) {
             for (let e of b) {
@@ -1146,7 +1167,7 @@ $a = function (...o) {
 }
 
 $t = function(o) {
-    return document.components.get(o.replace(/^#/, ''));
+    return document.components.get(o.replace(/^[#@]/, ''));
 }
 
 $c = function(...o) {
@@ -1160,8 +1181,8 @@ $c = function(...o) {
                 .map(p => p.trim());
     
     //tag id
-    t.filter(p => p.startsWith('#'))
-        .map(p => p.replace(/^#/, ''))
+    t.filter(p => p.startsWith('#') || p.startsWith('@'))
+        .map(p => p.replace(/^[#@]/, ''))
         .forEach(p => {
             if (document.components.has(p)) {
                 s.push(document.components.get(p));
@@ -1169,7 +1190,7 @@ $c = function(...o) {
         });
 
     //tagName
-    t.filter(p => !p.startsWith('#'))
+    t.filter(p => !p.startsWith('#') && !p.startsWith('@'))
         .map(p => p.toUpperCase())
         .forEach(p => {
             if (document.tags.has(p)) {
@@ -1968,12 +1989,17 @@ String.prototype.toMap = function(delimiter = '&', separator = '=') {
 
     let map = new Object();
 
-    //select
-    let select = $s(this);
-    if (select.nodeName != undefined && select.nodeName == 'SELECT') {
-        for (let option of select.options) {
-            map[option.text] = option.value;
+    if (this.startsWith('#')) {
+        //select
+        let select = $s(this);
+        if (select.nodeName != undefined && select.nodeName == 'SELECT') {
+            for (let option of select.options) {
+                map[option.text] = option.value;
+            }
         }
+    }
+    else if (this.isObjectString()) {
+        map = Json.eval(this.toString());
     }
     //query string or other
     else if (this.includes(separator)) {
@@ -2153,7 +2179,7 @@ String.prototype.$p = function(element) {
     let selector = /\$\((.+?)\)([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/i;
     while(selector.test(data)) {
         let match = selector.exec(data);
-        data = data.replace(match[0], String.$p(document.querySelector(match[1]), match[2], match[4], match[6]));
+        data = data.replace(match[0], String.$p($s(match[1]), match[2], match[4], match[6]));
     }
 
     //parse element
@@ -2419,6 +2445,18 @@ $parseArray = function(value, defaultValue = []) {
     }
 }
 
+$parseObject = function(value, defaultValue = {}) {
+    if (value instanceof Object) {
+        return value;
+    }
+    else if (typeof(value) == 'string') {
+        return Json.eval(value);
+    }
+    else {
+        return defaultValue;
+    }
+}
+
 Enum = function() {
     return new Enum.Entity(new RegExp('^(' + Array.from(arguments).join('|') + ')$', 'i'), arguments[0]);
 }
@@ -2535,8 +2573,39 @@ Event.fire = function(tag, eventName, ...args) {
     return final;
 }
 
+Event.watch = function(obj, method, watcher) {
+    let func = function() {
+        obj[method];
+    }
+    watcher.split(';')
+        .map(w => {
+            return {
+                event: w.takeBefore(':').trim(),
+                selector: w.takeAfter(':').trim()
+            };
+        })
+        .forEach(watch => {
+            if (watch.selector.includes('@')) {
+                watch.selector
+                    .split(',')
+                    .map(s => s.trim())
+                    .forEach(s => {
+                        if (s.startsWith('@')) {
+                            $listen(s).on(watch.event, func);                            
+                        }
+                        else {
+                            $x(s).on(watch.event, func);
+                        }
+                    });
+            }
+            else {
+                $x(watch.selector).on(watch.event, func);
+            }
+        });
+}
+
 Event.Entity = function(name) {
-    this.tagName = name.trim().replace(/^#/, '');
+    this.tagName = name.trim().replace(/^[#@]/, '');
 }
 
 Event.Entity.prototype.on = function(eventName, func) {
@@ -2707,6 +2776,9 @@ $Settings.prototype.declare = function(variables) {
         }
         else if(value instanceof Enum.Entity) {
             this.object[name] = value.validate(this.get(property));
+        }
+        else if (value instanceof Object) {
+            this.object[name] = Json.eval(this.get(property));
         }
         else {
             this.object[name] = this.get(property);
@@ -2888,6 +2960,12 @@ $root.initialize = function() {
                 this.style.cursor = 'default';
             });
         }
+    }
+    
+    //hide
+    for (let el of $a('[hidden]')) {
+        el.style.display = 'none';
+        el.removeAttribute('hidden');
     }
 }
 

@@ -3,13 +3,10 @@
 //-----------------------------------------------------------------------
 // v7.0 Banyan
 //-----------------------------------------------------------------------
-// http://www.qross.io
+// http://www.qross.cn
 // Any problem, question, idea or bug, please email to wu@qross.io
 //-----------------------------------------------------------------------
-// Created at 2011/8/2 22:33
-// Released at 2011/12/21 17:21
-// Updated at 2015/7/30 17:47
-// Updating at 2018/10/10 7:57
+// Created at 2018/10/10 7:57
 
 // Features
 // Load-on-demand by JSON dataSource

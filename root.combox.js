@@ -171,7 +171,7 @@ Combox.initializeAll = function() {
 }
 
 $box = function(name) {
-    return document.comboxes[name.replace(/^#/, '')];
+    return $t(name);
 }
 
 
