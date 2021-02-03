@@ -6,8 +6,7 @@ class Input {
     constructor(element) {
         $initialize(this)
         .with(element)
-        .declare({
-            
+        .declare({            
             name: 'TextBox_' + document.components.size,
             type: 'text', //非常重要！不同的类型有不同的样式、操作和判断逻辑
 
@@ -15,8 +14,7 @@ class Input {
             invalidText: '', //当输入的值无效时（未通过验证器验证）提示的文字
             validText: '', //验证成功之后的提示文字
 
-            validator: '', //正则表达式验证器，根据不同的 type 类型设定不同的值
-            minLength: 0, //最小长度是最基本验证，比如姓名最少要输入两个字
+            validator: '', //正则表达式验证器，根据不同的 type 类型设定不同的值                           
 
             className: '',
             focusClass: 'input-focus-class', //获得焦点样式
@@ -39,7 +37,7 @@ class Input {
         }).elementify(element => {
             this.element = element;
             this.type = this.type.toLowerCase();
-            this.required = this.requiredText != '' || this.invalidText != '';
+            this.required = this.requiredText != '' || this.invalidText != '' || this.element.minLength > 0;
             this._status = 2; //无值初始状态
 
             if (this.required) {
@@ -111,7 +109,7 @@ Input.prototype.validate = function () {
         this.status = 0; //无值空状态
         this.warnText = this.requiredText;        
     }
-    else if (this.minLength != 0 && this.element.value.$trim().length < this.minLength) {
+    else if (this.element.minLength > 0 && this.element.value.$trim().length < this.element.minLength) {
         this.status = -1; //有值验证失败状态
         this.warnText = this.invalidText;        
     }

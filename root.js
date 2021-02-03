@@ -2420,13 +2420,24 @@ $parseFloat = function(value, defaultValue = 0) {
 
 $parseBoolean = function(value, defaultValue = false) {
     if (typeof (value) == 'number') {
-        value = value.toString();
+        return value > 0;
     }
-    if (typeof (value) == 'string') {
+    else if (typeof (value) == 'string') {
         return value.toBoolean(defaultValue);
     }
     else if (typeof (value) == 'boolean') {
         return value;
+    }
+    else if (value instanceof Array) {
+        return value.length > 0;
+    }
+    else if (value instanceof Object) {
+        let i = 0;
+        for (let n in value) {
+            i++;
+            break;
+        }
+        return i > 0;
     }
     else {
         return defaultValue;
@@ -2575,7 +2586,7 @@ Event.fire = function(tag, eventName, ...args) {
 
 Event.watch = function(obj, method, watcher) {
     let func = function() {
-        obj[method];
+        obj[method]();
     }
     watcher.split(';')
         .map(w => {
@@ -2591,7 +2602,7 @@ Event.watch = function(obj, method, watcher) {
                     .map(s => s.trim())
                     .forEach(s => {
                         if (s.startsWith('@')) {
-                            $listen(s).on(watch.event, func);                            
+                            $listen(s).on(watch.event, func);
                         }
                         else {
                             $x(s).on(watch.event, func);

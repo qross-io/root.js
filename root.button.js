@@ -7,33 +7,38 @@ class Button {
         .with(element)
         .declare({
             name: 'Button_' + document.components.size,
+    
+            className: 'normal-button blue-button',
+            disabledClass: 'normal-button optional-button',
+       
+            action: '', //要执行的 PQL 语句或要请求的接口
+            watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
+
             confirmText: '', //确定提醒文字
             confirmButtonText: 'OK', //确定框确定按钮
             cancelButtonText: 'Cancel', //确定框取消按钮
             confirmTitle: 'Confirm', //确定框标题
             jumpingText: '', //跳转提醒文字
             jumpTo: '', //当动作action完成后要跳转到哪个页面
-    
-            className: 'normal-button new',
-            disabledClass: 'normal-button old',
-       
-            action: '', //要执行的PQL语句或要请求的接口
-            watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
-
-            actionText: '',
-            successText: '',
-            errorText: '',
+            actionText: '', //点击按钮后的提示文字
+            successText: '', //执行成功后的提示文字
+            failedText: '', //执行失败后的提醒文字
+            errorText: '', //请求发生错误的提醒文字 
             
             onclick: null, //function(ev) { },
             onsuccess: null, // function(result) { },
-            onfailed: null, //function(result) { },
+            onfail: null, //function(result) { },
             onerror: null, //function(error) { },
             oncomplete: null //function(error) { },
         })
         .elementify(element => {
             this.element = element;
             this.defaultText = this.text;
-            this.element.className = this.className;
+            if (this.className == '') {
+                this.className = 'normal-button blue-button';
+                this.element.className = this.className;
+                
+            }            
             this.element.removeAttribute('onclick');
         });
     }
@@ -85,7 +90,15 @@ Button.prototype.relations = new Set();
 //响应用户输入
 Button.prototype.response = function(correct) {
     if (this.relatived > 0) {
-        this.satisfied += correct == 0 ? -1 : correct;
+        if (correct == 0) {
+            correct = -1;
+        }
+        if (correct > 0) {
+            this.satisfied ++;
+        }
+        else if (this.satisfied > 0) {
+            this.satisfied --;
+        }
         this.disabled = (this.satisfied < this.relatived);        
     }
     else {
@@ -126,22 +139,33 @@ Button.prototype.go = function() {
                 }
             }
 
-            button.text = button.successText;
-            button.execute('onsuccess', data);
-            if (button.jumpTo != '') {
-                button.text = button.jumpingText;
-                window.location.href = button.jumpTo.$p(data);
+            //一般数据会返回数据表受影响的行数
+            if ($parseBoolean(data, true)) {
+                button.text = button.successText;            
+                button.execute('onsuccess', data);
+                if (button.jumpTo != '') {
+                    button.text = button.jumpingText;
+                    window.location.href = button.jumpTo.$p(data);
+                }
+                else {
+                    button.text = button.defaultText;
+                    button.element.className = button.className;
+                }
             }
             else {
-                button.text = button.defaultText;
+                button.text = button.failedText;
+                button.execute('onfail', data);
                 button.element.className = button.className;
             }
         })
         .catch(error => {
             button.execute('onerror', error);
+            button.text = button.errorText;            
+            console.error(error);
         })
         .finally(() => {
             button.execute('oncomplete');
+            button.disabled = false;
         });
 }
 
@@ -242,7 +266,7 @@ Button.observe = function() {
 }
 
 Button.initializeAll = function () {
-    for (let button of $a('input[type=submit],input[type=image],button[action],input[type=button][action]')) {
+    for (let button of $a('input[type=submit],input[type=image],button[action],input[type=button][action],button[watch],input[type=button][watch]')) {
         // root 设置为 button 表示组件已初始化
         if (button.getAttribute('root') == null) {
             button.setAttribute('root', 'BUTTON');

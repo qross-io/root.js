@@ -5,13 +5,14 @@
     <title>Button</title>
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.input.js"></script>
-    <link href="/root.input.css" rel="stylesheet" type="text/css" />
+    <script type="text/javascript" src="/root.button.js"></script>
+    <link href="/root.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
-    <button id="B" onclick="alert(1)">ABC</button>
+        <button id="B" watch="" action="" class="normal-button gray-button">ABC</button>
     <form>
     <input id="I" type="text" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
-    <input type="submit" value="SUBMIT" />
+    <input type="button" action="" value="SUBMIT" class="normal-button white-button" />
 </form>
     <script type="text/javascript">
     class ABC {
@@ -31,18 +32,9 @@
 
     let abc = new ABC();
 
-    //$s('#B').removeAttribute('onclick');
+    console.log($a('button[action],button[watch]').length);
 
-    abc.status = 10;
-
-    Object.defineProperty(abc, 'status', {
-                set: function(value) {
-                    console.log('2');
-                    this._status = value;
-                }
-            });
-
-    abc.status = 20;
+    
     </script>
 </body>
 </html>

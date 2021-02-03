@@ -11,8 +11,8 @@ class SelectButton {
         .declare({
             $name: 'SelectButton_' + document.components.size,
             
-            $focusOptionClass: 'new',
-            $blurOptionClass: 'old',
+            $focusOptionClass: 'green-button',
+            $blurOptionClass: 'optional-button',
             $disabledOptionClass: 'disabled',
             $scale: SelectButtonScale.NORMAL,
 
