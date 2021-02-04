@@ -29,7 +29,7 @@ class Coder {
             indentWithTabs: true,
             smartIndent: true,
             lineWrapping: true, //自动回行
-            scrollbarStyle:'null',//当前高度auto 不用竖直滚动条 不显示
+            scrollbarStyle:'null',//不显示竖直滚动条 高度自动 用不到
             lineNumbers: true,
             matchBrackets : true,
             indentUnit: 4,
