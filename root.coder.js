@@ -28,7 +28,8 @@ class Coder {
             mode: 'text/x-pql',
             indentWithTabs: true,
             smartIndent: true,
-            lineWrapping: (navigator.userAgent.includes('Android') || navigator.userAgent.includes('iPhone') || navigator.userAgent.includes('iPad')), //移动设备自动换行
+            lineWrapping: true, //自动回行
+            scrollbarStyle:'null',//不显示竖直滚动条
             lineNumbers: true,
             matchBrackets : true,
             indentUnit: 4,
