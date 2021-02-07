@@ -4,9 +4,6 @@ div,td,span,label,p,input,textarea,select { font-size: 0.875rem; font-family: "O
 th { font-size: 0.875rem; font-family: "Times New Roman", "Microsoft YaHei"; }
 body { margin: 0px; background-color: #FFFFFF; }
 
-h1 { font-size: 1.5rem; font-family: "Times New Roman", "Arial Black"; }
-h2 { font-size: 1.25rem; }
-
 a { color: var(--primary); text-decoration: none; }
 a:hover { color: var(--darker); text-decoration: underline; }
 a:active { color: var(--lighter); text-decoration: none; }

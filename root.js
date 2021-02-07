@@ -1101,13 +1101,13 @@ $root.home = function () {
 //first
 $s = function (o) {
     if (typeof (o) == 'string') {
-        if (o.includes('@')) {
-            let t = o.replace(/^@/, '');
+        if (o.includes('#')) {
+            let t = o.substring(1);
             if (document.components.has(t)) {
                 return document.components.get(t);
             }
             else {
-                return null;
+                return document.querySelector(o);
             }
         }
         else {
@@ -1126,22 +1126,22 @@ $a = function (...o) {
 
     for (let b of o) {
         if (typeof (b) == 'string') {
-            if (b.includes('@')) {
+            if (b.includes('#')) {
                 b.split(',')
-                .forEach(selector => {
-                    if (selector.startsWith('@')) {
-                       let name = selector.substring(1);
-                       if (document.components.has(name)) {
-                           s.push(document.components.get(name));
+                .forEach(x => {
+                    if (x.startsWith('#')) {
+                       let t = x.substring(1);
+                       if (document.components.has(t)) {
+                           s.push(document.components.get(t));
                        }
                        else {
-                           for (let e of document.querySelectorAll(selector)) {
+                           for (let e of document.querySelectorAll(x)) {
                                s.push(e);
                            }
                        }
                     }
                     else {
-                       for (let e of document.querySelectorAll(selector)) {
+                       for (let e of document.querySelectorAll(x)) {
                            s.push(e);
                        }
                     }
@@ -1167,7 +1167,7 @@ $a = function (...o) {
 }
 
 $t = function(o) {
-    return document.components.get(o.replace(/^[#@]/, ''));
+    return document.components.get(o.replace(/^#/, ''));
 }
 
 $c = function(...o) {
@@ -1182,7 +1182,7 @@ $c = function(...o) {
     
     //tag id
     t.filter(p => p.startsWith('#') || p.startsWith('@'))
-        .map(p => p.replace(/^[#@]/, ''))
+        .map(p => p.replace(/^#/, ''))
         .forEach(p => {
             if (document.components.has(p)) {
                 s.push(document.components.get(p));
@@ -2387,7 +2387,7 @@ $parseString = function(value, defaultValue = '') {
         return value;
     }
     else if (value != null) {
-        return value.toString();
+        return String(value);
     }
     else {
         return defaultValue;
@@ -2501,87 +2501,143 @@ $listen = function(tagName) {
 
 Event.s = new Map();
 
-Event.bind = function (tagName, eventName, func) {
-    
-    eventName = eventName.toLowerCase();    
+Event.bind = function (tag, eventName, func) {
+     
+    eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
         eventName = 'on' + eventName;
     }
 
-    if (!Event.s.has(tagName)) {
-        Event.s.set(tagName, new Map());
+    let id = '';
+    if (typeof(tag) == 'string') {
+        id = tag;
+        tag = document.components.get(id);
+        if (tag == null) {
+            tag = document.querySelector('#' + id);
+        }
     }
-    if (!Event.s.get(tagName).has(eventName)) {
-        Event.s.get(tagName).set(eventName, new Array());
+    else {
+        tagId = tag.id;
+    }
+    
+    let extension = false;
+    if (id != '' && document.components.has(id)) {
+        extension = true;
+    }
+    else {
+        if (tag != null && Object.getOwnPropertyNames(tag.constructor.prototype).filter(n => n.startsWith('on')).map(n => n.toLowerCase()).includes(eventName)) {
+            extension = true;
+        }
     }
 
-    Event.s.get(tagName).get(eventName).push(func);
+    if (extension) {
+        if (id != '') {
+            //按 id 绑定
+            if (!Event.s.has(id)) {
+                Event.s.set(id, new Map());
+            }
+            if (!Event.s.get(id).has(eventName)) {
+                Event.s.get(id).set(eventName, new Array());
+            }
+            Event.s.get(id).get(eventName).push(func);
+        }
+        else if (tag != null) {
+            //按 tag 绑定
+            if (!Event.s.has(tag)) {
+                Event.s.set(tag, new Map());
+            }
+            if (!Event.s.get(tag).has(eventName)) {
+                Event.s.get(tag).set(eventName, new Array());
+            }
+            Event.s.get(tag).get(eventName).push(func);
+        }
+    }
+    else if (tag != null) {
+        $x(tag).on(eventName, func);
+    }
 }
 
-Event.execute = function (tagName, eventName, ...args) {
+Event.execute = function (tag, eventName, ...args) {
 
-    if (!document.components.has(tagName)) {
-        throw new Error('Tag ' + tagName + ' does not exists.');
-    }
+    let funcs = [];
+    let id = '';
 
-    let tag = document.components.get(tagName);
+    eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
         eventName = 'on' + eventName;
     }
 
-    let final = true;
-    if (tag[eventName] != null) {
-        if (typeof (tag[eventName]) == 'function') {
-            final = tag[eventName].call(tag, ...args);
+    if (typeof(tag) == 'string') {
+        id = tag;
+        tag = document.components.get(id);
+        if (tag == null) {
+            tag = document.querySelector('#' + id);
         }
-        else if (typeof (tag[eventName]) == 'string') {
-            final = eval('final = function() {' + tag[eventName] + '}').call(tag, ...args);
-        }
-        if (typeof (final) != 'boolean') { final = true; };
+    }
+    else {
+        id = tag.id;
     }
 
-    if (Event.s.has(tagName)) {
-        let funcs = Event.s.get(tagName).get(eventName.toLowerCase());
-        if (funcs != null) {
-            for (let func of funcs) {
-                let result = true;
-                //key code
-                if (typeof (func) == 'function') {
-                    result = func.call(tag, ...args);
-                }
-                else if (typeof (func) == 'string') {
-                    result = eval('result = function() {' + func + '}').call(tag, ...args);
-                }
-                if (typeof (result) != 'boolean') { result = true; };
-
-                if (!result && final) {
-                    final = false;
-                }
-            }            
+    if (id != '') {        
+        if (Event.s.has(id) && Event.s.get(id).has(eventName)) {
+            Event.s.get(id).get(eventName).forEach(func => funcs.push(func));
         }
     }
 
-    return final;
+    if (tag != null) {        
+        if (Event.s.has(tag) && Event.s.get(tag).has(eventName)) {
+            Event.s.get(tag).get(eventName).forEach(func => funcs.push(func));
+        }
+
+        let final = Event.fire(tag, eventName, ...args);
+        for (let func of funcs) {
+            if (!Event.trigger(tag, func, ...args) && final) {
+                final = false;
+            }
+        }
+    
+        return final;
+    }
+    else {
+        console.warn('Event carrier does not exists.');
+        return false;
+    }
 }
 
 //执行某一个具体对象的事件非bind事件，再比如对象没有name，如for和if标签
 Event.fire = function(tag, eventName, ...args) {
-
+    let originName = eventName;
+    eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
         eventName = 'on' + eventName;
     }
 
     let final = true;
     if (tag[eventName] != null) {
-        if (typeof (tag[eventName]) == 'function') {
-            final = tag[eventName].call(tag, ...args);
-        }
-        else if (typeof (tag[eventName]) == 'string') {
-            final = eval('final = function() {' + tag[eventName] + '}').call(tag, ...args);
-        }
-        if (typeof (final) != 'boolean') { final = true; };
+        final = Event.trigger(tag, tag[eventName], ...args);
     }
+    
+    if (originName != eventName) {
+        if (tag[originName] != null) {
+            final = final && Event.trigger(tag, tag[originName], ...args);
+        }
+    }
+
     return final;
+}
+
+Event.trigger = function(tag, func, ...args) {
+    //key code
+    let final = true;
+    if (typeof (func) == 'function') {
+        final = func.call(tag, ...args);
+    }
+    else if (typeof (func) == 'string') {
+        final = eval('final = function() {' + func + '}').call(tag, ...args);
+    }
+    if (typeof (final) != 'boolean') { final = true; };
+
+    return final;  
 }
 
 Event.watch = function(obj, method, watcher) {
@@ -2596,12 +2652,12 @@ Event.watch = function(obj, method, watcher) {
             };
         })
         .forEach(watch => {
-            if (watch.selector.includes('@')) {
+            if (watch.selector.includes('#')) {
                 watch.selector
                     .split(',')
                     .map(s => s.trim())
                     .forEach(s => {
-                        if (s.startsWith('@')) {
+                        if (s.startsWith('#')) {
                             $listen(s).on(watch.event, func);
                         }
                         else {
@@ -2615,21 +2671,22 @@ Event.watch = function(obj, method, watcher) {
         });
 }
 
+
 Event.Entity = function(name) {
-    this.tagName = name.trim().replace(/^[#@]/, '');
+    this.tagId = name.trim().replace(/^#/, '');
 }
 
 Event.Entity.prototype.on = function(eventName, func) {
     eventName.split(',')
         .forEach(event => {
-            Event.bind(this.tagName, event.trim(), func);
+            Event.bind(this.tagId, event.trim(), func);
         });
 
     return this;
 }
 
 Event.Entity.prototype.execute = function(eventName, ...args) {
-    return Event.execute(this.tagName, eventName, ...args);
+    return Event.execute(this.tagId, eventName, ...args);
 }
 
 $initialize = function(object) {
@@ -2841,28 +2898,6 @@ $Settings.prototype.get = function(attr) {
                         value = this.carrier[attr];
                     }
                 }
-                // if (this.carrier[attr] != undefined) {
-                //     //因为有的类型直接返回boolean值, 不符合预期. 比如 selected="yes"，返回值是false
-                //     if (typeof(this.carrier[attr]) == 'boolean') {
-                //         if (this.carrier.getAttribute(attr) != "") {
-                //             value = this.carrier.getAttribute(attr);
-                //         }
-                //         else {
-                //             value = this.carrier[attr];
-                //         }    
-                //     }
-                //     //selectedIndex会有问题
-                //     else if (attr != 'selectedIndex') {
-                //         value = this.carrier[attr];
-                //     }
-                //     else {
-                //         value = this.carrier.getAttribute(attr);
-                //     }
-                // }
-                // else {
-                //     value = this.carrier.getAttribute(attr);
-                // }                
-
                 //burn after reading
                 if (this.$burn) {
                     this.carrier.removeAttribute(attr);
@@ -2894,23 +2929,125 @@ $Settings.prototype.objectify = function(func) {
     return this;
 }
 
-$size = function(o) {
-    if (o.length != undefined) {
-        return o.length;
+$enhance = function(object) {
+    return new NativeElement(object);
+}
+
+NativeElement = function(object) {    
+    this.object = object;
+    
+    this.object.constructor.getterX = new Map();
+    this.object.constructor.setterX = new Map();
+    this.object.on = function (eventName, func) {
+        Event.bind(this, eventName, func);
+        return this;
+    }    
+    this.object.execute = function (eventName, ...args) {
+        return Event.execute(this, eventName, ...args);
     }
-    else if (o.size != undefined) {
-        return o.size;
+    this.object.loadAttributes = function(attributes) {
+        for (let name in attributes) {
+            this[name] = this.getAttribute(name.toHyphen()) || this.getAttribute(name) || attributes[name];
+        }        
     }
-    else if (o instanceof Object) {
-        let s = 0;
-        for (let a in o) {
-            s++;
-        }
-        return s;
+}
+
+NativeElement.executeAopFunction = function(object, func, value) {
+    if (typeof (func) == 'string') {
+        return function(func, value) { return evel(func) }.call(object, func, value)
     }
     else {
-        return null;
+        return func.call(object, value);
     }
+}
+
+NativeElement.prototype.declare = function(variables) {
+    for (let name in variables) {
+        Object.defineProperty(this.object, name, {
+            enumerable: true,
+            configurable: true,
+            get() {
+                let defaultValue = variables[name];
+                let value = this.getAttribute(name.toHyphen()) || this.getAttribute(name) || defaultValue;
+                if (this.constructor.getterX.has(name)) {
+                    value = NativeElement.executeAopFunction(this, this.constructor.getterX.get(name), value);
+                }
+                
+                if (typeof(defaultValue) == 'string') {
+                    return $parseString(value, defaultValue);
+                }
+                else if (typeof(defaultValue) == 'number') {
+                    if (String(defaultValue).includes('.')) {
+                        return $parseFloat(value, defaultValue);
+                    }
+                    else {
+                        return $parseInt(value, defaultValue);
+                    }
+                }
+                else if (typeof(defaultValue) == 'boolean') {
+                    return $parseBoolean(value, defaultValue);
+                }
+                else {
+                    return value;
+                }
+            },
+            set(value) {
+                if (this.constructor.setterX.has(name)) {
+                    let result = NativeElement.executeAopFunction(this, this.constructor.setterX.get(name), value);
+                    if (result !== undefined) {
+                        value = result;
+                    }
+                }
+                this.setAttribute(name, value);
+            }
+        })
+    }
+    return this;
+};
+
+//扩展标签属性的 geteter  如改变要获取的值，即对要获取的值进行检查
+NativeElement.prototype.getter = function(properties) {
+    for (let name in properties) {
+        this.object.constructor.getterX.set(name, properties[name]);
+    }
+    return this;
+}
+
+//扩展标签属性的 seteter 如改变要设置的值，即对要设置的值进行检查
+NativeElement.prototype.setter = function(properties) {
+    for (let name in properties) {
+        this.object.constructor.setterX.set(name, properties[name]);
+    }
+    return this;
+}
+
+//不能用declare方法定义的属性
+NativeElement.prototype.define = function(properties) {
+    for (let name in properties) {
+        Object.defineProperty(this.object, name, properties[name]);
+    }
+    return this;
+};
+
+//声明隐式变量, 非标签中声明的参数或扩展方法
+NativeElement.prototype.describe = function(variables) {
+    for (let name in variables) {
+        this.object['_' + name] = null;
+        Object.defineProperty(this.object, name, {
+            extension: true,
+            get () {
+                if (this['_' + name] == null) {
+                    this['_' + name] = this.getAttribute(name) || this.getAttribute(name.toHyphen()) || variables[name];
+                }
+                return this['_' + name];
+            },
+            set (value) {
+                this['_' + name] = value;
+            }
+        });
+        
+    }
+    return this;
 }
 
 $randomX = function(digit = 10) {

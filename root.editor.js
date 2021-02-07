@@ -37,8 +37,6 @@ Editor = function(elementOrSettings) {
             },
             /// <value type="String">处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符</value>
             action: '',
-            method: 'GET',
-            data: '',
 
             allowEmpty: true,
             validator: function(validator) {
@@ -212,10 +210,8 @@ Editor.prototype.onempty = function(ev) { };
 Editor.prototype.onfail = function(value) { };
 /// <value type="String|Function">更新之前触发, 支持return</value>
 Editor.prototype.onupdate = function(value) { };
-/// <value type="String|Function">发送之前触发, 不支持return</value>
-Editor.prototype.onsend = function(value) { };
 /// <value type="String|Function">更新时发生错误触发, 不支持return</value>
-Editor.prototype.onerror = function(status, statusText) { };
+Editor.prototype.onerror = function(error) { };
 /// <value type="String|Function">更新完成之后触发, 支持return</value>
 Editor.prototype.onfinish = function(result, value) { };
 /// <value type="String|Function">所有工作完成之后触发</value>
@@ -225,6 +221,24 @@ Editor.prototype.oncomplete = function(value) { };
 Editor.prototype.editing = false;
 /// <value type="Boolean">是否正在更新</value>
 Editor.prototype.updating = false;
+
+String.prototype.$parseDataURL = function(text = '', value = '') {
+    
+    let url = this.toString();
+    
+    if (value == '') {
+        value = text;
+    }
+
+    url = url.replace(/\{text\}/ig, encodeURIComponent(text));
+    url = url.replace(/\{value\}/ig, encodeURIComponent(value));
+
+    if (url.endsWith('=')) {
+        url += encodeURIComponent(value);
+    }
+
+    return url;
+}
 
 Editor.prototype.apply = function(...elements) {
 
@@ -339,41 +353,33 @@ Editor['TEXT'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $ajax(editor.method, editor.action, editor.data)
-                                .parseDataURL(element, after)
-                                .send(
-                                    function(url, data) {
-                                        editor.execute('onsend', url, data, ev);
-                                    }
-                                )
-                                .complete(
-                                    function(req) {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    })
-                                .error(
-                                    function (status, statusText) {
-                                        editor.execute('onerror', status, statusText, ev);
-                                        textBox.disabled = false;
-                                        textBox.focus();
-                                    })
-                                .success(
-                                    function (result) {
-                                        //finish
-                                        if (editor.execute('onfinish', result, after, ev)) {
-                                            if (after == '') {
-                                                editor.setPlaceHolder(element);
-                                            }
-                                            else {
-                                                element.innerHTML = after;
-                                            }
+                            
+                            $cogo(editor.action.$parseDataURL(after), element)
+                                .then(data => {
+                                    //finish
+                                    if (editor.execute('onfinish', result, after, ev)) {
+                                        if (after == '') {
+                                            editor.setPlaceHolder(element);
                                         }
                                         else {
-                                            element.innerHTML = before;
+                                            element.innerHTML = after;
                                         }
-                                        editor.execute('oncomplete', after, ev);
-                                    });
+                                    }
+                                    else {
+                                        element.innerHTML = before;
+                                    }
+                                    editor.execute('oncomplete', after, ev);
+                                })
+                                .catch(error => {
+                                    editor.execute('onerror', error);
+                                    textBox.disabled = false;
+                                    textBox.focus();
+                                })
+                                .finally(() => {
+                                    editor.updating = false;
+                                    editor.editing = false;
+                                    editor.element = null;
+                                });
 
                             this.updating = true;
                         }
@@ -505,43 +511,35 @@ Editor['TEXTAREA'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $ajax(editor.method, editor.action, editor.data)
-                                .parseDataURL(element, after)
-                                .send(
-                                    function(url, data) {
-                                        editor.execute('onsend', url, data);
-                                    }
-                                )
-                                .complete(
-                                    function(req) {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    })
-                                .error(
-                                    function (status, statusText) {
-                                        editor.execute('onerror', status, statusText);
-                                        textArea.disabled = false;
-                                        textArea.focus();
-                                    })
-                                .success(
-                                    function (result) {
-                                        //finish
-                                        if (editor.execute('onfinish', result, after)) {
-                                            if (after == '') {
-                                                editor.setPlaceHolder(element);
-                                            }
-                                            else {
-                                                element.innerHTML = textToHtml(after);
-                                            }
-
-                                            editor.execute('oncomplete', after);
+                            
+                            $cogo(editor.action.$parseDataURL(after), element)
+                                .then(data => {
+                                    //finish
+                                    if (editor.execute('onfinish', data, after)) {
+                                        if (after == '') {
+                                            editor.setPlaceHolder(element);
                                         }
                                         else {
-                                            textArea.disabled = false;
-                                            textArea.focus();
+                                            element.innerHTML = textToHtml(after);
                                         }
-                                    });
+
+                                        editor.execute('oncomplete', after);
+                                    }
+                                    else {
+                                        textArea.disabled = false;
+                                        textArea.focus();
+                                    }
+                                })
+                                .catch(error => {
+                                    editor.execute('onerror', error);
+                                    textArea.disabled = false;
+                                    textArea.focus();
+                                })
+                                .finally(() => {
+                                    editor.updating = false;
+                                    editor.editing = false;
+                                    editor.element = null;
+                                });                            
 
                             this.updating = true;
                         }
@@ -664,41 +662,32 @@ Editor['INTEGER'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $ajax(editor.method, editor.action, editor.data)
-                                .parseDataURL(element, after)
-                                .send(
-                                    function(url, data) {
-                                        editor.execute('onsend', url, data);
+                            $cogo(editor.action.$parseDataURL(after), element)
+                                .then(data => {
+                                    if (editor.execute('onfinish', data, after)) {
+                                        element.innerHTML = (editor.kilo ? after.kilo() : after);
+                                        if (element.innerHTML == '') { 
+                                            editor.setPlaceHolder(element);
+                                        }
+
+                                        editor.execute('oncomplete', after);
                                     }
-                                )
-                                .complete(
-                                    function(req) {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    })
-                                .error(
-                                    function (status, statusText) {
-                                        editor.execute('onerror', status, statusText);
-                                        textBox.disable = true;
+                                    else {
+                                        textBox.disabled = false;
                                         textBox.focus();
-                                    })
-                                .success(
-                                    function (result) {
-                                        if (editor.execute('onfinish', result, after)) {
-                                            element.innerHTML = (editor.kilo ? after.kilo() : after);
-                                            if (element.innerHTML == '') { 
-                                                editor.setPlaceHolder(element);
-                                            }
-
-                                            editor.execute('oncomplete', after);
-                                        }
-                                        else {
-                                            textBox.disabled = false;
-                                            textBox.focus();
-                                        }
-                                    });
-
+                                    }
+                                })
+                                .catch(error => {
+                                    editor.execute('onerror', error);
+                                    textBox.disable = true;
+                                    textBox.focus();
+                                })
+                                .finally(() => {
+                                    editor.updating = false;
+                                    editor.editing = false;
+                                    editor.element = null;
+                                });
+                            
                             this.updating = true;
                         }
                         else {
@@ -815,40 +804,31 @@ Editor['DECIMAL'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $ajax(editor.method, editor.action, editor.data)
-                                .parseDataURL(element, after)                            
-                                .send(
-                                    function(url, data) {
-                                        editor.execute('onsend', url, data);
-                                    }
-                                )
-                                .complete(
-                                    function(req) {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    })
-                                .error(
-                                    function (status, statusText) {
-                                        editor.execute('onerror', status, statusText);
-                                        textBox.disable = true;
-                                        textBox.focus();
-                                    })
-                                .success(
-                                    function (result) {
-                                        if (editor.execute('onfinish', result, after)) {
-                                            element.innerHTML = (editor.kilo ? after.kilo() : after);
-                                            if (element.innerHTML == '') { 
-                                                editor.setPlaceHolder(element);
-                                            }
+                            $cogo(editor.action.$parseDataURL(after), element)
+                                .then(data => {
+                                    if (editor.execute('onfinish', data, after)) {
+                                        element.innerHTML = (editor.kilo ? after.kilo() : after);
+                                        if (element.innerHTML == '') { 
+                                            editor.setPlaceHolder(element);
+                                        }
 
-                                            editor.execute('oncomplete', after);
-                                        }
-                                        else {
-                                            textBox.disabled = false;
-                                            textBox.focus();
-                                        }
-                                    });
+                                        editor.execute('oncomplete', after);
+                                    }
+                                    else {
+                                        textBox.disabled = false;
+                                        textBox.focus();
+                                    }
+                                })
+                                .catch(error => {
+                                    editor.execute('onerror', error);
+                                    textBox.disable = true;
+                                    textBox.focus();
+                                })
+                                .finally(() => {
+                                    editor.updating = false;
+                                    editor.editing = false;
+                                    editor.element = null;
+                                });                            
 
                             this.updating = true;
                         }
@@ -1050,37 +1030,28 @@ Editor['PERCENT'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $ajax(editor.method, editor.action, editor.data)
-                                .parseDataURL(element, afterText, afterValue)  
-                                .send(
-                                    function(url, data) {
-                                        editor.execute('onsend', url, data);
-                                    }
-                                )
-                                .complete(
-                                    function(req) {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    })
-                                .error(
-                                    function (status, statusText) {
-                                        editor.execute('onerror', status, statusText);
-                                        textBox.disable = true;
-                                        textBox.focus();
-                                    })
-                                .success(
-                                    function (result) {
-                                        if (editor.execute('onfinish', result, afterValue)) {
-                                            element.innerHTML = (editor.kilo ? afterText.kilo() : afterText) + '%';
+                            $cogo(editor.action.$parseDataURL(after), element)
+                                .then(data => {
+                                    if (editor.execute('onfinish', data, afterValue)) {
+                                        element.innerHTML = (editor.kilo ? afterText.kilo() : afterText) + '%';
 
-                                            editor.execute('oncomplete', afterText);
-                                        }
-                                        else {
-                                            textBox.disabled = false;
-                                            textBox.focus();
-                                        }
-                                    });
+                                        editor.execute('oncomplete', afterText);
+                                    }
+                                    else {
+                                        textBox.disabled = false;
+                                        textBox.focus();
+                                    }
+                                })
+                                .catch(error => {
+                                    editor.execute('onerror', error);
+                                    textBox.disable = true;
+                                    textBox.focus();
+                                })
+                                .finally(() => {
+                                    editor.updating = false;
+                                    editor.editing = false;
+                                    editor.element = null;
+                                });                            
 
                             this.updating = true;
                         }
@@ -1166,39 +1137,30 @@ Editor['SELECT'] = function (editor, element) {
                     if (editor.editing && editor.execute('onupdate', afterValue, element)) {
                         if (editor.action != '') {
                             this.disabled = true;
-                            $ajax(editor.method, editor.action, editor.data)
-                                .parseDataURL(element, afterText, afterValue)
-                                .send(
-                                    function(url, data) {
-                                        editor.execute('onsend', url, data);
-                                    }
-                                )
-                                .complete(
-                                    function(req) {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    })
-                                .error(
-                                    function (status, statusText) {
-                                        editor.execute('onerror', status, statusText);
-                                        select.disable = true;
-                                        select.focus();
-                                    })
-                                .success(
-                                    function (result) {
-                                        if (editor.execute('onfinish', result, afterValue, element)) {
-                                            element.setAttribute('value', afterValue);
-                                            element.innerHTML = ''; //must set empty first
-                                            element.innerHTML = afterText;
+                            $cogo(editor.action.$parseDataURL(after), element)
+                                .then(data => {
+                                    if (editor.execute('onfinish', data, afterValue, element)) {
+                                        element.setAttribute('value', afterValue);
+                                        element.innerHTML = ''; //must set empty first
+                                        element.innerHTML = afterText;
 
-                                            editor.execute('oncomplete', afterValue, element);
-                                        }
-                                        else {
-                                            select.disabled = false;
-                                            select.focus();
-                                        }
-                                    });
+                                        editor.execute('oncomplete', afterValue, element);
+                                    }
+                                    else {
+                                        select.disabled = false;
+                                        select.focus();
+                                    }
+                                })
+                                .catch(error => {
+                                    editor.execute('onerror', status, statusText);
+                                    select.disable = true;
+                                    select.focus();
+                                })
+                                .finally(() => {
+                                    editor.updating = false;
+                                    editor.editing = false;
+                                    editor.element = null;
+                                });                            
 
                             editor.updating = true;
                         }
@@ -1274,29 +1236,9 @@ Editor['SWITCH'] = function (editor, element) {
         let after = before == editor.options[0] ? editor.options[1] : editor.options[0];
         if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
             if (editor.action != '') {
-                $ajax(editor.method, editor.action, editor.data)
-                    .parseDataURL(element, after)
-                    .send(
-                        function(url, data) {
-                            editor.execute('onsend', url, data);
-                        }
-                    )
-                    .complete(
-                        function(req) {
-                            editor.updating = false;
-
-                            button.style.opacity = 1;
-
-                            editor.editing = false;
-                            editor.element = null;
-                        })
-                    .error(
-                        function (status, statusText) {
-                            editor.execute('onerror', status, statusText);
-                            button.src = button.src.replace('active', 'hover');
-                        })
-                    .success(function (result) {
-                        if (editor.execute('onfinish', result, after)) {
+                $cogo(editor.action.$parseDataURL(after), element)
+                    .then(data => {
+                        if (editor.execute('onfinish', data, after)) {
                             button.src = button.src.replace((before == editor.options[0] ? 'on' : 'off') + '_active', (before == editor.options[0] ? 'off' : 'on') + '_hover');
                             button.setAttribute('value', after);
 
@@ -1306,6 +1248,16 @@ Editor['SWITCH'] = function (editor, element) {
                             button.src = button.src.replace('active', 'hover');
                         }
                     })
+                    .catch(error => {
+                        editor.execute('onerror', error);
+                        button.src = button.src.replace('active', 'hover');
+                    })
+                    .finally(() => {
+                        editor.updating = false;
+                        button.style.opacity = 1;
+                        editor.editing = false;
+                        editor.element = null;
+                    });                
 
                 editor.updating = true;
             }
@@ -1365,32 +1317,24 @@ Editor['SWITCHBUTTON'] = function (editor, element) {
         if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
             button.disabled = true;
             if (editor.action != '') {
-                $ajax(editor.method, editor.action, editor.data)
-                    .parseDataURL(element, after)
-                    .send(
-                        function(url, data) {
-                            editor.execute('onsend', url, data);
-                        }
-                    )
-                    .complete(
-                        function(req) {
-                            editor.updating = false;
-                            button.disabled = false;
-                            editor.editing = false;
-                            editor.element = null;
-                        })
-                    .error(
-                        function (status, statusText) {
-                            editor.execute('onerror', status, statusText);
-                        })
-                    .success(function (result) {
-                        if (editor.execute('onfinish', result, after)) {
+                $cogo(editor.action.$parseDataURL(after), element)
+                    .then(data => {
+                        if (editor.execute('onfinish', data, after)) {
                             $x(button).html(editor.options[afterIndex].text).css(editor.options[afterIndex].class);
                             button.setAttribute('value', after);
 
                             editor.execute('oncomplete', after);
                         }
                     })
+                    .catch(error => {
+                        editor.execute('onerror', error);
+                    })
+                    .finally(() => {
+                        editor.updating = false;
+                        button.disabled = false;
+                        editor.editing = false;
+                        editor.element = null;
+                    });                
 
                 editor.updating = true;
             }
@@ -1433,39 +1377,28 @@ Editor['CHECKBOX'] = function (editor, element) {
             this.disabled = true;
             let after = this.checked ? editor.options[0] : editor.options[1];
             if (editor.execute('onupdate', after)) {
-                if (editor.action != '') {                        
-                    $ajax(editor.method, editor.action, editor.data)
-                        .parseDataURL(element, after)
-                        .send(
-                            function(url, data) {
-                                editor.execute('onsend', url, data);
+                if (editor.action != '') {   
+                    $cogo(editor.action.$parseDataURL(after), element)
+                        .then(data => {
+                            if (!editor.execute('onfinish', data, after)) {
+                                //restore if return false
+                                checkbox.checked = !checkbox.checked;
                             }
-                        )
-                        .complete(
-                            function(req) {
-                                editor.updating = false;
-
-                                checkbox.disabled = false;
-
-                                editor.editing = false;
-                                editor.element = null;
-                            })
-                        .error(
-                            function (status, statusText) {
-                                editor.execute('onerror', status, statusText);
-                                checkbox.disable = true;
-                                checkbox.focus();
-                            })
-                        .success(
-                            function (result) {
-                                if (!editor.execute('onfinish', result, after)) {
-                                    //restore if return false
-                                    checkbox.checked = !checkbox.checked;
-                                }
-                                else {
-                                    editor.execute('oncomplete', after);
-                                }
-                            });
+                            else {
+                                editor.execute('oncomplete', after);
+                            }
+                        })
+                        .catch(error => {
+                            editor.execute('onerror', error);
+                            checkbox.disable = true;
+                            checkbox.focus();
+                        })
+                        .finally(() => {
+                            editor.updating = false;
+                            checkbox.disabled = false;
+                            editor.editing = false;
+                            editor.element = null;
+                        });                     
 
                     editor.updating = true;
                 }
@@ -1525,25 +1458,8 @@ Editor['CHECKBUTTON'] = function(editor, element) {
                 if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
                     $x(element).children().disable();
                     if (editor.action != '') {
-                        $ajax(editor.method, editor.action, editor.data)
-                            .parseDataURL(element, after)
-                            .send(
-                                function(url, data) {
-                                    editor.execute('onsend', url, data);
-                                }
-                            )
-                            .complete(
-                                function(req) {
-                                    editor.updating = false;
-                                    $x(element).children().enable();
-                                    editor.editing = false;
-                                    editor.element = null;
-                                })
-                            .error(
-                                function (status, statusText) {
-                                    editor.execute('onerror', status, statusText);
-                                })
-                            .success(function (result) {
+                        $cogo(editor.action.$parseDataURL(after), element)
+                            .then(data => {
                                 if (editor.execute('onfinish', result, after)) {
                                     element.setAttribute('value', after);
 
@@ -1553,6 +1469,15 @@ Editor['CHECKBUTTON'] = function(editor, element) {
                                     $x(button).swap('[enabledClass]', '[disabledClass]').switch('enabled', 'yes', 'no');
                                 }
                             })
+                            .catch(error => {
+                                editor.execute('onerror', error);
+                            })
+                            .finally(() => {
+                                editor.updating = false;
+                                $x(element).children().enable();
+                                editor.editing = false;
+                                editor.element = null;
+                            });                       
 
                         editor.updating = true;
                     }
@@ -1664,41 +1589,32 @@ Editor['LINKTEXT'] = function (editor, element) {
                             //update
                             if (editor.action != '') {
                                 this.disabled = true;
-                                $ajax(editor.method, editor.action, editor.data)
-                                    .parseDataURL(element, after)
-                                    .send(
-                                        function(url, data) {
-                                            editor.execute('onsend', url, data);
+                                $cogo(editor.action.$parseDataURL(after), element)
+                                    .then(data => {
+                                        //finish
+                                        if (editor.execute('onfinish', data, after)) {
+                                            element.innerHTML = (after == '' ? '&nbsp;' : after);
+                                            element.style.display = '';
+                                            textBox.remove();
+
+                                            editor.execute('oncomplete', after);
                                         }
-                                    )
-                                    .complete(
-                                        function(req) {
-                                            editor.updating = false;
-                                            editor.editing = false;
-                                            editor.element = null;
-                                        })
-                                    .error(
-                                        function (status, statusText) {
-                                            editor.execute('onerror', status, statusText);
+                                        else {
                                             textBox.disabled = false;
                                             textBox.focus();
-                                        })
-                                    .success(
-                                        function (result) {
-                                            //finish
-                                            if (editor.execute('onfinish', result, after)) {
-                                                element.innerHTML = (after == '' ? '&nbsp;' : after);
-                                                element.style.display = '';
-                                                textBox.remove();
+                                        }
+                                    })
+                                    .catch(error => {
+                                        editor.execute('onerror', error);
+                                        textBox.disabled = false;
+                                        textBox.focus();
+                                    })
+                                    .finally(() => {
+                                        editor.updating = false;
+                                        editor.editing = false;
+                                        editor.element = null;
+                                    });
 
-                                                editor.execute('oncomplete', after);
-                                            }
-                                            else {
-                                                textBox.disabled = false;
-                                                textBox.focus();
-                                            }
-                                        });
-    
                                 this.updating = true;
                             }
                             else {
@@ -1804,34 +1720,25 @@ Editor['STAR'] = function (editor, element) {
                         if (editor.editing && !editor.updating && editor.execute('onupdate', after)) {
                             let stars = element.querySelectorAll('img[sign=star]');
                             if (editor.action != '') {
-                                $ajax(editor.method, editor.action, editor.data)
-                                    .parseDataURL(element, after)
-                                    .send(
-                                        function(url, data) {
-                                            editor.execute('onsend', url, data);
-                                        }
-                                    )
-                                    .complete(
-                                        function(req) {
-                                            editor.updating = false;
-                                            editor.editing = false;
-                                            editor.element = null;
-                                        })
-                                    .error(
-                                        function (status, statusText) {
-                                            editor.execute('onerror', status, statusText);
-                                        })
-                                    .success(
-                                        function (result) {
-                                            if (editor.execute('onfinish', result, after)) {
-                                                for (let j = 0; j < stars.length; j++) {
-                                                    stars[j].src = `${editor.imagesBaseUrl}star_${j < after ? 'enabled' : 'disabled' }.png`;                                    
-                                                }
-                                                element.setAttribute("value", after);
-
-                                                editor.execute('oncomplete', after);
+                                $cogo(editor.action.$parseDataURL(after), element)
+                                    .then(data => {
+                                        if (editor.execute('onfinish', data, after)) {
+                                            for (let j = 0; j < stars.length; j++) {
+                                                stars[j].src = `${editor.imagesBaseUrl}star_${j < after ? 'enabled' : 'disabled' }.png`;                                    
                                             }
-                                        });
+                                            element.setAttribute("value", after);
+
+                                            editor.execute('oncomplete', after);
+                                        }
+                                    })
+                                    .catch(error => {
+                                        editor.execute('onerror', error);
+                                    })
+                                    .finally(() => {
+                                        editor.updating = false;
+                                        editor.editing = false;
+                                        editor.element = null;
+                                    });                                
     
                                 this.updating = true;
                             }
@@ -1887,33 +1794,24 @@ Editor['STARBUTTON'] = function(editor, element) {
                 if (editor.editable && before != after && editor.editing && editor.execute('onupdate', after)) {
                     $x(element).children().disable();
                     if (editor.action != '') {
-                        $ajax(editor.method, editor.action, editor.data)
-                            .parseDataURL(element, after)
-                            .send(
-                                function(url, data) {
-                                    editor.execute('onsend', url, data);
-                                }
-                            )
-                            .complete(
-                                function(req) {
-                                    editor.updating = false;
-                                    $x(element).children().enable();
-                                    editor.editing = false;
-                                    editor.element = null;
-                                })
-                            .error(
-                                function (status, statusText) {
-                                    editor.execute('onerror', status, statusText);
-                                })
-                            .success(function (result) {
-                                if (editor.execute('onfinish', result, after)) {
-                                    
+                        $cogo(editor.action.$parseDataURL(after), element)
+                            .then(data => {
+                                if (editor.execute('onfinish', data, after)) {
                                     element.setAttribute('value', after);
                                     Editor['STARBUTTON'].change(element, button);
     
                                     editor.execute('oncomplete', after);
                                 }
                             })
+                            .catch(error => {
+                                editor.execute('onerror', error);
+                            })
+                            .finally(() => {
+                                editor.updating = false;
+                                $x(element).children().enable();
+                                editor.editing = false;
+                                editor.element = null;
+                            });
     
                         editor.updating = true;
                     }

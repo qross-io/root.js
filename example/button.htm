@@ -4,37 +4,32 @@
     <meta charset="UTF-8">
     <title>Button</title>
     <script type="text/javascript" src="/root.js"></script>
-    <script type="text/javascript" src="/root.input.js"></script>
-    <script type="text/javascript" src="/root.button.js"></script>
     <link href="/root.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
-        <button id="B" watch="" action="" class="normal-button gray-button">ABC</button>
-    <form>
-    <input id="I" type="text" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
-    <input type="button" action="" value="SUBMIT" class="normal-button white-button" />
+        
+<form>
+    <input id="I" type="text" required-text="" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
+    <button id="B" watch="" action="" class="normal-button gray-button">ABC</button>
 </form>
     <script type="text/javascript">
-    class ABC {
-        constructor() {
-            this._status = 0;
+    let getter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get; //HTMLInputElement.prototype.__lookupGetter__('value');
+    let setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; //HTMLInputElement.prototype.__lookupSetter__('value');
+    Object.defineProperties(HTMLInputElement.prototype, {
+        'value': {
+            get() {
+                return getter.call(this).toLowerCase();
+            },
+            set(value) {
+                setter.call(this, String(value).toUpperCase());
+            }
+        },
+        required: {
+            get() {
+                return false;
+            }
         }
-
-        get status() {
-            return this._status;
-        }
-
-        set status(status) {
-            console.log('1');
-            this._status = status;
-        }
-    }
-
-    let abc = new ABC();
-
-    console.log($a('button[action],button[watch]').length);
-
-    
+    });
     </script>
 </body>
 </html>
