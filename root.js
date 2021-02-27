@@ -168,9 +168,13 @@ $root.prototype.show = function (display) {
         if (element.style != undefined) {
             if (display == null) {
                 element.style.display = '';
+                element.setAttribute('visible', '');
+                element.removeAttribute('hidden');
             }
             else if (typeof(display) == 'boolean') {
                 element.style.display = display ? '' : 'none';
+                element.setAttribute(display ? 'visible' : 'hidden', '');
+                element.removeAttribute(display ? 'hidden' : 'visible');
             }
             else {
                 element.style.display = display;
@@ -184,6 +188,8 @@ $root.prototype.hide = function () {
     this.objects.forEach(element => {
         if (element.style != undefined) {
             element.style.display = 'none';
+            element.setAttribute('hidden', '');
+            element.removeAttribute('visible');
         }
     });
     return this;
@@ -1385,22 +1391,26 @@ $api.prototype.success = function (func) {
     this.$send();
 }
 
-$api.prototype.parseDataURL = function(element, text, value = '') {
-    this.url = $api.$parseDataURL(this.url, element, text, value);
-    this.params = $api.$parseDataURL(this.params, element, text, value);
+$api.prototype.parseDataURL = function(text, value = '') {
+    this.url = this.url.$parseDataURL(text, value);
+    this.params = this.params.$parseDataURL(text, value);
     return this;
 }
 
-$api.$parseDataURL = function (url, element, text = '', value = '') {
-
+String.prototype.$parseDataURL = function(text = '', value = '') {
+    
+    let url = this.toString();
+    
     if (value == '') {
         value = text;
     }
 
-    url = url.replace(/\{text\}/ig, encodeURIComponent(text));
-    url = url.replace(/\{value\}/ig, encodeURIComponent(value));
-
-    url = url.$p(element);
+    url = url.replace(/\{text\}/ig, encodeURIComponent(text))
+            .replace(/\{value\}/ig, encodeURIComponent(value))
+            .replace(/\{'text'\}/ig, text.replace("'", "''"))
+            .replace(/\{'value'\}/ig, value.replace("'", "''"))
+            .replace(/\{"text"\}/ig, text.replace('"', '""'))
+            .replace(/\{"value"\}/ig, value.replace('"', '""'));
 
     if (url.endsWith('=')) {
         url += encodeURIComponent(value);
@@ -1469,7 +1479,6 @@ $lang = (function() {
 
 //on document ready
 $ready = function (callback) {
-    //$bind('DOMContentLoaded', callback);
     //onreadystatechange
     if (document.addEventListener != undefined) {
         document.addEventListener("DOMContentLoaded", callback, false);
@@ -1478,7 +1487,16 @@ $ready = function (callback) {
         document.attachEvent('onreadystatechange', callback);
     }
 }
-
+//on window load
+$post = function(func) {
+    if (document.models != null) {
+        Event.bind('$global', 'onpost', func);
+    }
+    else {
+        $x(window).on('load', func);
+    }
+}
+//on model finish
 $finish = function(func) {
     if (document.models != null) {
         Event.bind('$global', 'onfinish', func);
@@ -2024,12 +2042,15 @@ String.prototype.toMap = function(delimiter = '&', separator = '=') {
     return map;
 }
 
-String.prototype.toHyphen = function() {
-    return this.toString().replace(/[A-Z]/g, $0 => '-' + $0.toLowerCase());
+String.prototype.toHyphen = function(char = '-') {
+    return this.toString().replace(/^([A-Z]+)([A-Z])/, ($0, $1, $2) => $1.toLowerCase() + char + $2.toLowerCase())
+                .replace(/^[A-Z]/, $0 => $0.toLowerCase())
+                .replace(/([A-Z])([A-Z]*)([A-Z])/g, ($0, $1, $2, $3) => char + $1.toLowerCase() + $2.toLowerCase() + char + $3.toLowerCase())
+                .replace(/[A-Z]/g, $0 => char + $0.toLowerCase());
 }
 
 String.prototype.toCamel = function() {
-    return this.toString().replace(/-([a-z])/g, ($0, $1) => $1.toUpperCase()).replace(/^([A-Z])/, ($0, $1) => $0.toLowerCase());
+    return this.toString().replace(/(_|-)([a-z])/g, ($0, $1) => $1.toUpperCase()).replace(/^([A-Z])/, ($0, $1) => $0.toLowerCase());
 }
 
 String.prototype.toPascal = function() {
@@ -2101,7 +2122,15 @@ $attr = function(t, a) {
         }
     }
     else {
-        return t[a];
+        if (t[a] !== undefined) {
+            return t[a];
+        }
+        else if (t.getAttribute != null) {
+            return t.getAttribute(a);
+        }
+        else {
+            return null;
+        }
     }
 }
 
@@ -2136,8 +2165,10 @@ String.$p = function(t, p, a, d = 'null') {
                         t = t.lastElementChild != null ? t.lastElementChild : null;
                         break;
                     default:
-                        c = c.toInt(0);
-                        t = t.children[c] != null ? t.children[c] : null; 
+                        if (/^\d+$/.test(c)) {
+                            c = c.toInt(0);
+                            t = t.children[c] != null ? t.children[c] : null; 
+                        }
                         break;
                 }
             }
@@ -2176,7 +2207,7 @@ String.prototype.$p = function(element) {
     // < parent
     // \d child \d
     // n last child
-    let selector = /\$\((.+?)\)([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/i;
+    let selector = /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/i;
     while(selector.test(data)) {
         let match = selector.exec(data);
         data = data.replace(match[0], String.$p($s(match[1]), match[2], match[4], match[6]));
@@ -2500,6 +2531,7 @@ $listen = function(tagName) {
 }
 
 Event.s = new Map();
+Event.x = new Map();
 
 Event.bind = function (tag, eventName, func) {
      
@@ -2640,9 +2672,23 @@ Event.trigger = function(tag, func, ...args) {
     return final;  
 }
 
-Event.watch = function(obj, method, watcher) {
+Event.interact = function(obj, element) {
+    element.getAttributeNames().forEach(name => {
+        if (/-on$/i.test(name)) {
+            let method = name.takeBeforeLast('-');
+            let attr = obj['value'] != undefined ? 'value' : 'innerHTML';
+            if (method.includes('-')) {                
+                attr = method.takeAfter('-');
+                method = method.takeBefore('-');                
+            }
+            Event.watch(obj, method, element.getAttribute(name), attr);
+        }
+    });
+}
+
+Event.watch = function(obj, method, watcher, exp) {
     let func = function() {
-        obj[method]();
+        obj[method](exp);
     }
     watcher.split(';')
         .map(w => {
@@ -2652,12 +2698,26 @@ Event.watch = function(obj, method, watcher) {
             };
         })
         .forEach(watch => {
+            watch.selector
+                .split(',')
+                .map(s => s.trim())
+                .forEach(s => {
+                    if (!Event.x.has(s)) {
+                        Event.x.set(s, []);
+                    }
+                    Event.x.get(s).push({
+                        'event': watch.event,
+                        'func': func
+                    });                    
+                });
+            /*
             if (watch.selector.includes('#')) {
                 watch.selector
                     .split(',')
                     .map(s => s.trim())
                     .forEach(s => {
                         if (s.startsWith('#')) {
+                            
                             $listen(s).on(watch.event, func);
                         }
                         else {
@@ -2667,7 +2727,7 @@ Event.watch = function(obj, method, watcher) {
             }
             else {
                 $x(watch.selector).on(watch.event, func);
-            }
+            }*/
         });
 }
 
@@ -3113,7 +3173,6 @@ $root.initialize = function() {
     //hide
     for (let el of $a('[hidden]')) {
         el.style.display = 'none';
-        el.removeAttribute('hidden');
     }
 }
 
@@ -3194,5 +3253,21 @@ $finish(function() {
         };
         flex();
         window.setInterval(flex, 2000);
+    }
+});
+
+$post(function() {
+    //watch and interact
+    for (let [selector, watches] of Event.x) {
+        if (selector.startsWith('#')) {
+            watches.forEach(watch => {
+                $listen(selector).on(watch.event, watch.func);
+            });            
+        }
+        else {
+            watches.forEach(watch => {
+                $x(selector).on(watch.event, watch.func);
+            });
+        }
     }
 });

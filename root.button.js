@@ -101,13 +101,13 @@ HTMLButtonElement.prototype.go = function() {
                 }
                 else {
                     button.text = button.defaultText;
-                    button.className = button.className;
+                    button.enable();
                 }
             }
             else {
                 button.text = button.failedText;
                 button.execute('onActionFail', data);
-                button.className = button.className;
+                button.enable();
             }
         })
         .catch(error => {
@@ -144,7 +144,7 @@ HTMLButtonElement.prototype.initialize = function() {
         let holders = this.action.match(/\$\(#[^)]+\)/ig);
         if (holders != null) {
             holders.map(tag => tag.$trim('$(', ')')).forEach(tag => todo.push(tag));
-        }        
+        }
     }
 
     todo.forEach(tag => {
@@ -182,28 +182,26 @@ HTMLButtonElement.prototype.initialize = function() {
 HTMLButtonElement.observe = function() {
     //为每个自定义标签添加监控
     for (let [name, buttons] of HTMLButtonElement.relationByInput) {
-        let tag = $s(name);
-        if (tag != null) {
-            if (tag.required) {
-                HTMLInputElement.setterX.set('status', function(value) {
-                    buttons.forEach(button => button.response(value));
-                });
-                
-                if (tag.status == 1) {
-                    buttons.forEach(button => button.response(1));
-                }
+        let tag = $s(name);        
+        if (tag != null && tag.required) {
+            HTMLInputElement.setterX.set('status', function(value) {
+                buttons.forEach(button => button.response(value));
+            });
+            
+            if (tag.status == 1) {
+                buttons.forEach(button => button.response(1));
             }
-            else {
-                buttons.forEach(button => {
-                    button.satisfied ++;
-                    if (button.satisfied == button.relatived) {
-                        button.enable();
-                    }
-                });
-            }
-
-            HTMLButtonElement.relationByInput.delete(name);
         }
+        else {
+            buttons.forEach(button => {
+                button.satisfied ++;
+                if (button.satisfied == button.relatived) {
+                    button.enable();
+                }
+            });
+        }
+
+        HTMLButtonElement.relationByInput.delete(name);        
     }
 
     if (HTMLButtonElement.relationByInput.size > 0) {

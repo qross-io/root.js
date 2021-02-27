@@ -667,4 +667,16 @@ Popup.initializeAll = function () {
 
 $ready(function () {
     Popup.initializeAll();
+
+    $x(window).on('message', function(ev) {
+        switch(ev.data) {
+            case 'CLOSE-POPUP': 
+                if (document.popup != null) {
+                    document.popup.close();
+                }
+                break;
+            default:
+                break;
+        }
+    });
 });

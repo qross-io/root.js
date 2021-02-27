@@ -20,22 +20,12 @@ class SelectButton {
             multiple: false,
 
             action: '',
-            method: function(value) {
-                if (value == null) {
-                    value = 'GET';
-                }
-                value = value.toUpperCase();
-                if (!/^(GET|POST|PUT|DELETE)$/.test(value)) {
-                    value = 'GET';
-                }
-            },
             
             $disabled: false,
 
-            onchange: function(beforeOption, ev) { },
-            onerror: function(statusText) {  },
-            onsuccess: function(result) { }
-
+            onchange: null, //function(beforeOption, ev) { },
+            onerror: null, //function(statusText) { },
+            onsuccess: null //function(result) { }
         }).elementify(element => {
             if (element.nodeName == 'SPAN') {
                 this.container = element;
@@ -567,23 +557,18 @@ class ButtonOption {
                     if (this.selectButton.execute('onchange', this.selectButton.options[before])) {
                         let option = this;
                         if (option.selectButton.action != '') {
-                            $ajax(option.selectButton.method, option.selectButton.action)
-                                .parseDataURL(option.selectButton.element, option.selectButton.text, option.selectButton.value)
-                                .error(
-                                    function (status, statusText) {
-                                        option.selectButton.execute('onerror', status, statusText);
-                                        //back on error
+                            $cogo(option.selectButton.action.$parseDataURL(option.selectButton.text, option.selectButton.value), option.selectButton.element)
+                                .then(data => {
+                                    if (!option.selectButton.execute('onsuccess', data)) {
+                                        //rollback on incorrect
                                         option.selectButton.$rollback(before, option.index);
                                     }
-                                )
-                                .success(
-                                    function (result) {
-                                        if (!option.selectButton.execute('onsuccess', result)) {
-                                            //rollback on incorrect
-                                            option.selectButton.$rollback(before, option.index);
-                                        }
-                                    }
-                                );
+                                })
+                                .catch(error => {
+                                    option.selectButton.execute('onerror', error);
+                                    //back on error
+                                    option.selectButton.$rollback(before, option.index);
+                                });
                         }
                     }
                     else {
@@ -717,7 +702,7 @@ SelectButton.initialize = function(button) {
         new SelectButton(button).apply();
     }
     else {
-        throw new Error('Must specify a SPAN or SELECT element.');
+        throw new Error('Must specify a SELECT element.');
     }
 }
 
@@ -725,7 +710,7 @@ SelectButton.initializeAllIn = function(element) {
     if (typeof(element) == 'string') {
         element = $s(element);
     }
-    element.querySelectorAll('select[button],span[selectbutton]').forEach(button => {
+    element.querySelectorAll('select[button]').forEach(button => {
         new SelectButton(button).apply();
     });
 }

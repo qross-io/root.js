@@ -4,19 +4,38 @@
     <meta charset="UTF-8">
     <title>Select</title>
     <script type="text/javascript" src="/root.js"></script>
-    <script type="text/javascript" src="/root.select.js"></script>
-    <link href="/root.css" rel="stylesheet" type="text/css" />
-    <link href="/root.select.css" rel="stylesheet" type="text/css" />
+    <script type="text/javascript" src="/root.input.js"></script>
+    <script type="text/javascript" src="/root.select.js"></script> 
+    <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/select.css" rel="stylesheet" type="text/css" />
 </head>
-<body>
-    <button>HELLO</button>
-    <input type="submit" value="HELLO" />
-<select>
-    <option value="1">Class 1</option>
-    <option selected value="2">Class 2</option>
-    <option value="3">Class 3</option>
-    <option value="4">Class 4</option>
-    <option value="5">Class 5</option>
+<body style="padding: 50px;">
+
+    <select type="button" id="Button">
+            <option value="mysql">MySQL</option>
+            <option selected value="mariadb">MariaDB</option>
+            <option value="sqlserver">SQL Server</option>
+            <option value="postgresql">PostgreSQL</option>
+            <option value="oracle">Oracle</option>
+            <option value="hive">Hive</option>
+        </select>
+
+<hr/>
+
+<select type="image" id="Image">
+    <option value="mysql" src="/images/dbs/mysql.png">MySQL</option>
+    <option selected value="mariadb" src="/images/dbs/mariadb.png">MariaDB</option>
+    <option value="mssql" src="/images/dbs/sqlserver.png">SQL Server</option>
+    <option value="postgresql" src="/images/dbs/postgresql.png">PostgreSQL</option>
+    <option value="oracle" src="/images/dbs/oracle.png">Oracle</option>
+    <option value="hive" src="/images/dbs/hive.png">Hive</option>
 </select>
+
+
+<input type="text" size="10" value="10" update-value-on="change:#Button" value:="$(#Button)[text]" update-size-on="click:#Button1" size:="$:[value]" />
+<button id="Button1">SIZE</button>
+<script type="text/javascript">
+
+</script>
 </body>
 </html>

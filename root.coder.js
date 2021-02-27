@@ -1,14 +1,3 @@
-
-$coder = function(name) {
-    let coder = $t(name);
-    if (coder != null && coder.tagName == 'CODER') {
-        return coder;
-    }
-    else {
-        return null;
-    }
-}
-
 class Coder {
     constructor(textArea) {
 
@@ -19,7 +8,7 @@ class Coder {
         }
 
         this.textArea = textArea;
-        this.$readOnly = (textArea.getAttribute('read-only') || textArea.getAttribute('readOnly') || 'false');
+        this.$readOnly = (textArea.getAttribute('readOnly') || textArea.getAttribute('read-only') || 'false');
         if (this.$readOnly != 'nocursor') {
             this.$readOnly = this.$readOnly.toBoolean();
         }
@@ -45,13 +34,11 @@ class Coder {
         this.$rows = 0;
         this.limited = false;
 
-        this.method = textArea.getAttribute('method') || 'GET';
         this.action = textArea.getAttribute('action') || '';
-        this.data = textArea.getAttribute('data') || '';
 
-        this.saveText = textArea.getAttribute('save-text') || '';
-        this.updatingText = textArea.getAttribute('updating-text') || '';
-        this.savedText = textArea.getAttribute('saved-text') || '';
+        this.saveText = textArea.getAttribute('save-text') || textArea.getAttribute('save-text') || '';
+        this.savingText = textArea.getAttribute('saving-text') || textArea.getAttribute('saving-text') || '';
+        this.savedText = textArea.getAttribute('saved-text') || textArea.getAttribute('saved-text') || '';
 
         this.$mode = (textArea.getAttribute('mode') || 'pql').toLowerCase();
         if (Coder.mineTypes[this.$mode] != null) {
@@ -144,7 +131,7 @@ class Coder {
         if (this.saveText != '') {
             textArea.parentNode.appendChild($create('DIV', { id: this.name + '_SaveHint', innerHTML: this.saveText },
                                                            { marginTop: '-30px', padding: '5px 6px', textAlign: 'right', position: 'relative', borderRadius: '3px', fontSize: '12px', color: '#A0A0A0', display: 'none' },
-                                                           { 'save-text': this.saveText, 'updating-text': this.updatingText, 'saved-text': this.savedText }));
+                                                           { 'save-text': this.saveText, 'saving-text': this.savingText, 'saved-text': this.savedText }));
             this.mirror.on('change', function(cm) {
                 let div = $s('#' + cm.getTextArea().id + '_SaveHint');
                 if (div.style.display == 'none') {
@@ -220,7 +207,17 @@ class Coder {
     }
 }
 
-Coder.reserved = new Set(['coder', 'class', 'action', 'method', 'data', 'mode', 'readonly', 'read-only', 'save-text', 'updating-text', 'saved-text']);
+$coder = function(name) {
+    let coder = $t(name);
+    if (coder != null && coder.tagName == 'CODER') {
+        return coder;
+    }
+    else {
+        return null;
+    }
+}
+
+Coder.reserved = new Set(['coder', 'class', 'action', 'mode', 'readonly', 'read-only', 'save-text', 'saving-text', 'saved-text']);
 
 Coder.mineTypes = {
     'sh': 'text/x-sh',
@@ -250,26 +247,12 @@ Coder.save = function(cm) {
     if (!coder.readOnly && coder.textArea.value != coder.value) {
         if (Event.execute(coder.name, 'onsave')) {
             if (coder.action != '') {
-                $ajax(coder.method, coder.action, coder.data)
-                    .parseDataURL(coder.textArea, coder.value)
-                    .send(
-                        function(url, data) {
-                            $x('#' + coder.name + '_SaveHint').html(coder.updatingText);
-                        }
-                    )
-                    .complete(
-                        function(req) {
-                            
-                        })
-                    .error(
-                        function (status, statusText) {
-                            
-                        })
-                    .success(
-                        function (result) {
-                            coder.textArea.value = coder.value;
-                            $x('#' + coder.name + '_SaveHint').html(coder.savedText);
-                        });
+                $x('#' + coder.name + '_SaveHint').html(coder.savingText);
+                $cogo(coder.action.$parseDataURL(coder.value))
+                    .then(data => {
+                        coder.textArea.value = coder.value;
+                        $x('#' + coder.name + '_SaveHint').html(coder.savedText);
+                    });                
             }
             else {
                 coder.textArea.value = coder.value;

@@ -86,6 +86,7 @@ DataTable = function(element) {
     })
     .elementify(element => {
         this.table = element;
+        element.removeAttribute('data');
     });
 
     if (this.table.querySelector('template') != null) {

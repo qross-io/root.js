@@ -53,7 +53,7 @@
 */
 
 //hide all <for> and <if>
-document.querySelector('HEAD').appendChild($create('STYLE', { 'type': 'text/css', 'innerHTML': 'for,if { display: none; }' }));
+document.querySelector('HEAD').appendChild($create('STYLE', { 'type': 'text/css', 'innerHTML': 'model,for,if,elsif,else,o,template { display: none; }' }));
 
 document.models = new Object();
 //待加载的model项, 为0时触发finish事件
@@ -66,11 +66,11 @@ document.models.$loaded = false;
 document.components.set('$global', {
     nodeName: 'GLOBAL',
     tagName: 'GLOBAL',
-    onfinish: null
+    onfinish: null,
+    onpost: null
 });
 
 Model = function(element) {
-
     this.name = element.getAttribute('name') || '';
     if (this.name == '') {
         throw new Error('Model "name" is required. It will be used to transfer data.');
@@ -468,6 +468,7 @@ Model.initializeForOrIf = function(tagName) {
                 //所有加载完成
                 document.models.$loaded = true;
                 Event.execute('$global', 'onfinish');
+                Event.execute('$global', 'onpost');
 
                 //<o> 标签 = output
                 for (let o of $a('o')) {
@@ -956,11 +957,8 @@ Span = function(span) {
     this.loaded = false;
     this.onload = span.getAttribute('onload');
     this.onrelad = span.getAttribute('onreload');
-    this.reloadOn  = span.getAttribute('reload-on') || span.getAttribute('reloadOn'); //click:#abc
 
-    if (this.reloadOn != null) {
-        Event.watch(this, 'reload', this.reloadOn);
-    }
+    Event.interact(this, span); //reload-on    
 }
 
 Span.prototype.$represent = function(data) {
@@ -1568,7 +1566,6 @@ Template.prototype.append = function(func) {
             Model.initializeForOrIf('TEMPLATE');
                       
             //当前值大于初始值为"增量加载"
-            Event.execute(this.name, 'onload', data);
             if (this.page > this.$page) {
                 Event.execute(this.name, 'onlazyload', data);
             }

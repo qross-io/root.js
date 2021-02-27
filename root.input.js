@@ -20,7 +20,7 @@ $enhance(HTMLInputElement.prototype)
         set: null, //post-process 设置组件的值时对值进行处理，value 代表文本框的值            
         preventInjection: null, //防止SQL注入攻击，当获取值是将单引号替换成两个单引号
 
-        icon: null //根据不同的类型选择不同的 iconfont 图标（自动设置）
+        icon: null //根据不同的类型选择不同的 iconfont 图标（自动设置）        
     })
     .setter({
         'validator': function(value) {
@@ -30,7 +30,7 @@ $enhance(HTMLInputElement.prototype)
     .define({
         required: {
             get () {
-                return this.requiredText != '' || this.invalidText != '' || this.element.minLength > 0;
+                return this.requiredText != '' || this.invalidText != '' || this.minLength > 0;
             }
         },
         status: {
@@ -54,6 +54,7 @@ $enhance(HTMLInputElement.prototype)
                 if (this.warnSpan != null) {
                     this.warnSpan.innerHTML = text;
                     this.warnSpan.className = (this.status != 1 ? this.warnTextClass : this.validTextClass);
+                    this.warnSpan.style.display = text == '' ? 'none' : '';
                 }
             }
         },
@@ -72,12 +73,15 @@ $enhance(HTMLInputElement.prototype)
                 if (this.set != null) {            
                     value = function(exp, value) { return eval(exp); }.call(this, this.set, value);
                 }
-                //this.value = value;
-                HTMLInputElement.valueDescriptor.set.call(this, value);                
+                HTMLInputElement.valueDescriptor.set.call(this, value);
+                if (this.required) {
+                    this.validate();
+                }
             }
         }        
     });
 
+HTMLInputElement.prototype.defaultClass = null;
 HTMLInputElement.prototype.warnSpan = null;
 HTMLInputElement.prototype._status = 2; //无值初始状态
    
@@ -116,14 +120,28 @@ HTMLInputElement.prototype.validate = function () {
         this.className = this.warnClass;
     }
 }
+
+HTMLInputElement.prototype.update = function(attr) {
+    if (attr != null) {
+        attr = attr.toCamel();
+        if (this[attr] != null) {
+            let format = this.getAttribute(attr + ':');
+            if (format != null) {
+                this[attr] = format.$p(this);
+            }
+        }    
+    }    
+}
     
 HTMLInputElement.prototype.initialize = function() {
     if (this.required) {
         if (this.className == '') {
             this.className = 'input-required-class';
         }
-        this.warnSpan = $create('SPAN', { innerHTML: '', className: this.warnTextClass });
+        this.warnSpan = $create('SPAN', { innerHTML: '', className: this.warnTextClass }, { display: 'none' });
         $x(this).insertBehind(this.warnSpan);
+
+        this.defaultClass = this.className;
 
         if (this.value != '') {
             this._status = 3; //有值初始状态
@@ -134,7 +152,9 @@ HTMLInputElement.prototype.initialize = function() {
         if (this.className == '') {
             this.className = 'input-optional-class';
         }
-    }
+
+        this.defaultClass = this.className;
+    }    
 
     //验证事件
     //重新输入时暂时清除 warning
@@ -151,7 +171,7 @@ HTMLInputElement.prototype.initialize = function() {
             this.validate();
         }
         else {
-            this.className = this.className;
+            this.className = this.defaultClass;
         }
     });
 
@@ -161,12 +181,17 @@ HTMLInputElement.prototype.initialize = function() {
             this.validate();
         }
     });
+
+    Event.interact(this, this);
+    if (this.value == '') {
+        this.update('value');
+    }
 }
 
-$ready(function() {
+$finish(function() {
     $a('INPUT').forEach(input => {
         //限制类型 text
-        if (/^(text)$/i.test(input.type)) {                        
+        if (/^(text|password)$/i.test(input.type)) {                        
             if (input.getAttribute('root') == null) {
                 input.setAttribute('root', 'INPUT');
                 input.initialize();

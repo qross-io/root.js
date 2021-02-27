@@ -28,14 +28,8 @@ Editor = function(elementOrSettings) {
                 }
                 return imagesBaseUrl;
             },
-            dataType: function(dataType) {
-                dataType = dataType == null ? 'TEXT' : dataType.toUpperCase();
-                if (!/^(TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBOX|CHECKBUTTON|SWITCH|SWITCHBUTTON|STAR|STARBUTTON)$/.test(dataType)) {
-                    dataType = 'TEXT';
-                }
-                return dataType;
-            },
-            /// <value type="String">处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符</value>
+            type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBOX|CHECKBUTTON|SWITCH|SWITCHBUTTON|STAR|STARBUTTON',
+            /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
             action: '',
 
             allowEmpty: true,
@@ -56,7 +50,7 @@ Editor = function(elementOrSettings) {
             //switchbutton - [ {text: 'enabled', value: 'yes', class: 'new'}, {text: 'enabled', value: 'yes', class: 'old'} ]
             //starbutton - [ {text: 'enabled', value: 'yes', enabledClass: 'new1', disabledClass: 'old' }, { text: 'enabled', value: 'yes', class: 'new2' }, ... ]
             options: function(options) {
-                switch(this.dataType) {
+                switch(this.type) {
                     case 'SELECT':
                         if (typeof(options) == 'string') {
                             if (options.includes('&')) {
@@ -178,6 +172,7 @@ Editor = function(elementOrSettings) {
         .elementify(element => {
             element.setAttribute('root', 'EDITOR');
             this.tag = element;
+            element.removeAttribute('action');
         });
 }
 
@@ -222,24 +217,6 @@ Editor.prototype.editing = false;
 /// <value type="Boolean">是否正在更新</value>
 Editor.prototype.updating = false;
 
-String.prototype.$parseDataURL = function(text = '', value = '') {
-    
-    let url = this.toString();
-    
-    if (value == '') {
-        value = text;
-    }
-
-    url = url.replace(/\{text\}/ig, encodeURIComponent(text));
-    url = url.replace(/\{value\}/ig, encodeURIComponent(value));
-
-    if (url.endsWith('=')) {
-        url += encodeURIComponent(value);
-    }
-
-    return url;
-}
-
 Editor.prototype.apply = function(...elements) {
 
     if (elements != null && elements.length > 0) {
@@ -273,7 +250,7 @@ Editor.prototype.apply = function(...elements) {
             binding = binding.querySelector(this.selector);
         }
         if (binding != null && binding.getAttribute('editor-bound') == null) {
-            Editor[this.dataType](this, binding);
+            Editor[this.type](this, binding);
             binding.setAttribute('editor-bound', 'yes');
         }
     });    
@@ -357,7 +334,7 @@ Editor['TEXT'] = function (editor, element) {
                             $cogo(editor.action.$parseDataURL(after), element)
                                 .then(data => {
                                     //finish
-                                    if (editor.execute('onfinish', result, after, ev)) {
+                                    if (editor.execute('onfinish', data, after, ev)) {
                                         if (after == '') {
                                             editor.setPlaceHolder(element);
                                         }
@@ -1460,7 +1437,7 @@ Editor['CHECKBUTTON'] = function(editor, element) {
                     if (editor.action != '') {
                         $cogo(editor.action.$parseDataURL(after), element)
                             .then(data => {
-                                if (editor.execute('onfinish', result, after)) {
+                                if (editor.execute('onfinish', data, after)) {
                                     element.setAttribute('value', after);
 
                                     editor.execute('oncomplete', after);
