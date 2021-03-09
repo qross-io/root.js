@@ -5,7 +5,8 @@
     <title>Select</title>
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.input.js"></script>
-    <script type="text/javascript" src="/root.select.js"></script> 
+    <script type="text/javascript" src="/root.select.js"></script>
+    <script type="text/javascript" src="/root.button.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/select.css" rel="stylesheet" type="text/css" />
 </head>
@@ -31,11 +32,13 @@
     <option value="hive" src="/images/dbs/hive.png">Hive</option>
 </select>
 
-
+<input id="I1" type="password" placeholder="PASSWORD" />
+<input id="I2" type="confirm-password" placeholder="CONFIRM-PASSWORD" />
+<input id="I3" type="mobile" placeholder="MOBILE" />
+<input id="Number" type="number" strength="complex" size="40" positive="yes" pad="yes" precision="0" min="0" max="100" step="10" invalid-text="必须输入0到30之间的值。" style="width: 100px" />
 <input type="text" size="10" value="10" update-value-on="change:#Button" value:="$(#Button)[text]" update-size-on="click:#Button1" size:="$:[value]" />
-<button id="Button1">SIZE</button>
+<button id="Button1" action="">SIZE</button>
 <script type="text/javascript">
-
 </script>
 </body>
 </html>

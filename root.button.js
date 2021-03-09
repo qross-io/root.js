@@ -3,8 +3,8 @@
 
 $enhance(HTMLButtonElement.prototype)
     .declare({
-        enabledClass: 'normal-button blue-button',
-        disabledClass: 'normal-button optional-button',
+        enabledClass: '', //normal-button blue-button,
+        disabledClass: '', //normal-button optional-button,
         action: '', //要执行的 PQL 语句或要请求的接口
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
 
@@ -17,7 +17,29 @@ $enhance(HTMLButtonElement.prototype)
         actionText: '', //点击按钮后的提示文字
         successText: '', //执行成功后的提示文字
         failedText: '', //执行失败后的提醒文字
-        exceptionText: '' //请求发生错误的提醒文字
+        exceptionText: '', //请求发生错误的提醒文字
+
+        scale: 'normal',
+        color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
+    })
+    .getter({
+        'scale': value => value.toLowerCase(),
+        'color': value => value.toLowerCase()
+    })
+    .setter({
+        'scale': function(value) {
+            this.enabledClass = this.enabledClass.replace(this.scale + '-button', value + '-button');
+            this.disabledClass = this.disabledClass.replace(this.scale + '-button', value + '-button');
+            this.classList.remove(this.scale + '-button');
+            this.classList.add(value + '-button');            
+        },
+        'color': function(value) {
+            this.enabledClass = this.enabledClass.replace(this.color + '-button', value + '-button');
+            if (!this.disabled) {
+                this.classList.remove(this.color + '-button');
+                this.classList.add(value + '-button');
+            }            
+        }
     })
     .describe({
         onActionSuccess: null, // function(result) { },
@@ -126,14 +148,22 @@ HTMLButtonElement.prototype.go = function() {
 HTMLButtonElement.relationByInput = new Map();
 
 HTMLButtonElement.prototype.initialize = function() {
-    
-    if (this.className == '') {
-        this.className = this.enabledClass;
+
+    if (this.enabledClass == '') {
+        if (this.className == '') {
+            this.classList.add(this.scale + '-button');
+            this.classList.add(this.color + '-button');
+        }        
+        this.enabledClass = this.className;
     }
     else {
-        this.enabledClass = this.className;
-    }   
+        this.className = this.enabledClass;
+    }
     
+    if (this.disabledClass == '') {
+        this.disabledClass = this.scale + '-button optional-button';
+    }
+
     let todo = [];
 
     if (this.watch != '') {
@@ -183,7 +213,7 @@ HTMLButtonElement.observe = function() {
     //为每个自定义标签添加监控
     for (let [name, buttons] of HTMLButtonElement.relationByInput) {
         let tag = $s(name);        
-        if (tag != null && tag.required) {
+        if (tag != null && tag.$required) {
             HTMLInputElement.setterX.set('status', function(value) {
                 buttons.forEach(button => button.response(value));
             });

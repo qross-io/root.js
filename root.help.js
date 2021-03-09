@@ -4,8 +4,13 @@ Help$initialize = function(a) {
     if (url.startsWith('@')) {
         url = Help$prefix + url.substring(1);
     }
-    let icon = a.getAttribute('icon') || 'question-circle';
-    a.insertAdjacentHTML('afterBegin', '<i class="iconfont icon-' + icon + '"></i> ');
+    let icon = a.getAttribute('icon');
+    if (icon == null) {
+        icon = 'question-circle';
+    }
+    if (icon != '') {
+        a.insertAdjacentHTML('afterBegin', '<i class="iconfont icon-' + icon + '"></i> ');
+    }    
     a.href = 'javascript:void(0)';
     a.onclick = function(ev) {
         if ($s('#HelpContentFrame').src != url) {

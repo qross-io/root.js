@@ -6,6 +6,6 @@
 
 .image-option { padding: 3px 8px; border: 1px solid #EEEEEE; display: inline-block; border-radius: 3px; margin-top: 5px; margin-right: 5px; text-align: center; line-height: 200%; cursor: default; }
 .image-option:hover { border: 1px solid var(--lighter); background-color: #F8F8F8; }
-.image-option:active { border: 1px solid var(--darker); background-color: #F0F0F0; }
+.image-option:active { border: 1px solid var(--darker); background-color: #E8E8E8; }
 .image-selected-option { padding: 3px 8px; border: 1px solid var(--primary); display: inline-block; border-radius: 3px; background-color: #F0F0F0; margin-top: 5px; margin-right: 5px;  text-align: center; line-height: 200%; cursor: default; color: var(--primary); }
 .image-disabled-option { padding: 3px 8px; border: 1px solid #EEEEEE; opacity: 0.5; display: inline-block; border-radius: 3px; margin-top: 5px; margin-right: 5px;  text-align: center; line-height: 200%; cursor: default; }

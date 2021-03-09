@@ -3028,11 +3028,17 @@ NativeElement.prototype.declare = function(variables) {
             configurable: true,
             get() {
                 let defaultValue = variables[name];
-                let value = this.getAttribute(name.toHyphen()) || this.getAttribute(name) || defaultValue;
+                let value = this.getAttribute(name.toHyphen());
+                if (value == null) {
+                    value = this.getAttribute(name);
+                }
+                if (value == null) {
+                    value = defaultValue;
+                }
                 if (this.constructor.getterX.has(name)) {
                     value = NativeElement.executeAopFunction(this, this.constructor.getterX.get(name), value);
                 }
-                
+
                 if (typeof(defaultValue) == 'string') {
                     return $parseString(value, defaultValue);
                 }
@@ -3045,7 +3051,7 @@ NativeElement.prototype.declare = function(variables) {
                     }
                 }
                 else if (typeof(defaultValue) == 'boolean') {
-                    return $parseBoolean(value, defaultValue);
+                    return $parseBoolean(value === '' ? true : value, defaultValue);
                 }
                 else {
                     return value;
@@ -3179,15 +3185,6 @@ $root.initialize = function() {
 $finish(function() {
 
     $root.initialize();
-
-    //enter event
-    for (let enter of $a('input[enter]')) {
-        $x(enter).on('keypress', function(ev) {
-            if (ev.keyCode == 13 && this.value != this.defaultValue) {
-                window.location.href = this.getAttribute('enter').$p(this);
-            }
-        });
-    }
 
     //attributes to be parse - after model load
     for (let every of $root.PROPERTIES) {

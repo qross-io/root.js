@@ -74,16 +74,20 @@ a:active { color: var(--lighter); text-decoration: none; }
 @keyframes fade-in-out { 0%{opacity:0.2;} 50%{opacity:1;} 100%{opacity:0.2;} }
 .blink { animation-name: fade-in-out; animation-duration: 1s; animation-timing-function: ease; animation-iteration-count: infinite; }
 
-input:not([type=button]) { padding: 4px 8px; outline: none; }
-.input-required-class { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: var(--darker); background-color: #FFFF99; border: 1px solid var(--primary); border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
-.input-required-class:hover { background-color: #FFFF88; border: 1px solid var(--lighter); }
-.input-optional-class { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #333333; border: 1px solid #666666; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
-.input-optional-class:hover { background-color: #EEEEEE; }
-.input-focus-class { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: var(--darker); background-color: #FFFF77; border: 1px solid var(--primary); border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important;}
-.input-warn-class { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #CC3333; background-color: #FFEEEE; border: 1px solid #CC3333; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
-.input-valid-class { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #333333; background-color: #EEFFEE; border: 1px solid #339933; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
-.span-warn-class { color: #CC3333; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
-.span-valid-class { color: #339933; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
+.input-required { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: var(--darker); background-color: #FFFF99; border: 1px solid var(--primary); border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
+.input-required:hover { background-color: #FFFF88; border: 1px solid var(--lighter); }
+.input-optional { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #333333; border: 1px solid #666666; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
+.input-optional:hover { background-color: #EEEEEE; }
+.input-focus { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: var(--darker); background-color: #FFFF77; border: 1px solid var(--primary); border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important;}
+.input-error { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #CC3333; background-color: #FFEEEE; border: 1px solid #CC3333; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
+.input-valid { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #333333; background-color: #EEFFEE; border: 1px solid #339933; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
+.input-underline-required { font-size: 0.875rem; padding: 0.1rem 0.2rem; font-family: Consolas; color: var(--darker); background-color: transparent; border-width: 0px; border-bottom: 1px solid var(--primary); outline: none; }
+.input-underline-optional { font-size: 0.875rem; padding: 0.1rem 0.2rem; font-family: Consolas; color: #333333; background-color: transparent; border-width: 0px; border-bottom: 1px solid #666666; outline: none; }
+.input-underline-focus { font-size: 0.875rem; padding: 0.3rem 0.1rem; font-family: Consolas; color: var(--darker); background-color: #FFFF77; border-width: 0px; border-bottom: 1px solid var(--primary); outline: none; }
+.input-underline-error { font-size: 0.875rem; padding: 0.3rem 0.1rem; font-family: Consolas; color: #CC3333; background-color: #FFEEEE; border-width: 0px; border-bottom: 1px solid #CC3333; outline: none; }
+.input-underline-valid { font-size: 0.875rem; padding: 0.3rem 0.1rem; font-family: Consolas; color: #333333; background-color: #EEFFEE; border-width: 0px; border-bottom: 1px solid #339933; outline: none; }
+.span-error { color: #CC3333; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
+.span-valid { color: #339933; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
 
 /* button */
 button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SSm B", Consolas, Helvetica, Arial; }
@@ -94,6 +98,11 @@ button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SS
 .small-button { font-size: 0.75rem; padding: 3px 16px; outline: none; border-width: 1px; border-radius: 2px; box-shadow: 1px 1px 1px #999999; }
 .small-text-button { font-size: 0.75rem; padding: 3px 12px; outline: none; border-width: 0px; border-radius: 3px; }
 .mini-button { font-size: 0.625rem; padding: 2px 12px; outline: none; border-width: 1px; border-radius: 1px; box-shadow: 1px 1px 1px #999999; }
+
+.button-alone { border-radius: 3px !important; border-width: 1px !important; outline: none; border-color: #808080 !important; box-shadow: 1px 1px 1px #CCCCCC; }
+.button-left { border-top-left-radius: 3px !important; border-bottom-left-radius: 3px !important; border-top-right-radius: 0px !important; border-bottom-right-radius: 0px !important; border-width: 1px !important; outline: none; border-color: #808080 !important; box-shadow: 1px 1px 1px #CCCCCC; }
+.button-center { border-radius: 0px !important; border-width: 1px 1px 1px 0px !important; outline: none; border-color: #808080 !important; box-shadow: 1px 1px 1px #CCCCCC; }
+.button-right { border-top-left-radius: 0px !important; border-top-right-radius: 3px !important; border-bottom-left-radius: 0px !important; border-bottom-right-radius: 3px !important; border-width: 1px 1px 1px 0px !important; outline: none; border-color: #808080 !important;  box-shadow: 1px 1px 1px #CCCCCC; }
 
 .prime-button { background-image: linear-gradient(to bottom, var(--primary), var(--darker)); color: #FFFFFF; border-color: var(--lighter) var(--darker) var(--darker) var(--lighter); }
 .prime-button:hover { background-image: linear-gradient(to bottom, var(--lighter), var(--primary)); border-color: var(--lighter) var(--darker) var(--darker) var(--lighter); }

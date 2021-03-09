@@ -66,6 +66,31 @@ Callout.Entity.prototype.offset = function(x, y) {
     return this;
 }
 
+Callout.Entity.prototype.position = function(element, pos) {
+    this.reference = typeof(element) == 'string' ? $s(element) : element;
+    switch (pos.toLowerCase()) {
+        case 'left':
+        case 'leftside':
+            this.location = 0;
+            break;
+        case 'right':
+        case 'rightside':
+            this.location = 2;
+            break;
+        case 'down':
+        case 'downside':
+        case 'under':
+        case 'bottom':
+            this.location = 3;
+            break;
+        default:
+            this.location = 1;
+            break;
+    }
+
+    return this;
+}
+
 Callout.Entity.prototype.locate = function() {
     switch(this.location) {
         case 0:  //left
@@ -99,6 +124,10 @@ Callout.Entity.prototype.show = function(seconds) {
             window.clearTimeout(Callout.Entity.$timer);
         }, seconds * 1000);
     }
+}
+
+Callout.hide = function() {
+    $x('#Callout').hide();
 }
 
 $finish(function() {
