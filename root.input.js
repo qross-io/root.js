@@ -25,9 +25,9 @@ $enhance(HTMLInputElement.prototype)
 
         get: null, //pre-process 获取组件的值时对值进行处理，value 代表文本框的值，如 value.trim()
         set: null, //post-process 设置组件的值时对值进行处理，value 代表文本框的值            
-        preventInjection: null, //防止SQL注入攻击，当获取值是将单引号替换成两个单引号
 
         check: '', //值格式正确后从后端检查值是否满足要求
+        passWhen: '', //值通过检查的条件，javascript 表达式
 
         positive: false, //number 类型下是否要求正数
         precision: -1,
@@ -92,9 +92,6 @@ $enhance(HTMLInputElement.prototype)
         value: {
             get () {
                 let value = HTMLInputElement.valueDescriptor.get.call(this);
-                if (this.preventInjection != null) {
-                    value = value.replace(/'/g, '\'\'');
-                }
                 if (this.get != null) {
                     value = function(exp, value) { return eval(exp); }.call(this, this.get, value);
                 }
@@ -116,6 +113,7 @@ HTMLInputElement.prototype.defaultClass = null;
 HTMLInputElement.prototype.hintSpan = null;
 HTMLInputElement.prototype._status = 2; //无值初始状态
 HTMLInputElement.prototype._blured = false; //是否已失去过一次焦点
+HTMLInputElement.prototype.relations = new Set(); //关联的按钮
    
 HTMLInputElement.prototype.validate = function (check = false) {
     //验证方法 按情况 有正则验证走正则 否则非空验证
@@ -186,17 +184,17 @@ HTMLInputElement.prototype.validate = function (check = false) {
         if (check && this.check != '') {
             this.disabled = true;
             let input = this;
-            $cogo(this.check.$parseDataURL(this.value), this)
+            $cogo(this.check, this, this)
                 .then(data => {
-                    if ($parseBoolean(data, true)) {
-                        //不为空表示检查未通过
-                        input.status = -2;
-                        input.className = input.errorClass;
-                        input.hintText = input.warningText;
+                    if (this.passWhen == '' ? $parseBoolean(data, true) : $parseBoolean(this.passWhen.eval(this, data), false)) {
+                        input.hintText = input.validText.$p(input, data);
+                        input.className = input.validClass;                        
                     }
                     else {
-                        input.hintText = input.validText;
-                        input.className = input.validClass;
+                        //不为空表示检查未通过                        
+                        input.status = -2;
+                        input.className = input.errorClass;
+                        input.hintText = input.warningText.$p(input, data);
                     }
                 })
                 .catch(error => {
@@ -212,7 +210,7 @@ HTMLInputElement.prototype.validate = function (check = false) {
         else {
             this.className = this.validClass;
             if (this.warningText == '') {
-                this.hintText = this.validText;
+                this.hintText = this.validText.$p(this);
             }
             if (this.callout != null) {
                 Callout.hide();
@@ -221,15 +219,27 @@ HTMLInputElement.prototype.validate = function (check = false) {
     }
     else if (this.status == 0) {        
         this.className = this.errorClass;
-        this.hintText = this.requiredText;
+        this.hintText = this.requiredText.$p(this);
     }
     else if (this.status == -2) {        
         this.className = this.errorClass;
-        this.hintText = this.warningText;
+        this.hintText = this.warningText.$p(this);
     }
     else {        
         this.className = this.errorClass;
-        this.hintText = this.invalidText;
+        this.hintText = this.invalidText.$p(this);
+    }
+}
+
+HTMLInputElement.prototype.ajust = function() {
+    if (this.autosize) {
+        let size = this.value.$length(3) + 1;
+        if (this.minSize > 0) {
+            if (size < this.minSize) {
+                size = this.minSize;
+            }
+        }
+        this.size = size;
     }
 }
 
@@ -241,20 +251,18 @@ HTMLInputElement.prototype.update = function(attr) {
             if (format != null) {
                 this[attr] = format.$p(this);
             }
+
+            if (attr == 'value') {
+                this.ajust();
+            }
         }    
     }    
 }
     
 HTMLInputElement.prototype.initialize = function() {
-    if (this.getAttribute('size') == null) {
-        if (this.autosize) {
-            this.size = this.value.$length(3) + 1;
-        }
-        this.minSize = 0;
-    }
-    else {
-        this.minSize = this.size;
-    }
+
+    this.minSize = this.getAttribute('size') == null ? 0 : this.size;
+    this.ajust();
     
     //验证事件
     //重新输入时暂时清除 warning
@@ -329,15 +337,7 @@ HTMLInputElement.prototype.initialize = function() {
             this.validate();
         }
 
-        if (this.autosize) {
-            let size = this.value.$length(3) + 1;
-            if (this.minSize > 0) {
-                if (size < this.minSize) {
-                    size = this.minSize;
-                }
-            }
-            this.size = size;
-        }
+        this.ajust();
     });    
 
     if (this.type == 'integer') {
@@ -416,7 +416,10 @@ HTMLInputElement.prototype.initialize = function() {
 
     Event.interact(this, this);
     if (this.value == '') {
-        this.update('value');
+        let input = this;
+        $post(function() {
+            input.update('value');
+        });        
     }
 
     //enter event

@@ -1,6 +1,10 @@
 
 // 提交按钮扩展
 
+///^\s*\$[a-z0-9_]+(\s+default\s+\S+[\s\S]*?)?(\s*,\s*\$[a-z0-9_]+(\s+default\s+\S+[\s\S]*?)?)*\s*$/i.test('$a default 1')
+
+/^\s*(\$[a-z0-9_]+|\$[a-z0-9_]+\s+default\s+\S+.*?)\s*(,\s*(\$[a-z0-9_]+|\$[a-z0-9_]+\s+default\s+\S+.*?)\s*)*$/i
+
 $enhance(HTMLButtonElement.prototype)
     .declare({
         enabledClass: '', //normal-button blue-button,
@@ -15,9 +19,17 @@ $enhance(HTMLButtonElement.prototype)
         jumpingText: '', //跳转提醒文字
         jumpTo: '', //当动作action完成后要跳转到哪个页面
         actionText: '', //点击按钮后的提示文字
+        
+        successWhen: '', //接口或PQL语句的成功条件，data 是接口返回的数据
         successText: '', //执行成功后的提示文字
-        failedText: '', //执行失败后的提醒文字
+        failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
+
+        errorTextClass: 'error',
+        validTextClass: 'correct',
+
+        hint: null,
+        callout: null,
 
         scale: 'normal',
         color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
@@ -57,10 +69,27 @@ $enhance(HTMLButtonElement.prototype)
                     this.innerHTML = text;
                 }
             }
+        },
+        'hintText': {
+            get () {
+                return this.hintSpan != null ? this.hintSpan.innerHTML : '';
+            },
+            set (text) {                
+                if (this.hintSpan != null) {
+                    this.hintSpan.innerHTML = text;
+                    this.hintSpan.className = (this.status != 1 ? this.errorTextClass : this.validTextClass);
+                    this.hintSpan.style.display = text == '' ? 'none' : '';
+                }
+                
+                if (text != '' && this.callout != null) {
+                    Callout(text).position(this, this.callout).show();
+                }                
+            }
         }
     });
 
 
+HTMLButtonElement.prototype.status = 1;
 HTMLButtonElement.prototype.relatived = 0;
 HTMLButtonElement.prototype.satisfied = 0;
 HTMLButtonElement.prototype.relations = new Set();
@@ -109,17 +138,18 @@ HTMLButtonElement.prototype.go = function() {
 
     let button = this;    
 
-    button.text = button.actionText;
+    button.text = button.actionText.$p(button);
 
     $cogo(button.action, button.element)
         .then(data => {
             //一般数据会返回数据表受影响的行数
-            if ($parseBoolean(data, true)) {
-                button.text = button.successText;            
+            if (this.successWhen == '' ? $parseBoolean(data, true) :  $parseBoolean(this.successWhen.eval(this, data), false)) {
+                button.status = 1;
+                button.hintText = button.successText.$p(button, data);            
                 button.execute('onActionSuccess', data);
                 if (button.jumpTo != '') {
-                    button.text = button.jumpingText;
-                    window.location.href = button.jumpTo.$p(data);
+                    button.text = button.jumpingText.$p(button, data);
+                    window.location.href = button.jumpTo.$p(button, data);
                 }
                 else {
                     button.text = button.defaultText;
@@ -127,14 +157,17 @@ HTMLButtonElement.prototype.go = function() {
                 }
             }
             else {
-                button.text = button.failedText;
+                button.status = 0;
+                button.hintText = button.failureText.$p(button, data);
                 button.execute('onActionFail', data);
+                button.text = button.defaultText;
                 button.enable();
             }
         })
         .catch(error => {
+            button.status = 1;
             button.execute('onActionException', error);
-            button.text = button.exceptionText;            
+            button.hintText = button.exceptionText.$p(button);            
             console.error(error);
         })
         .finally(() => {
@@ -197,7 +230,7 @@ HTMLButtonElement.prototype.initialize = function() {
                 $root.confirm(this.confirmText, this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
                     .on('confirm', function() {                            
                         button.go();      
-                    })
+                    });
             }
             else if (window.confirm(this.confirmText)) {
                 this.go();         
@@ -207,35 +240,62 @@ HTMLButtonElement.prototype.initialize = function() {
             this.go();
         }
     });
+
+    if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+        if (this.hint != null || this.callout == null) {
+            if (this.hintSpan == null) {
+                if (this.hint != null && this.hint != '') {
+                    this.hintSpan = $s(this.hint);
+                }
+                else {
+                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
+                    $x(this).insertBehind(this.hintSpan);
+                }
+            }
+        }
+    }
 }
 
+HTMLButtonElement._observed = 0;
 HTMLButtonElement.observe = function() {
     //为每个自定义标签添加监控
     for (let [name, buttons] of HTMLButtonElement.relationByInput) {
-        let tag = $s(name);        
-        if (tag != null && tag.$required) {
-            HTMLInputElement.setterX.set('status', function(value) {
-                buttons.forEach(button => button.response(value));
-            });
-            
-            if (tag.status == 1) {
-                buttons.forEach(button => button.response(1));
-            }
-        }
-        else {
-            buttons.forEach(button => {
-                button.satisfied ++;
-                if (button.satisfied == button.relatived) {
-                    button.enable();
+        let tag = $s(name);
+        if (tag != null) {
+            if (tag.$required) {
+                buttons.forEach(button => tag.relations.add(button));
+                HTMLInputElement.setterX.set('status', function(value) {
+                    this.relations.forEach(button => button.response(value));
+                });
+                
+                if (tag.status == 1) {
+                    buttons.forEach(button => button.response(1));
                 }
-            });
-        }
+            }
+            else {
+                buttons.forEach(button => {
+                    button.satisfied ++;
+                    if (button.satisfied == button.relatived) {
+                        button.enable();
+                    }
+                });
+            }            
 
-        HTMLButtonElement.relationByInput.delete(name);        
+            HTMLButtonElement.relationByInput.delete(name);
+        }
     }
 
+    HTMLButtonElement._observed += 1;
+
     if (HTMLButtonElement.relationByInput.size > 0) {
-        window.setTimeout(HTMLButtonElement.observe, 200);
+        if (HTMLButtonElement._observed < 10) {
+            window.setTimeout(HTMLButtonElement.observe, 200);
+        }
+        else {
+            HTMLButtonElement.relationByInput.forEach(input => {
+                console.warn(input + ' may be incorrect.');
+            });
+        }
     }
 }
 

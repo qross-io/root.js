@@ -4,8 +4,8 @@ textarea[coder] { display: none }
 .cm-s-qross.CodeMirror { background: #f7f7f7; color: #3a3432; line-height: 180%; padding: 0.2em 0.8em; }
 .cm-s-qross div.CodeMirror-selected { background: #d6d5d4; }
 
-.cm-s-qross span { font-family: "Consolas" !important; font-size: 1em; }
-.cm-s-qross input { font-family: "Consolas" !important; font-size: 1.1em; }
+.cm-s-qross span { font-family: "Consolas" !important; font-size: 1rem; }
+.cm-s-qross input { font-family: "Consolas" !important; font-size: 1rem; }
 
 .cm-s-qross .CodeMirror-line::selection, .cm-s-qross .CodeMirror-line > span::selection, .cm-s-qross .CodeMirror-line > span > span::selection { background: #d6d5d4; }
 .cm-s-qross .CodeMirror-line::-moz-selection, .cm-s-qross .CodeMirror-line > span::-moz-selection, .cm-s-qross .CodeMirror-line > span > span::selection { background: #d9d9d9; }

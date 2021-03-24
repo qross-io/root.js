@@ -631,7 +631,7 @@ class SelectOption {
                     if (this.select.execute('onchange', this.select.options[before], this)) {
                         let option = this;
                         if (option.select.action != '') {
-                            $cogo(option.select.action.$parseDataURL(option.select.text, option.select.value), option.select.element)
+                            $cogo(option.select.action, option.select.element, option.select)
                                 .then(data => {
                                     if (!option.select.execute('onsuccess', data)) {
                                         //rollback on incorrect

@@ -248,7 +248,7 @@ Coder.save = function(cm) {
         if (Event.execute(coder.name, 'onsave')) {
             if (coder.action != '') {
                 $x('#' + coder.name + '_SaveHint').html(coder.savingText);
-                $cogo(coder.action.$parseDataURL(coder.value))
+                $cogo(coder.action + (coder.action.endsWith('=') ? '{value}%' : ''), coder.textArea, coder)
                     .then(data => {
                         coder.textArea.value = coder.value;
                         $x('#' + coder.name + '_SaveHint').html(coder.savedText);

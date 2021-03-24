@@ -1214,7 +1214,7 @@ $c = function(...o) {
 $GET = function (url, path = '/', element = null, p = true) { return new $api('GET', url, '', path, element, p); }   //SELECT
 $POST = function (url, params = '', path = '/', element = null, p = true) {return new $api('POST', url, params, path, element, p); } //INSERT
 $PUT = function (url, params = '', path = '/',  element = null, p = true) { return new $api('PUT', url, params, path, element, p); }  //UPDATE/INSERT
-$DELETE = function (url, path = '/', element = null, p = true) { return new $api('DELETE', url, path); }  //DELETE
+$DELETE = function (url, path = '/', element = null, p = true) { return new $api('DELETE', url, path, element, p); }  //DELETE
 
 $TAKE = function(data, element, owner, func) {
     if (typeof(data) == 'string') {
@@ -1391,35 +1391,8 @@ $api.prototype.success = function (func) {
     this.$send();
 }
 
-$api.prototype.parseDataURL = function(text, value = '') {
-    this.url = this.url.$parseDataURL(text, value);
-    this.params = this.params.$parseDataURL(text, value);
-    return this;
-}
-
-String.prototype.$parseDataURL = function(text = '', value = '') {
-    
-    let url = this.toString();
-    
-    if (value == '') {
-        value = text;
-    }
-
-    url = url.replace(/\{text\}/ig, encodeURIComponent(text))
-            .replace(/\{value\}/ig, encodeURIComponent(value))
-            .replace(/\{'text'\}/ig, text.replace("'", "''"))
-            .replace(/\{'value'\}/ig, value.replace("'", "''"))
-            .replace(/\{"text"\}/ig, text.replace('"', '""'))
-            .replace(/\{"value"\}/ig, value.replace('"', '""'));
-
-    if (url.endsWith('=')) {
-        url += encodeURIComponent(value);
-    }
-
-    return url;
-}
-
-$cogo = function(todo, element) {
+//data 传递 data, value, text 三个变量的数据对象
+$cogo = function(todo, element, data) {
     todo = todo.trim();
     let method = 'GET';
 
@@ -1429,7 +1402,7 @@ $cogo = function(todo, element) {
     }
 
     if (/^[a-z]+\s*/i.test(todo)) {
-        return $run(todo, element);
+        return $run(todo, element, data);
     }
     else {
         let path = '';
@@ -1437,23 +1410,23 @@ $cogo = function(todo, element) {
             path = todo.takeAfter('->').trim();
             todo = todo.takeBefore('->').trim();            
         }
-        return $request(method, todo, null, path, element);
+        return $request(method, todo, null, path, element, data);
     }
 }
 
 //run PQL
-$run = function(pql, element) {
-    return $request('POST', '/api/cogo/pql', 'statement=' + encodeURIComponent(pql.$p(element)), '/', element);
+$run = function(pql, element, data) {
+    return $request('POST', '/api/cogo/pql', 'statement=' + encodeURIComponent(pql.$p(element, data)), '/', element, data);
 }
 
 //cross domain
-$request = function(method, url, params, path, element) {
+$request = function(method, url, params, path, element, data) {
     if (url != '') {
         if (/^https?:/i.test(url)) {
-            url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element)));
+            url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element, data)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element, data)));
         }
         else {
-            url = url.$p(element);
+            url = url.$p(element, data);
         }
 
         return new Promise((resolve, reject) => {
@@ -2084,31 +2057,107 @@ String.prototype.$length = function (min = 0) {
     return l;
 }
 
+$data = function(t, data) {
+    if (data != null) {
+        if (data.data != null) {
+            return data.data;
+        }
+        else {
+            return data;
+        }
+    }
+    else if (t != null) {
+        if (t.data != undefined) {
+            return t.data;
+        }
+        else if (t.getAttribute('data') != null) {
+            return t.getAttribute('data');
+        }
+        else if (t.text != null) {
+            return t.text;
+        }
+        else if (t.textContent != null) {
+            return t.textContent;
+        }
+        else if (t.innerHTML != null) {
+            return t.innerHTML;
+        }
+        else {
+            return null;
+        }
+    }
+    else {
+        return null;
+    }
+}
+
 // private
-$value = function(t) {
-    let v = null;
-    if (t.value != undefined) {
-        v = t.value;
+$value = function(t, value) {
+    if (value != null) {
+        if (value.value != null) {
+            return value.value;
+        }
+        else {
+            return value;
+        }
     }
-    else if (t.getAttribute('value') != null) {
-        v = t.getAttribute('value');
+    else if (t != null) {
+        if (t.value != undefined) {
+            return t.value;
+        }
+        else if (t.getAttribute('value') != null) {
+            return t.getAttribute('value');
+        }
+        else if (t.textContent != null) {
+            return t.textContent;
+        }
+        else if (t.innerHTML != null) {
+            return t.innerHTML;
+        }
+        else if (t.text != null) {
+            return t.text;
+        }
+        else {
+            return null;
+        }
     }
-    else if (t.textContent != null) {
-        v = t.textContent;
+    else {
+        return null;
+    }    
+}
+
+$text = function(t, text) {
+    if (text != null) {
+        if (text.text != null) {
+            return text.text;
+        }
+        else {
+            return text;
+        }
     }
-    else if (t.innerHTML != null) {
-        v = t.innerHTML;
+    else if (t != null) {
+        if (t.text != undefined) {
+            return t.text;
+        }
+        else if (t.getAttribute('text') != null) {
+            return t.getAttribute('text');
+        }
+        else if (t.textContent != null) {
+            return t.textContent;
+        }
+        else if (t.innerHTML != null) {
+            return t.innerHTML;
+        }
+        else if (t.value != null) {
+            return t.value;
+        }
+        else {
+            return null;
+        }
     }
-    else if (t.data != null) {
-        v = t.data;
+    else {
+        return null;
     }
-    else if (t.getAttribute('data') != null) {
-         v = t.getAttribute('data');
-    }
-    else if (t.text != null) {
-        v = t.text;
-    }
-    return v;
 }
 
 // private
@@ -2183,21 +2232,26 @@ String.$p = function(t, p, a, d = 'null') {
 }
 
 //argument 'element' also supports object { }
-String.prototype.$p = function(element) {
+//data -> ajax recall data
+String.prototype.$p = function(element, list) {
 
-    let data = this.toString();
+    if (list == null) {
+        list = element;
+    }
+
+    let str = this.toString();
     if (typeof (element) == 'string') {
         element = document.querySelector(element);
     }
 
-    data = data.replace(/&lt;/g, '<');
-    data = data.replace(/&gt;/g, '>');
+    str = str.replace(/&lt;/g, '<');
+    str = str.replace(/&gt;/g, '>');
 
     //&(query)
-    let query = /\&(amp;)?\(([a-z0-9_]+)\)/i;
-    while(query.test(data)) {
-        let match = query.exec(data);
-        data = data.replace(match[0], $query.contains(match[2]) ? $query(match[2]) : 'null');
+    let query = /\&(amp;)?\(([a-z0-9_]+)\)\%?/i;
+    while(query.test(str)) {
+        let match = query.exec(str);
+        str = str.replace(match[0], $query.contains(match[2]) ? $query(match[2]).encodeURIComponent(match[0].endsWith('%')) : 'null');
     }
 
     //$(selector)+-><[n][attr]?(1)
@@ -2207,17 +2261,17 @@ String.prototype.$p = function(element) {
     // < parent
     // \d child \d
     // n last child
-    let selector = /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/i;
-    while(selector.test(data)) {
-        let match = selector.exec(data);
-        data = data.replace(match[0], String.$p($s(match[1]), match[2], match[4], match[6]));
+    let selector = /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/i;
+    while(selector.test(str)) {
+        let match = selector.exec(str);
+        str = str.replace(match[0], String.$p($s(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));
     }
 
     //parse element
     // $:<0
     // $:[attr]
     if (element != null) {
-        let holders = data.match(/\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?!?/ig);
+        let holders = str.match(/\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig);
         if (holders != null) {
             for (let holder of holders) {
                 let s = holder, p, a, d;
@@ -2236,27 +2290,41 @@ String.prototype.$p = function(element) {
                 if (s.startsWith('$:')) {
                     p = s.substring(2);
                 }
-                data = data.replace(holder, String.$p(element, p, a, d));
+                str = str.replace(holder, String.$p(element, p, a, d).encodeURIComponent(holder.endsWith('%')));
             }
         }
     }
 
     //~{{complex expression}}
     //must return a value 
-    let complex = /\~\{\{([\s\S]+?)\}\}/;
-    while (complex.test(data)) {
-        let match = complex.exec(data);
-        data = data.replace(match[0], element == null ? eval('_ = function() { ' + match[1].decode() + ' }();') : eval('_ = function() { ' + match[1].decode() + ' }').call(element));
+    let complex = /\~?\{\{([\s\S]+?)\}\}%?/;
+    while (complex.test(str)) {
+        let match = complex.exec(str);
+        let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $data(element, list), $value(element, list), $text(element, list));
+        if (typeof(result) != 'string') {
+            result = String(result);
+        }
+        if (match[0].endsWith('%')) {
+            result = encodeURIComponent(result);
+        }        
+        str = str.replace(match[0], result);
     }
 
     //~{simple expression}
-    let expression = /\~\{([\s\S]+?)\}/;
-    while (expression.test(data)) {
-        let match = expression.exec(data);
-        data = data.replace(match[0], element == null ?  eval('_ = function() { return ' + match[1].decode() + '; }();') : eval('_ = function() { return ' + match[1].decode() + ' }').call(element));
+    let expression = /\~?\{([\s\S]+?)\}%?/;
+    while (expression.test(str)) {
+        let match = expression.exec(str);
+        let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $data(element, list), $value(element, list), $text(element, list));
+        if (typeof(result) != 'string') {
+            result = String(result);
+        }
+        if (match[0].endsWith('%')) {
+            result = encodeURIComponent(result);
+        }
+        str = str.replace(match[0], result);
     }
 
-    return data.replace(/~u0040/g, '@');
+    return str.replace(/~u0040/g, '@');
 }
 
 String.prototype.isEmpty = function() {
@@ -2309,8 +2377,17 @@ String.prototype.decode = function() {
                 .replace(/&quot;/g, '"');
 }
 
-String.prototype.eval = function() {
-    return eval(this.toString());
+String.prototype.encodeURIComponent = function(sure = true) {
+    return $parseBoolean(sure, true) ? encodeURIComponent(this.toString()) : this.toString();
+}
+
+String.prototype.eval = function(obj, data) {
+    if (obj == null) {
+        return eval(this.toString());
+    }
+    else {
+        return eval('_ = function(data) { return ' + this.toString() + '; }').call(obj, data);
+    }    
 }
 
 String.prototype.toJson = function() {
@@ -2710,24 +2787,6 @@ Event.watch = function(obj, method, watcher, exp) {
                         'func': func
                     });                    
                 });
-            /*
-            if (watch.selector.includes('#')) {
-                watch.selector
-                    .split(',')
-                    .map(s => s.trim())
-                    .forEach(s => {
-                        if (s.startsWith('#')) {
-                            
-                            $listen(s).on(watch.event, func);
-                        }
-                        else {
-                            $x(s).on(watch.event, func);
-                        }
-                    });
-            }
-            else {
-                $x(watch.selector).on(watch.event, func);
-            }*/
         });
 }
 
@@ -2787,9 +2846,18 @@ $Settings.prototype.declare = function(variables) {
         if (/^[_\$]/.test(property)) {
             property = property.substring(1);
         }
+        let $p = false; //get 时解析
+        if (property.endsWith('$')) {
+            $p = true;
+            property = property.dropRight(1);
+        }
 
         let value = variables[name];
-        if (typeof(value) == 'string') {
+        if ($p) {
+            this.object[name] = this.get(property); 
+            this.object[name + 'value'] = value;
+        }
+        else if (typeof(value) == 'string') {
             if (property == 'name') {
                 this.object[name] = this.get('name');
                 this.object['id'] = this.get('id');
@@ -2879,7 +2947,7 @@ $Settings.prototype.declare = function(variables) {
                 this.object[name] = Enum(...value.split('|').map(v => v.trim())).validate(this.get(property));                
             }
             else {
-                this.object[name] = $parseString(this.get(property), value);
+                this.object[name] = $parseString(this.get(property), value);                
             }
         }
         else if (typeof(value) == 'number') {

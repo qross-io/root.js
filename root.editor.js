@@ -5,175 +5,185 @@
 // Realtime text editing on page. 
 
 
-Editor = function(elementOrSettings) {
+class Editor {
 
-    $initialize(this)
-        .with(elementOrSettings)
-        .declare({
-            //显示TreeView的元素ID
-            name: 'Editor_' + document.components.size,
-            editable: true,
-            imagesBaseUrl: function(imagesBaseUrl) {
-                if (imagesBaseUrl == null) {
-                    imagesBaseUrl = '';
-                }
-                if (imagesBaseUrl == '') {
-                    if (this.tag != null && this.tag.nodeName == 'COL') {
-                        imagesBaseUrl = this.tag.parentNode.parentNode.getAttribute('imagesBaseUrl') || '';
+    constructor(elementOrSettings) {
+
+        $initialize(this)
+            .with(elementOrSettings)
+            .declare({
+                //显示TreeView的元素ID
+                name: 'Editor_' + document.components.size,
+                editable$: true,
+                imagesBaseUrl: function(imagesBaseUrl) {
+                    if (imagesBaseUrl == null) {
+                        imagesBaseUrl = '';
                     }
-            
                     if (imagesBaseUrl == '') {
-                        imagesBaseUrl = $root.home + "images/";
+                        if (this.tag != null && this.tag.nodeName == 'COL') {
+                            imagesBaseUrl = this.tag.parentNode.parentNode.getAttribute('imagesBaseUrl') || '';
+                        }
+                
+                        if (imagesBaseUrl == '') {
+                            imagesBaseUrl = $root.home + "images/";
+                        }
                     }
-                }
-                return imagesBaseUrl;
-            },
-            type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBOX|CHECKBUTTON|SWITCH|SWITCHBUTTON|STAR|STARBUTTON',
-            /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
-            action: '',
+                    return imagesBaseUrl;
+                },
+                type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBOX|CHECKBUTTON|SWITCH|SWITCHBUTTON|STAR|STARBUTTON',
+                /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
+                action: '',
 
-            allowEmpty: true,
-            validator: function(validator) {
-                if (typeof (validator) == 'string' && validator != '') {
-                    return new RegExp(validator);
-                }
-                else {
-                    return '';
-                }
-            },
-            kilo: false,
-            autoScaling: false,
-            placeHolder: '',
+                allowEmpty: true,
+                validator: function(validator) {
+                    if (typeof (validator) == 'string' && validator != '') {
+                        return new RegExp(validator);
+                    }
+                    else {
+                        return '';
+                    }
+                },
+                kilo: false,
+                autoScaling: false,
+                placeHolder: '',
 
-            //switch - [yes,no]
-            //select - { text: value, text: value, text: value }  | #select
-            //switchbutton - [ {text: 'enabled', value: 'yes', class: 'new'}, {text: 'enabled', value: 'yes', class: 'old'} ]
-            //starbutton - [ {text: 'enabled', value: 'yes', enabledClass: 'new1', disabledClass: 'old' }, { text: 'enabled', value: 'yes', class: 'new2' }, ... ]
-            options: function(options) {
-                switch(this.type) {
-                    case 'SELECT':
-                        if (typeof(options) == 'string') {
-                            if (options.includes('&')) {
-                                return options.toMap('&', '=');
+                //switch - [yes,no]
+                //select - { text: value, text: value, text: value }  | #select
+                //switchbutton - [ {text: 'enabled', value: 'yes', class: 'new'}, {text: 'enabled', value: 'yes', class: 'old'} ]
+                //starbutton - [ {text: 'enabled', value: 'yes', enabledClass: 'new1', disabledClass: 'old' }, { text: 'enabled', value: 'yes', class: 'new2' }, ... ]
+                options: function(options) {
+                    switch(this.type) {
+                        case 'SELECT':
+                            if (typeof(options) == 'string') {
+                                if (options.includes('&')) {
+                                    return options.toMap('&', '=');
+                                }
+                                else if (options.isObjectString()) {
+                                    return Json.eval(options)                                
+                                }
+                                else {
+                                    return options.$trim('[', ']').toMap(',');
+                                }
                             }
-                            else if (options.isObjectString()) {
-                                return Json.eval(options)                                
+                            else if (options == null) {
+                                return { 'EMPTY': 'EMPTY' };                            
                             }
                             else {
-                                return options.$trim('[', ']').toMap(',');
+                                return options;
                             }
-                        }
-                        else if (options == null) {
-                            return { 'EMPTY': 'EMPTY' };                            
-                        }
-                        else {
-                            return options;
-                        }
-                    case 'SWITCH':
-                        if (typeof(options) == 'string') {
-                            if (options.isArrayString()) {
+                        case 'SWITCH':
+                            if (typeof(options) == 'string') {
+                                if (options.isArrayString()) {
+                                    return Json.eval(options);
+                                }
+                                else {
+                                    return options.$trim('{', '}').toArray(',');
+                                }
+                            }
+                            else if (options == null) {
+                                return ['yes', 'no'];
+                            }
+                            else {
+                                return options;
+                            }
+                        case 'SWITCHBUTTON':
+                            if (typeof(options) == 'string') {
+                                return Json.eval(options);
+                            }
+                            else if (options == null) {
+                                return [{ text: 'Enabled', value: 'yes' }, { text: 'Disabled', value: 'no' }];
+                            }
+                            else {
+                                return options;
+                            }
+                        case 'CHECKBUTTON':
+                            if (typeof(options) == 'string') {
                                 return Json.eval(options);
                             }
                             else {
-                                return options.$trim('{', '}').toArray(',');
+                                return options;
                             }
-                        }
-                        else if (options == null) {
-                            return ['yes', 'no'];
-                        }
-                        else {
-                            return options;
-                        }
-                    case 'SWITCHBUTTON':
-                        if (typeof(options) == 'string') {
-                            return Json.eval(options);
-                        }
-                        else if (options == null) {
-                            return [{ text: 'Enabled', value: 'yes' }, { text: 'Disabled', value: 'no' }];
-                        }
-                        else {
-                            return options;
-                        }
-                    case 'CHECKBUTTON':
-                        if (typeof(options) == 'string') {
-                            return Json.eval(options);
-                        }
-                        else {
-                            return options;
-                        }
-                    case 'CHECKBOX':
-                        if (typeof(options) == 'string') {
-                            if (options.isArrayString()) {
+                        case 'CHECKBOX':
+                            if (typeof(options) == 'string') {
+                                if (options.isArrayString()) {
+                                    return Json.eval(options);
+                                }
+                                else {
+                                    return options.$trim('{', '}').toArray(',');
+                                }
+                            }
+                            else if (options == null) {
+                                return ['yes', 'no'];
+                            }
+                            else {
+                                return options;
+                            }
+                        case 'STARBUTTON':
+                            if (typeof(options) == 'string') {
                                 return Json.eval(options);
                             }
                             else {
-                                return options.$trim('{', '}').toArray(',');
+                                return options;
                             }
-                        }
-                        else if (options == null) {
-                            return ['yes', 'no'];
-                        }
-                        else {
-                            return options;
-                        }
-                    case 'STARBUTTON':
-                        if (typeof(options) == 'string') {
-                            return Json.eval(options);
-                        }
-                        else {
-                            return options;
-                        }
-                    default:
-                        return null;
-                }                
-            },
+                        default:
+                            return null;
+                    }                
+                },
 
-            
-            maxValue: function(maxValue) {
-                return maxValue == null ? '' : $parseInt(maxValue, 0);
-            },
-            minValue: function(minValue) {
-                if (minValue == null) {
-                    return this.allowEmpty ? '' : 0;
-                }
-                else {
-                    return $parseInt(minValue, 0);
-                }
-            },
-            maxLength: function(maxLength) {
-                maxLength = $parseInt(maxLength, 0);
-                if (this.maxValue != '' && maxLength == 0) {
-                    maxLength = this.maxValue.toString().length;
-                }
-                return maxLength;
-            },
-            minLength: function(minLength) {
-                minLength = $parseInt(minLength, this.allowEmpty ? 0 : 1);
-                if (this.minValue != '' && this.minLength == 0) {
-                    minLength = this.minValue.toString().length;
-                }
-                return minLength;
-            },
-            //switch only
-            theme: function(theme) {
-                return theme == null ? 'switch' : theme.toLowerCase();
-            },
-            //star only
-            pcs: 5,
-            //star & switch only
-            zoom: 16,
+                maxValue: function(maxValue) {
+                    return maxValue == null ? '' : $parseInt(maxValue, 0);
+                },
+                minValue: function(minValue) {
+                    if (minValue == null) {
+                        return this.allowEmpty ? '' : 0;
+                    }
+                    else {
+                        return $parseInt(minValue, 0);
+                    }
+                },
+                maxLength: function(maxLength) {
+                    maxLength = $parseInt(maxLength, 0);
+                    if (this.maxValue != '' && maxLength == 0) {
+                        maxLength = this.maxValue.toString().length;
+                    }
+                    return maxLength;
+                },
+                minLength: function(minLength) {
+                    minLength = $parseInt(minLength, this.allowEmpty ? 0 : 1);
+                    if (this.minValue != '' && this.minLength == 0) {
+                        minLength = this.minValue.toString().length;
+                    }
+                    return minLength;
+                },
+                //switch only
+                theme: function(theme) {
+                    return theme == null ? 'switch' : theme.toLowerCase();
+                },
+                //star only
+                pcs: 5,
+                //star & switch only
+                zoom: 16,
 
-            editOn: 'dblclick',
-            selector: '',
+                editOn: 'dblclick',
+                selector: '',
 
-            inputClass: '', //文本框样式
-            selectClass: '' //选择框样式
-        })
-        .elementify(element => {
-            element.setAttribute('root', 'EDITOR');
-            this.tag = element;
-            element.removeAttribute('action');
-        });
+                inputClass: '', //文本框样式
+                selectClass: '' //选择框样式
+            })
+            .elementify(element => {
+                element.setAttribute('root', 'EDITOR');
+                this.tag = element;
+                element.removeAttribute('action');
+            });
+    }
+
+    get editable () {
+        return $parseBoolean(this.editable$.$p(this.element, this), this.editable$value);
+    }
+
+    set editable (editable) {
+        this.editable$ = editable;
+    }
 }
 
 $editor = function(name) {
@@ -183,6 +193,16 @@ $editor = function(name) {
     }
     else {
         return null;
+    }
+}
+
+String.prototype.concatValue = function(value) {
+    let str = this.toString();
+    if (str.endsWith('=')) {
+        return str + this.encodeURIComponent(value)
+    }
+    else {
+        return str;
     }
 }
 
@@ -331,7 +351,7 @@ Editor['TEXT'] = function (editor, element) {
                         if (editor.action != '') {
                             this.disabled = true;
                             
-                            $cogo(editor.action.$parseDataURL(after), element)
+                            $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     //finish
                                     if (editor.execute('onfinish', data, after, ev)) {
@@ -489,7 +509,7 @@ Editor['TEXTAREA'] = function (editor, element) {
                         if (editor.action != '') {
                             this.disabled = true;
                             
-                            $cogo(editor.action.$parseDataURL(after), element)
+                            $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     //finish
                                     if (editor.execute('onfinish', data, after)) {
@@ -639,7 +659,7 @@ Editor['INTEGER'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $cogo(editor.action.$parseDataURL(after), element)
+                            $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     if (editor.execute('onfinish', data, after)) {
                                         element.innerHTML = (editor.kilo ? after.kilo() : after);
@@ -781,7 +801,7 @@ Editor['DECIMAL'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $cogo(editor.action.$parseDataURL(after), element)
+                            $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     if (editor.execute('onfinish', data, after)) {
                                         element.innerHTML = (editor.kilo ? after.kilo() : after);
@@ -1007,7 +1027,7 @@ Editor['PERCENT'] = function (editor, element) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
-                            $cogo(editor.action.$parseDataURL(after), element)
+                            $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     if (editor.execute('onfinish', data, afterValue)) {
                                         element.innerHTML = (editor.kilo ? afterText.kilo() : afterText) + '%';
@@ -1114,7 +1134,7 @@ Editor['SELECT'] = function (editor, element) {
                     if (editor.editing && editor.execute('onupdate', afterValue, element)) {
                         if (editor.action != '') {
                             this.disabled = true;
-                            $cogo(editor.action.$parseDataURL(after), element)
+                            $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     if (editor.execute('onfinish', data, afterValue, element)) {
                                         element.setAttribute('value', afterValue);
@@ -1188,18 +1208,21 @@ Editor['SWITCH'] = function (editor, element) {
     }
 
     button.onmouseover = function (ev) {
+        editor.element = element;
         if (editor.editable) {
             this.src = this.src.replace('default', 'hover');
         }
     }
 
     button.onmouseout = function (ev) {
+        editor.element = element;
         if (editor.editable) {
             this.src = this.src.replace('hover', 'default');
         }
     } 
 
     button.onmousedown = function (ev) {
+        editor.element = element;
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
             this.src = this.src.replace('hover', 'active');
             editor.editing = true;
@@ -1209,11 +1232,12 @@ Editor['SWITCH'] = function (editor, element) {
     }
 
     button.onmouseup = function (ev) {
+        editor.element = element;
         let before = button.getAttribute('value');
         let after = before == editor.options[0] ? editor.options[1] : editor.options[0];
         if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
             if (editor.action != '') {
-                $cogo(editor.action.$parseDataURL(after), element)
+                $cogo(editor.action.concatValue(after), element, after)
                     .then(data => {
                         if (editor.execute('onfinish', data, after)) {
                             button.src = button.src.replace((before == editor.options[0] ? 'on' : 'off') + '_active', (before == editor.options[0] ? 'off' : 'on') + '_hover');
@@ -1294,7 +1318,7 @@ Editor['SWITCHBUTTON'] = function (editor, element) {
         if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
             button.disabled = true;
             if (editor.action != '') {
-                $cogo(editor.action.$parseDataURL(after), element)
+                $cogo(editor.action.concatValue(after), element, after)
                     .then(data => {
                         if (editor.execute('onfinish', data, after)) {
                             $x(button).html(editor.options[afterIndex].text).css(editor.options[afterIndex].class);
@@ -1355,7 +1379,7 @@ Editor['CHECKBOX'] = function (editor, element) {
             let after = this.checked ? editor.options[0] : editor.options[1];
             if (editor.execute('onupdate', after)) {
                 if (editor.action != '') {   
-                    $cogo(editor.action.$parseDataURL(after), element)
+                    $cogo(editor.action.concatValue(after), element, after)
                         .then(data => {
                             if (!editor.execute('onfinish', data, after)) {
                                 //restore if return false
@@ -1435,7 +1459,7 @@ Editor['CHECKBUTTON'] = function(editor, element) {
                 if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
                     $x(element).children().disable();
                     if (editor.action != '') {
-                        $cogo(editor.action.$parseDataURL(after), element)
+                        $cogo(editor.action.concatValue(after), element, after)
                             .then(data => {
                                 if (editor.execute('onfinish', data, after)) {
                                     element.setAttribute('value', after);
@@ -1566,7 +1590,7 @@ Editor['LINKTEXT'] = function (editor, element) {
                             //update
                             if (editor.action != '') {
                                 this.disabled = true;
-                                $cogo(editor.action.$parseDataURL(after), element)
+                                $cogo(editor.action.concatValue(after), element, after)
                                     .then(data => {
                                         //finish
                                         if (editor.execute('onfinish', data, after)) {
@@ -1697,7 +1721,7 @@ Editor['STAR'] = function (editor, element) {
                         if (editor.editing && !editor.updating && editor.execute('onupdate', after)) {
                             let stars = element.querySelectorAll('img[sign=star]');
                             if (editor.action != '') {
-                                $cogo(editor.action.$parseDataURL(after), element)
+                                $cogo(editor.action.concatValue(after), element, after)
                                     .then(data => {
                                         if (editor.execute('onfinish', data, after)) {
                                             for (let j = 0; j < stars.length; j++) {
@@ -1771,7 +1795,7 @@ Editor['STARBUTTON'] = function(editor, element) {
                 if (editor.editable && before != after && editor.editing && editor.execute('onupdate', after)) {
                     $x(element).children().disable();
                     if (editor.action != '') {
-                        $cogo(editor.action.$parseDataURL(after), element)
+                        $cogo(editor.action.concatValue(after), element, after)
                             .then(data => {
                                 if (editor.execute('onfinish', data, after)) {
                                     element.setAttribute('value', after);

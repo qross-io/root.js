@@ -557,7 +557,7 @@ class ButtonOption {
                     if (this.selectButton.execute('onchange', this.selectButton.options[before])) {
                         let option = this;
                         if (option.selectButton.action != '') {
-                            $cogo(option.selectButton.action.$parseDataURL(option.selectButton.text, option.selectButton.value), option.selectButton.element)
+                            $cogo(option.selectButton.action, option.selectButton.element, option.selectButton)
                                 .then(data => {
                                     if (!option.selectButton.execute('onsuccess', data)) {
                                         //rollback on incorrect
