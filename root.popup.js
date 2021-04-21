@@ -133,7 +133,7 @@ Popup = function (element) {
         closingDuration: '0.8s', //1s, 800ms
 
         //animationStyle: '', //预设的动画样式
-        display: 'window', //window/sidebar/menu
+        display: 'window|sidebar|menu', //window/sidebar/menu
         reference: '$x', //
 
         modal: true,
@@ -160,6 +160,8 @@ Popup = function (element) {
         this.element.style.zIndex = '1001';
         this.element.style.visibility = 'hidden';
         this.element.style.overflow = (this.element.querySelector('div.popup-scroll') == null ? 'auto' : 'hidden');
+
+        this.element.setAttribute('root', 'POPUP');
     });
 
     if (this.openButton.isEmpty()) {
@@ -208,7 +210,7 @@ Popup.prototype.locate = function(ev) {
 	/// <param name="ev" type="EventArgs"></param>
     
     //自动调整边栏的宽高
-    if (this.display == 'sidebar') {
+    if (this.display == 'SIDEBAR') {
         if (this.position.x == 'center') {
             //上中下边栏全宽
             let width = window.innerWidth;
@@ -252,7 +254,7 @@ Popup.prototype.locate = function(ev) {
 }
 
 Popup.prototype.$getOpeningAnimation = function(ev) {
-    if (this.display == 'sidebar') {
+    if (this.display == 'SIDEBAR') {
         //sidebar的自定义动画无效
         if (this.position.x == 'center') {
             if (this.position.y == 'top') {
@@ -287,7 +289,7 @@ Popup.prototype.$getOpeningAnimation = function(ev) {
 }
 
 Popup.prototype.$getClosingAnimation = function(ev) {
-    if (this.display == 'sidebar') {
+    if (this.display == 'SIDEBAR') {
         //sidebar的自定义动画无效
         if (this.position.x == 'center') {
             if (this.position.y == 'top') {
@@ -468,7 +470,7 @@ Popup.prototype.getPositionX = function (x, ev) {
         return x;
     }
     else if (typeof (x) == 'string') {
-        if (this.display != 'menu') {
+        if (this.display != 'MENU') {
             switch(x) {
                 case 'event':
                     x = this.getEventX(ev);
@@ -513,7 +515,7 @@ Popup.prototype.getPositionY = function (y, ev) {
         return y;
     }
     else if (typeof (y) == 'string') {
-        if (this.display != 'menu') {
+        if (this.display != 'MENU') {
             switch(y) {
                 case 'event':
                     y = this.getEventY(ev);
@@ -649,7 +651,9 @@ PopupMask.resize = function() {
 }
 
 Popup.apply = function (element) {
-    return new Popup(element);
+    if (element.getAttribute('root') == null) {
+        new Popup(element);
+    }    
 }
 
 Popup.initializeAll = function () {
@@ -665,9 +669,8 @@ Popup.initializeAll = function () {
     });
 }
 
-$ready(function () {
+$finish(function () {
     Popup.initializeAll();
-
     $x(window).on('message', function(ev) {
         switch(ev.data) {
             case 'CLOSE-POPUP': 

@@ -537,7 +537,7 @@ DateTime.prototype.getZodiac = function() {
 
 DateTime.prototype.getLunarMonth = function() {
     let date = this.toDateString();
-    if (document.calendars != null && Calendar.LUNAR[date] != null) {
+    if ($calendar != null && Calendar.LUNAR[date] != null) {
         return Calendar.LUNAR[date]['lunar_month'];
     }
     else {
@@ -547,7 +547,7 @@ DateTime.prototype.getLunarMonth = function() {
 
 DateTime.prototype.getLunarDay = function() {
     let date = this.toDateString();
-    if (document.calendars != null && Calendar.LUNAR[date] != null) {
+    if ($calendar != null && Calendar.LUNAR[date] != null) {
         return Calendar.LUNAR[date]['lunar_day'];
     }
     else {
@@ -557,7 +557,7 @@ DateTime.prototype.getLunarDay = function() {
 
 DateTime.prototype.getLunar = function() {
     let date = this.toDateString();
-    if (document.calendars != null && Calendar.LUNAR[date] != null) {
+    if ($calendar != null && Calendar.LUNAR[date] != null) {
         let day = Calendar.LUNAR[date]['lunar_day'];
         let term = Calendar.LUNAR[date]['solar_term'];
         let festival = Calendar.LUNAR[date]['festival'];
@@ -577,7 +577,7 @@ DateTime.prototype.getLunar = function() {
 
 DateTime.prototype.getFestival = function() {
     let date = this.toDateString();
-    if (document.calendars != null && Calendar.LUNAR[date] != null) {
+    if ($calendar != null && Calendar.LUNAR[date] != null) {
         return Calendar.LUNAR[date]['festival'];
     }
     else {
@@ -588,7 +588,7 @@ DateTime.prototype.getFestival = function() {
 DateTime.prototype.getWorkday = function() {
     let date = this.toDateString();
     let workday = -1;
-    if (document.calendars != null && Calendar.LUNAR[date] != null) {
+    if ($calendar != null && Calendar.LUNAR[date] != null) {
         //2 特殊休息日 3 特殊工作日
         workday = Calendar.LUNAR[date]['workday'];
     }    
@@ -604,7 +604,7 @@ DateTime.prototype.getWorkday = function() {
 
 DateTime.prototype.setWorkday = function(workday) {
     let date = this.toDateString();
-    if (document.calendars != null && Calendar.LUNAR[date] != null) {
+    if ($calendar != null && Calendar.LUNAR[date] != null) {
         Calendar.LUNAR[date].workday = workday == -1 ? -1 : workday - 2;
     }    
 }

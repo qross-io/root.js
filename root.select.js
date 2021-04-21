@@ -1,8 +1,7 @@
 
-
 /**
 
-<select type="button/tab/span/div/image/checkbox/radio" data="" action="" text="" value="" cols="">
+<select type="button/tab/span/div/image/checkbox/radio" data="" text="" value="" cols="">
     <option value="" icon="url/icon/other" show="" hide=""></option>
     <option>text</option>
     <optgroup data="@[initial]">
@@ -44,7 +43,10 @@ class Select {
             
             requiredText: '',
             invalidText: '',
-            validator: '', //验证表达式, 如 this.selectedIndex > 0
+            validText: '',
+            successText: '',
+            failureText: '',
+            exceptionText: '',
 
             //button only
             _scale: SelectButtonScale.NORMAL,
@@ -56,15 +58,13 @@ class Select {
             multiple: false,
    
             data: '',
-            action: '',
             
             _disabled: false,
 
             reloadOn: '',
 
             onchange: null, //function(beforeOption, ev) { },
-            onerror: null, //function(statusText) { },
-            onsuccess: null //function(result) { }
+            'onchange+': '' //server side event
         })
         .elementify(element => {
             if (this.type == 'BEAUTY') {
@@ -72,11 +72,13 @@ class Select {
                 //this.container =                 
             }
             else if (this.type != 'ORIGINAL') {
-                this.container = $create(this.type != 'DIV' ? 'SPAN' : 'DIV', { id: this.id, className: this._frameClass }, { }, { name: this._name, value: this._value || '' });
+                this.container = $create(Select[this.type].container, { id: this.id, className: this._frameClass }, { }, { name: this._name, value: this._value || '' });
                 if (element.getAttribute('style') != null) {
                     this.container.setAttribute('style', element.getAttribute('style'));
                 }
                 $x(element).insertFront(this.container);
+                //transfer attributes
+                $transfer(element, this.container);                
             }
             else {
                 this.container = element;
@@ -93,15 +95,17 @@ class Select {
             let select = this;
             this.container.onclick = function(ev) { 
                 let target = ev.target;
-                while (target.getAttribute('index') == null) {
+                while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
                     target = target.parentNode;
                 }
-                let index = target.getAttribute('index').toInt();
-                if (select.multiple) {
-                    select.options[index].selected = !select.options[index].selected;
-                }
-                else if (!select.options[index].selected) {
-                    select.options[index].selected = true;
+                if (target.nodeName != 'BODY') {
+                    let index = target.getAttribute('index').toInt();
+                    if (select.multiple) {
+                        select.options[index].selected = !select.options[index].selected;
+                    }
+                    else if (!select.options[index].selected) {
+                        select.options[index].selected = true;
+                    }
                 }
             }
         }
@@ -630,19 +634,22 @@ class SelectOption {
                 if (this.select.initialized) {
                     if (this.select.execute('onchange', this.select.options[before], this)) {
                         let option = this;
-                        if (option.select.action != '') {
-                            $cogo(option.select.action, option.select.element, option.select)
-                                .then(data => {
-                                    if (!option.select.execute('onsuccess', data)) {
-                                        //rollback on incorrect
-                                        option.select._rollback(before, option.index);
-                                    }
-                                })
-                                .catch(error => {
-                                    option.select.execute('onerror', error);
-                                    //back on error
-                                    option.select._rollback(before, option.index);
-                                });
+                        if (this.select['onchange+'] != '') {
+                            $FIRE(this.select, 'chnage', this.select['onchange+'],
+                                    data => {
+                                        this.hintText = this.successText.$p(this, data);
+                                    }, 
+                                    data => {
+                                        this.hintText = this.failureText.$p(this, data);
+                                        this._rollback(before, option.index);
+                                    },
+                                    error => {
+                                        this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                                        this._rollback(before, option.index);
+                                    },
+                                    function() {
+                                        this.disabled = false;
+                                    });                            
                         }
                     }
                     else {
@@ -651,6 +658,7 @@ class SelectOption {
                     }
                 }
             }
+            Select[this.select.type].selectAop.call(this, selected);
         }
     }
 
@@ -664,8 +672,12 @@ class SelectOption {
                 $x(this.container).swap(this.selected ? this.selectedClass : this.className, this.disabledClass);
                 this._disabled = disabled;
             }
-            Select[this.select.type].disable.call(this, disabled);
+            Select[this.select.type].disableAop.call(this, disabled);
         }        
+    }
+
+    set hintText(text) {
+        
     }
 }
 
@@ -723,6 +735,7 @@ SelectOption.prototype._updateAppearance = function(terminal) {
 
 
 Select['ORIGINAL'] = {
+    container: '',
     optionClass: '', 
     selectedOptionClass: '',
     disabledOptionClass: '',
@@ -732,12 +745,16 @@ Select['ORIGINAL'] = {
     populate: function() {
 
     },
-    disable: function(yes) {
+    selectAop: function(yes) {
+
+    },
+    disableAop: function(yes) {
 
     }
 }
 
 Select['BUTTON'] = {
+    container: 'SPAN',
     optionClass: 'optional-button', 
     selectedOptionClass: 'green-button',
     disabledOptionClass: 'disabled',
@@ -747,7 +764,10 @@ Select['BUTTON'] = {
     populate: function() {
         return $create('BUTTON', { innerHTML: this.text, title: this.title }, { }, { value: this.value, index: this.index });
     },
-    disable: function(yes = true) {
+    selectAop: function(yes) {
+
+    },
+    disableAop: function(yes = true) {
         this.container.disabled = yes;
     },
     updateAppearance: function(terminal) {
@@ -810,11 +830,12 @@ Select['BUTTON'] = {
 }
 
 Select['IMAGE'] = {
+    container: 'SPAN',
     optionClass: 'image-option', 
     selectedOptionClass: 'image-selected-option',
     disabledOptionClass: 'image-disabled-option',
     setText: function(text) {
-        this.container.lastChild.src = text;
+        this.container.lastChild.innerHTML = text;
     },
     populate: function() {
         let span = $create('SPAN', { title: this.title }, { }, { value: this.value, index: this.index });
@@ -824,7 +845,10 @@ Select['IMAGE'] = {
         span.appendChild($create('SPAN', { innerHTML: this.text }));
         return span;
     },
-    disable: function(yes = true) {
+    selectAop: function(yes) {
+
+    },
+    disableAop: function(yes = true) {
         this.container.setAttribute('disabled', yes);
     },
     updateAppearance: function(terminal) {
@@ -840,22 +864,78 @@ Select['IMAGE'] = {
     }
 }
 
-// 'SPAN': function() {
-        //     return $create('SPAN', { innerHTML: option.text, title: option.title }, { }, { value: option.value, index: option.index });
-        // },
-        // 'DIV': function() {
-        //     return $create('DIV', { innerHTML: option.text, title: option.title }, { }, { value: option.value, index: option.index });
-        // },
-        // 'RADIO': function() {
-        //     let td = $create('TD', { title: option.title }, { }, { value: option.value, index: option.index });
-        //     return null;
-        // },
-        // 'CHECKBOX': function() {
-        //     return null;
-        // },
-        // 'TAB': function() {
-        //     return null;
-        // }
+Select['RADIO'] = {
+    container: 'DIV',
+    optionClass: 'item-option',
+    selectedOptionClass: 'item-selected-option',
+    disabledOptionClass: 'item-disabled-option',
+    setText: function(text) {
+        this.container.lastChild.innerHTML = text;
+    },
+    populate: function() {
+        let div = $create('DIV', { title: this.title, className: this.className }, { }, { value: this.value, index: this.index });
+        let radio = $create('INPUT', { type: 'radio', name: this.select.id, id: this.select.id + '_' + this.index, value: this.value, checked: this.selected }, { }, { index: this.index });
+        let label = $create('LABEL', { htmlFor: this.select.id + '_' + this.index, innerHTML: this.text });
+        div.appendChild(radio);
+        div.appendChild(document.createTextNode(' '));
+        div.appendChild(label);
+        return div;
+    },
+    selectAop: function(yes) {
+
+    },
+    disableAop: function(yes = true) {
+        this.container.firstChild.disabled = yes;
+    },
+    updateAppearance: function(terminal) {
+        if (this.disabled) {
+            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
+        }
+        else if (this.selected) {
+            this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
+        }
+        else {
+            this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+        }
+    }
+}
+
+Select['CHECKBOX'] = {
+    container: 'DIV',
+    optionClass: 'item-option',
+    selectedOptionClass: 'item-selected-option',
+    disabledOptionClass: 'item-disabled-option',
+    setText: function(text) {
+        this.container.lastChild.innerHTML = text;
+    },
+    populate: function() {
+        let div = $create('DIV', { title: this.title, className: this.className }, { }, { value: this.value, index: this.index });
+        let radio = $create('INPUT', { type: 'checkbox', name: this.select.id, id: this.select.id + '_' + this.index, value: this.value, checked: this.selected }, { }, { index: this.index });
+        let label = $create('SPAN', { htmlFor: this.select.id + '_' + this.index, innerHTML: this.text });
+        div.appendChild(radio);
+        div.appendChild(document.createTextNode(' '));
+        div.appendChild(label);
+        return div;
+    },
+    selectAop: function(yes) {
+        this.container.firstChild.checked = yes;
+    },
+    disableAop: function(yes = true) {
+        this.container.firstChild.disabled = yes;
+    },
+    updateAppearance: function(terminal) {
+        if (this.disabled) {
+            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
+        }
+        else if (this.selected) {
+            this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
+        }
+        else {
+            this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+        }
+    }
+}
+
 
 Select.initialize = function(button) {
     if (typeof(button) == 'string') {

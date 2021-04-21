@@ -609,8 +609,8 @@ DataTable.prototype.clear = function() {
 DataTable.prototype.append = function(row) {
 
     this.template
-        .load([row])
-        .append(function(data) {
+        .setData([row])
+        .load(function(data) {
             this.__initializeAllRows();
             this.__formatCellData(row);
         });    
@@ -629,9 +629,9 @@ DataTable.prototype.load = function(data) {
     // #{name:0:00%}
     // #{name:yyyMMdd}
     this.template
-        .load(this.data)
+        .setData(this.data)
         .asArray()
-        .append(function(data) {
+        .load(function(data) {
             //主要是设置样式
             this.__initializeAllRows();
                     

@@ -1,7 +1,7 @@
 :root { --primary: #8000FF; --lighter: #A222FF; --darker: #6000DD; }
 
 div,td,span,label,p,input,textarea,select { font-size: 0.875rem; font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SSm B", Consolas, Helvetica, Arial; }
-th { font-size: 0.875rem; font-family: "Times New Roman", "Microsoft YaHei"; }
+th { font-size: 0.875rem; font-family: "Times New Roman", "Microsoft YaHei"; white-space: nowrap; }
 body { margin: 0px; background-color: #FFFFFF; }
 
 a { color: var(--primary); text-decoration: none; }
@@ -86,6 +86,7 @@ a:active { color: var(--lighter); text-decoration: none; }
 .input-underline-focus { font-size: 0.875rem; padding: 0.3rem 0.1rem; font-family: Consolas; color: var(--darker); background-color: #FFFF77; border-width: 0px; border-bottom: 1px solid var(--primary); outline: none; }
 .input-underline-error { font-size: 0.875rem; padding: 0.3rem 0.1rem; font-family: Consolas; color: #CC3333; background-color: #FFEEEE; border-width: 0px; border-bottom: 1px solid #CC3333; outline: none; }
 .input-underline-valid { font-size: 0.875rem; padding: 0.3rem 0.1rem; font-family: Consolas; color: #333333; background-color: #EEFFEE; border-width: 0px; border-bottom: 1px solid #339933; outline: none; }
+.span-hint { color: #A0A0A0; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
 .span-error { color: #CC3333; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
 .span-valid { color: #339933; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
 
@@ -155,7 +156,8 @@ button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SS
 .popup-button  { text-align: center; padding: 10px 20px 20px 20px; }
 
 /* Marker */
-.marker-frame { margin: 0px 24px 12px 24px; background-color: #FFFFFF; padding: 0px 24px; }
+.marker-frame { margin: 36px; background-color: #FFFFFF; }
+div.content {  padding: 1em 2em 3em 2em; }
 h1 { display: block; font-size: 1.6rem; margin-block-start: 0.67em; margin-block-end: 0.67em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: normal; color: var(--primary); margin-bottom: 1.0em; }
 h2 { padding-top: 1.0em; color: #333333; display: block; font-size: 1.4rem; margin-block-start: 0em; margin-block-end: 0em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: normal; }
 h3 { padding-top: 0.8em; color: var(--darker); display: block; font-size: 1.2rem; margin-block-start: 1em; margin-block-end: 1em; margin-inline-start: 0px; margin-inline-end: 0px; font-weight: normal; }

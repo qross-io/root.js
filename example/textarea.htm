@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TextArea</title>
+    <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.animation.js"></script>    
+    <script type="text/javascript" src="/root.datetimepicker.js"></script>
+    <script type="text/javascript" src="/root.input.js"></script>
+    <script type="text/javascript" src="/root.select.js"></script>
+    <script type="text/javascript" src="/root.button.js"></script>    
+    <script type="text/javascript" src="/root.datetime.js"></script>
+    <script type="text/javascript" src="/root.calendar.js"></script>
+    <script type="text/javascript" src="/root.clock.js"></script>
+    <script type="text/javascript" src="/root.popup.js"></script>
+    <script type="text/javascript" src="/root.coder.js"></script>
+    <script type="text/javascript" src="/coder/codemirror.js"></script>
+    <script type="text/javascript" src="/coder/javascript.js"></script>
+    <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/select.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/calendar.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/clock.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/iconfont.css" rel="stylesheet" type="text/css" />
+    <link href="/coder/codemirror.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/coder.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+    </style>
+</head>
+<body style="padding: 50px;">
+   <textarea id="Coder1" coder="json" validator="array" rows="6" onsave+="hello world" save-text="失去焦点将自动保存。" required-text="代码不能为空。" invalid-text="Json 数据的格式不正确。"></textarea>
+   <input id="TextBox1" type="text" pattern="^[a-z]+$" validator="^[a-z]+$" />
+   <button id="Button1" onclick+="hello world" value:="abc" value="world" hello#="123" value$="456">Button1</button>
+</body>
+</html>

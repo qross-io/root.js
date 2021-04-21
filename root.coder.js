@@ -33,20 +33,37 @@ class Coder {
         //最小行数
         this.$rows = 0;
         this.limited = false;
+        
+        this.onsave = textArea.getAttribute('onsave'); //客户端事件
+        this['onsave+'] = textArea.getAttribute('onsave+') || textArea.getAttribute('action') || ''; //服务器端事件
+        this.onfocus = textArea.getAttribute('onfocus');
+        this.onblur = textArea.getAttribute('onblur');
 
-        this.action = textArea.getAttribute('action') || '';
 
-        this.saveText = textArea.getAttribute('save-text') || textArea.getAttribute('save-text') || '';
-        this.savingText = textArea.getAttribute('saving-text') || textArea.getAttribute('saving-text') || '';
-        this.savedText = textArea.getAttribute('saved-text') || textArea.getAttribute('saved-text') || '';
+        this.saveText = textArea.getAttribute('save-text') || textArea.getAttribute('saveText') || '';
+        this.savingText = textArea.getAttribute('saving-text') || textArea.getAttribute('savingText') || '';
+        this.savedText = textArea.getAttribute('saved-text') || textArea.getAttribute('savedText') || '';
+        this.requiredText = textArea.getAttribute('required-text') || textArea.getAttribute('requiredText') || ''; //必填项，不能为空
+        this.invalidText = textArea.getAttribute('invalid-text') || textArea.getAttribute('invalidText') || ''; //当输入值不能格式要求时，这里指 validator 验证        
+        this.validText = textArea.getAttribute('valid-text') || textArea.getAttribute('validText') || '';
+        this.successText = textArea.getAttribute('success-text') || textArea.getAttribute('successText') || this.savedText;
+        this.failureText = textArea.getAttribute('failure-text') || textArea.getAttribute('failureText') || ''; //后端验证失败后的提醒文字，如语法不正确
+        this.exceptionText = textArea.getAttribute('exception-text') || textArea.getAttribute('exceptionText') || '';
 
-        this.$mode = (textArea.getAttribute('mode') || 'pql').toLowerCase();
+        this.hintTextClass = 'span-hint';
+        this.errorTextClass = 'span-error';
+        this.validTextClass = 'span-valid';
+
+        this.$mode = (textArea.getAttribute('mode') || textArea.getAttribute('coder') || 'pql').toLowerCase();
         if (Coder.mineTypes[this.$mode] != null) {
             this.options['mode'] = Coder.mineTypes[this.$mode];
         }
         else {
             this.options['mode'] = this.$mode;
         }
+
+        //预设的验证器  array/object/object-array
+        this.validator = textArea.getAttribute('validator') || '';
 
         for (let attr of textArea.getAttributeNames()) {
             if (attr == 'rows') {                
@@ -64,7 +81,7 @@ class Coder {
                     CodeMirror.commands[event] = window[event];
                 }
             }
-            else if (!Coder.reserved.has(attr)) {
+            else if (!Coder.reserved.has(attr) && !attr.toLowerCase().endsWith('text')) {
                 this.options[attr.toCamel()] = textArea.getAttribute(attr).recognize();
             }                
         }
@@ -126,31 +143,39 @@ class Coder {
         document.components.set(this.name, this);
 
         //save
-        this.mirror.on('blur', Coder.save);
         CodeMirror.commands[this.name + '-save'] = Coder.save;
-        if (this.saveText != '') {
-            textArea.parentNode.appendChild($create('DIV', { id: this.name + '_SaveHint', innerHTML: this.saveText },
-                                                           { marginTop: '-30px', padding: '5px 6px', textAlign: 'right', position: 'relative', borderRadius: '3px', fontSize: '12px', color: '#A0A0A0', display: 'none' },
-                                                           { 'save-text': this.saveText, 'saving-text': this.savingText, 'saved-text': this.savedText }));
-            this.mirror.on('change', function(cm) {
-                let div = $s('#' + cm.getTextArea().id + '_SaveHint');
-                if (div.style.display == 'none') {
-                    div.style.display = '';
-                }
-                if (div.innerHTML != div.getAttribute('save-text')) {
-                    div.innerHTML = div.getAttribute('save-text');
-                }
-            });
-        }
+        
+        let coder = this;
+        this.mirror.on('change', function(cm) {
+            coder.hintText = coder.saveText.$p(this);
+        });        
 
         this.mirror.on('focus', function(cm) {
             if (cm.getOption('readOnly') == false) {
                 cm.setOption('cursorBlinkRate', 530);
-            }            
+            }
+
+            Event.execute(coder.name, 'onfocus');
         });
         this.mirror.on('blur', function(cm) {
             cm.setOption('cursorBlinkRate', -1);
+            Coder.save(cm);
+
+            Event.execute(coder.name, 'onblur');
         });
+
+        this.hintSpan = $create('DIV', { id: this.name + '_Hint', className: 'hintTextClass' }, 
+                                       { marginTop: '-35px', padding: '5px 10px', textAlign: 'right', position: 'relative',
+                                         borderRadius: '3px', fontSize: '0.625rem', display: 'none', 
+                                         display: 'none', float: 'right' });
+        $x(textArea.nextElementSibling).insertBehind(this.hintSpan);
+        textArea.setAttribute('hidden', 'always');
+        textArea.nextElementSibling.id = this.name + '_Code';
+        textArea.setAttribute('relative', `#${this.name}_Code,#${this.name}_Hint`);
+
+        if (this.saveText != '') {
+            this.hintText = this.saveText;
+        }
     }
 
     get mode() {
@@ -171,7 +196,7 @@ class Coder {
     }
 
     set value(value) {
-        this.mirror.setValue(value);
+        this.mirror.setValue( value);
     }
 
     get readOnly() {
@@ -205,6 +230,30 @@ class Coder {
             this.frame.style.height = 'auto';
         }
     }
+
+    set hintText(text) {
+        if (this.hintSpan.style.display == 'none') {
+            this.hintSpan.style.display = '';
+        }
+        this.hintSpan.innerHTML = text;
+        this.hintSpan.className = this.hintTextClass;
+    }
+
+    set errorText(text) {
+        if (this.hintSpan.style.display == 'none') {
+            this.hintSpan.style.display = '';
+        }
+        this.hintSpan.innerHTML = text;
+        this.hintSpan.className = this.errorTextClass;
+    }
+
+    set correctText(text) {
+        if (this.hintSpan.style.display == 'none') {
+            this.hintSpan.style.display = '';
+        }
+        this.hintSpan.innerHTML = text;
+        this.hintSpan.className = this.validTextClass;
+    }
 }
 
 $coder = function(name) {
@@ -217,7 +266,7 @@ $coder = function(name) {
     }
 }
 
-Coder.reserved = new Set(['coder', 'class', 'action', 'mode', 'readonly', 'read-only', 'save-text', 'saving-text', 'saved-text']);
+Coder.reserved = new Set(['coder', 'class', 'mode', 'readonly', 'read-only', 'validator']);
 
 Coder.mineTypes = {
     'sh': 'text/x-sh',
@@ -226,6 +275,7 @@ Coder.mineTypes = {
     'html': 'text/html',
     'css': 'text/css',
     'javascript': 'text/javascript',
+    'json': 'application/json',
     'sql': 'text/x-pql',
     'pql': 'text/x-pql',
     'java': 'text/x-java',
@@ -239,19 +289,80 @@ Coder.prototype.on = function(eventName, func) {
     return this;
 }
 
-//事件
-Coder.prototype.onsave = null;
-
 Coder.save = function(cm) {
     let coder = $coder(cm.getTextArea().id);
-    if (!coder.readOnly && coder.textArea.value != coder.value) {
+
+    let valid = 1;
+    if (coder.value == '') {
+        if (coder.requiredText != '') {
+            coder.errorText = coder.requiredText.$p(this);
+            valid = 0;
+        }       
+    }
+    else {
+        if (coder.mode == 'json') {
+            let json = null;
+            let value = coder.value.trim();
+            
+            try {
+                json = JSON.parse(coder.value);
+            }
+            catch (e) {
+                valid = -1;
+                coder.errorText = e.message;
+            }
+
+            if (valid == 1) {
+                if (coder.validator == 'array') {
+                    if (!(value.startsWith('[') && value.endsWith(']') && json instanceof Array)) {
+                        valid = 0;
+                    }
+                }
+                else if (coder.validator == 'object') {
+                    if (!(value.startsWith('{') && value.endsWith('}') && json instanceof Object)) {
+                        valid = 0;
+                    }
+                }
+                else if (coder.validator == 'object-array') {
+                    if (!(value.startsWith('[') && value.endsWith(']') && json instanceof Array)) {
+                        valid = 0;
+                    }
+                    else if (json.length > 0 && !(json[0] instanceof Object)) {
+                        valid = 0;
+                    }
+                }
+            }
+        }
+
+        if (valid == 1) {
+            coder.correctText = coder.validText.$p(this);
+        }
+        else if (valid == 0) {
+            coder.errorText = coder.invalidText.$p(this);
+        }
+    }
+
+    if (valid == 1 && !coder.readOnly && coder.textArea.value != coder.value) {
         if (Event.execute(coder.name, 'onsave')) {
-            if (coder.action != '') {
-                $x('#' + coder.name + '_SaveHint').html(coder.savingText);
-                $cogo(coder.action + (coder.action.endsWith('=') ? '{value}%' : ''), coder.textArea, coder)
+            if (coder['onsave+'] != '') {
+                coder.hintText = coder.savingText.$p(coder, data);
+                $FIRE(coder, 'save', coder['onsave+'],
+                    data => {
+                        this.textArea.value = this.value;
+                        this.hintText = this.successText == '' ? this.savedText.$p(this, data) : this.successText.$p(this, data);
+                    }, 
+                    data => {
+                        this.errorText = this.failureText.$p(this, data);
+                    },
+                    error => {
+                        this.errorText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                    },
+                    function() {
+
+                    });
+                $cogo(coder.saveAction + (coder.saveAction.endsWith('=') ? '{value}%' : ''), coder.textArea, coder)
                     .then(data => {
-                        coder.textArea.value = coder.value;
-                        $x('#' + coder.name + '_SaveHint').html(coder.savedText);
+                        
                     });                
             }
             else {
@@ -264,6 +375,29 @@ Coder.save = function(cm) {
 Coder.prototype.setOption = function(option, value) {
     this.options[option] = value;
     this.mirror.setOption(option, value);
+}
+
+Coder.prototype.show = function(visible = true) {
+    if (visible) {
+        this.textArea.nextElementSibling.style.display = '';
+        this.textArea.setAttribute('visible', '');
+        this.textArea.removeAttribute('hidden');
+        this.hintSpan.style.display = '';
+        this.hintSpan.setAttribute('visible', '');
+        this.hintSpan.removeAttribute('hidden');
+    }
+    else {
+        this.hide();
+    }
+}
+
+Coder.prototype.hide = function() {
+    this.textArea.nextElementSibling.style.display = 'none';
+    this.textArea.setAttribute('hidden', '');
+    this.textArea.removeAttribute('visible');
+    this.hintSpan.style.display = 'none';
+    this.hintSpan.setAttribute('hidden', '');
+    this.hintSpan.removeAttribute('visible');
 }
 
 Coder.initializeAll = function() {

@@ -510,7 +510,7 @@ Model.initializeStandaloneTemplates = function() {
                 .on('load', template.getAttribute('onload'))
                 .on('lazyload', template.getAttribute('onlazyload'))
                 .on('done', template.getAttribute('ondone'))
-                .append();
+                .load();
         }
     }
     else {
@@ -1047,7 +1047,7 @@ Span.prototype.reload = function() {
 }
 
 //new Template(element)
-//template.load(data, path).asArray().append(func);
+//template.setData(data, path).asArray().load(func);
 
 document.templates = new Object();
 //页面上独立的template元素, 未检查之前初始值为-1
@@ -1103,8 +1103,8 @@ Template = function(element, container, parentName) {
     this.interval = $parseFloat(element.getAttribute('interval'), 2);
     this.terminal = element.getAttribute('terminal') || 'false';
     this.deferral = 0; //延长次数, 默认延长3次, 不可设置
-    this.clearOnRefresh = $parseBoolean(element.getAttribute('clear-on-refresh') || element.getAttribute('clearOnRefresh'), true);
-
+    this.clearOnRefresh = $parseBoolean(element.getAttribute('clear-on-refresh') || element.getAttribute('clearOnRefresh')  || element.getAttribute('clear-on-reload') || element.getAttribute('clearOnReload'), true);
+    
     //中间变量
     this.vars = new Object();
 
@@ -1138,13 +1138,15 @@ Template = function(element, container, parentName) {
     else if (this.autoRefresh && this.interval > 0) {
         this.resetRefresh();      
     }
+
+    Event.interact(this, element);
 }
 
 Template.listen = function(name, element) {
     $x(window).bind(window.ontouchmove == null ? 'scroll' : 'touchmove', function(ev) {
         if($root.scrollTop() + $root.visibleHeight() >= $x(element).bottom() - 100) {            
             if (!$template(name).loading && !$template(name).done) {
-                $template(name).append();
+                $template(name).load();
             }
         }
     });
@@ -1172,10 +1174,7 @@ Template.refresh = function(name, interval, terminal) {
                     template.deferral = 0;
                 }
 
-                if (template.clearOnRefresh) {
-                    template.clear();    
-                }
-                template.append();
+                template.refresh();
             }        
         }, interval * 1000);
 }
@@ -1436,7 +1435,7 @@ Template.prototype.$eachIn = function(key, value) {
     return content.$eval();
 }
 
-Template.prototype.load = function(data) {
+Template.prototype.setData = function(data) {
     if (data != null) {
         this.data = data;
     }
@@ -1510,7 +1509,14 @@ Template.prototype.resetRefresh = function() {
     return this;
 }
 
-Template.prototype.append = function(func) {
+Template.prototype.reload = function() {
+    if (this.clearOnRefresh) {
+        this.clear();    
+    }
+    this.load();
+}
+
+Template.prototype.load = function(func) {
 
     if (!this.loading) {
         this.loading = true;

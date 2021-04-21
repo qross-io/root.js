@@ -10,7 +10,11 @@ $enhance(HTMLInputElement.prototype)
         requiredText: '',
         invalidText: '', //当格式不正确时的提醒文字
         validText: '',
-        warningText: '', //格式正确但是不满足要求时的提醒文字，如用户名重复
+
+        'onblur+': '',
+        successText: '',        
+        failureText: '', 
+        exceptionText: '',
 
         validator: '',
 
@@ -26,9 +30,6 @@ $enhance(HTMLInputElement.prototype)
         get: null, //pre-process 获取组件的值时对值进行处理，value 代表文本框的值，如 value.trim()
         set: null, //post-process 设置组件的值时对值进行处理，value 代表文本框的值            
 
-        check: '', //值格式正确后从后端检查值是否满足要求
-        passWhen: '', //值通过检查的条件，javascript 表达式
-
         positive: false, //number 类型下是否要求正数
         precision: -1,
         pad: false, //是否在小数时自动补 0
@@ -36,7 +37,7 @@ $enhance(HTMLInputElement.prototype)
         strength: 'WEAK', //password only
         fit: '', //password only
 
-        icon: null //根据不同的类型选择不同的 iconfont 图标（自动设置）
+        icon: '' //根据不同的类型选择不同的 iconfont 图标（自动设置）        
     })
     .getter({
         'strength': value => value.toUpperCase(),
@@ -55,7 +56,7 @@ $enhance(HTMLInputElement.prototype)
         $required: {
             get () {
                 //required 是原生属性  $required 有更多要求
-                return this.required || this.requiredText != '' || this.invalidText != '' || this.warningText != '' || this.minLength > 0 || this.min != '' || this.max != '';
+                return this.required || this.pattern != '' || this.validator != '' || this.requiredText != '' || this.invalidText != '' || this.minLength > 0 || this.min != '' || this.max != '';
             }
         },
         status: {
@@ -106,16 +107,61 @@ $enhance(HTMLInputElement.prototype)
                     this.validate(true);
                 }
             }
-        }        
+        },
+        icon: {
+            get () {
+                return this.getAttribute('icon') || '';                
+            },
+            set (value) {
+                this.setAttribute('icon', value);
+                if (this.iconA == null) {
+                    this.iconA = $create('A', { href: 'javascript:void(0)' }, { 'marginLeft': '-24px' });
+                    if (this.type == 'datetime')  {
+                        this.iconA.id = this.id + 'Popup_OpenButton';
+                    }
+                    else if (this.type == 'calendar') {
+                        this.iconA.setAttribute('sign', 'CALENDAR-BUTTON');
+                    }
+                    $x(this).insertBehind(this.iconA);                    
+                }
+                else {
+                    this.iconA.firstElementChild.remove();
+                }
+
+                if (value.startsWith('icon-') && !value.includes('.')) {
+                    this.iconA.innerHTML = '<i class="iconfont ' + value + '"></i>';
+                }
+                else {
+                    this.iconA.innerHTML = '<img src="' + value + '" align="absmiddle" />';
+                }
+            }
+        },
+        onmodify: {
+            //当值被键盘输入修改时触发，但限制用户输入频率，输入停止 500 毫秒后才触发
+            get () {
+                if (this._onmodify == null) {
+                    this._onmodify = this.getAttribute('onmodify');
+                }
+                return this._onmodify;
+            },
+            set (event) {
+                this._onmodify = event;
+            }
+        }
     });
 
 HTMLInputElement.prototype.defaultClass = null;
 HTMLInputElement.prototype.hintSpan = null;
+HTMLInputElement.prototype.iconA = null;
 HTMLInputElement.prototype._status = 2; //无值初始状态
 HTMLInputElement.prototype._blured = false; //是否已失去过一次焦点
 HTMLInputElement.prototype.relations = new Set(); //关联的按钮
+
+HTMLInputElement.prototype._timer = null; //最后一次修改的计时器
+HTMLInputElement.prototype._timestamp = null;
+HTMLInputElement.prototype._onmodify = null;
    
-HTMLInputElement.prototype.validate = function (check = false) {
+HTMLInputElement.prototype.validate = function (toCheck = false) {
     //验证方法 按情况 有正则验证走正则 否则非空验证
     // 0 空 -1 不正确 1 验证通过
     if ((this.required || this.requiredText != '') && this.value.$trim() == '') {
@@ -124,15 +170,11 @@ HTMLInputElement.prototype.validate = function (check = false) {
     else if (this.minLength > 0 && this.value.$trim().length < this.minLength) {
         this.status = -1; //有值验证失败状态
     }
-    else if (this.validator instanceof RegExp || this.validator != '') {
-        //validator有值 按正则判断走
-        let regex = this.validator instanceof RegExp ? this.validator : (this.validator.startsWith('/') ? eval(this.validator) : new RegExp(this.validator));
-        if (regex.test(this.value)) {
-            this.status = 1; //有值验证成功状态
-        }
-        else {
-            this.status = -1;
-        }
+    else if (this.pattern != '') {
+        this.status = this.validity.patternMismatch ? -1 : 1;
+    }
+    else if (this.validator != '') {
+        this.status = new RegExp(this.validator, 'i').test(this.value) ? 1 : -1;        
     }
     else if (this.type == 'number' || this.type == 'integer' || this.type == 'float') {
         let value = $parseFloat(this.value, 0);
@@ -181,35 +223,31 @@ HTMLInputElement.prototype.validate = function (check = false) {
     }
 
     if (this.status == 1) {
-        if (check && this.check != '') {
+        if (toCheck && this['onblur+'] != '') {
             this.disabled = true;
-            let input = this;
-            $cogo(this.check, this, this)
-                .then(data => {
-                    if (this.passWhen == '' ? $parseBoolean(data, true) : $parseBoolean(this.passWhen.eval(this, data), false)) {
-                        input.hintText = input.validText.$p(input, data);
-                        input.className = input.validClass;                        
+            $FIRE(this, 'click', this['onclick+'],
+                    data => {
+                        this.hintText = this.successText.$p(this, data);
+                        this.className = this.validClass; 
+                    }, 
+                    data => {
+                        this.status = -2;
+                        this.className = this.errorClass;
+                        this.hintText = this.failureText.$p(this, data);
+                    },
+                    error => {
+                        this.status = -1;
+                        this.className = this.errorClass;
+                        this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                    },
+                    function() {
+                        this.disabled = false;
                     }
-                    else {
-                        //不为空表示检查未通过                        
-                        input.status = -2;
-                        input.className = input.errorClass;
-                        input.hintText = input.warningText.$p(input, data);
-                    }
-                })
-                .catch(error => {
-                    console.log(error);
-                    input.status = -1;
-                    input.className = input.errorClass;
-                    input.hintText = error;
-                })
-                .finally(() => {
-                    input.disabled = false;
-                });
+                );
         }
         else {
             this.className = this.validClass;
-            if (this.warningText == '') {
+            if (this.validText == '') {
                 this.hintText = this.validText.$p(this);
             }
             if (this.callout != null) {
@@ -220,10 +258,6 @@ HTMLInputElement.prototype.validate = function (check = false) {
     else if (this.status == 0) {        
         this.className = this.errorClass;
         this.hintText = this.requiredText.$p(this);
-    }
-    else if (this.status == -2) {        
-        this.className = this.errorClass;
-        this.hintText = this.warningText.$p(this);
     }
     else {        
         this.className = this.errorClass;
@@ -261,6 +295,7 @@ HTMLInputElement.prototype.update = function(attr) {
     
 HTMLInputElement.prototype.initialize = function() {
 
+    let input = this;
     this.minSize = this.getAttribute('size') == null ? 0 : this.size;
     this.ajust();
     
@@ -277,13 +312,6 @@ HTMLInputElement.prototype.initialize = function() {
     $x(this).on('blur', function(ev) {
         if (!this._blured) {
             this._blured = true;
-        }
-
-        if (this.$required) {
-            this.validate(true);
-        }
-        else {
-            this.className = this.defaultClass;
         }
 
         if (this.type == 'float' || this.type == 'number') {
@@ -329,13 +357,36 @@ HTMLInputElement.prototype.initialize = function() {
                 this.value = value;
             }
         }
+
+        if (this.$required) {
+            this.validate(true);
+        }
+        else {
+            this.className = this.defaultClass;
+        }
     });
 
     //输入时对值进行检查    
     $x(this).on('input', function(ev) {
+        
         if (this.$required) {
             this.validate();
         }
+
+        if (this.onmodify != null || (this.id != '' && Event.s.has(this.id) && Event.s.get(this.id).has('onmodify'))) {
+            if (this._timer != null) {
+                window.clearTimeout(this._timer);                
+            }
+            if (this._timestamp == null || new Date().valueOf() - this._timestamp > 250) {
+                Event.execute(this, 'onmodify', ev);
+                this._timestamp = new Date().valueOf();
+            }
+            else {
+                this._timer = window.setTimeout(function() {
+                    Event.execute(input, 'onmodify', ev);
+                }, 250);
+            }            
+        }        
 
         this.ajust();
     });    
@@ -414,9 +465,18 @@ HTMLInputElement.prototype.initialize = function() {
         this.defaultClass = this.className;
     }
 
+    //icon
+    if (this.icon == '') {
+        if (this.type == 'calendar' || this.type == 'datetime') {
+            this.icon = 'icon-calendar';
+        }
+    }
+    else {
+        this.icon = this.icon;
+    }
+
     Event.interact(this, this);
     if (this.value == '') {
-        let input = this;
         $post(function() {
             input.update('value');
         });        
@@ -539,7 +599,7 @@ HTMLInputElement.Key = {
 
 $finish(function() {
     $a('INPUT').forEach(input => {
-        if (/^(text|password|number|float|integer|mobile|idcard|name|search)$/i.test(input.type)) {                        
+        if (/^(text|password|number|float|integer|mobile|idcard|name|search|calendar|datetime)$/i.test(input.type)) {                        
             if (input.getAttribute('root') == null) {
                 input.setAttribute('root', 'INPUT');
                 input.initialize();

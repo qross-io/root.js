@@ -166,15 +166,37 @@ $root.prototype.is = function (name) {
 $root.prototype.show = function (display) {
     this.objects.forEach(element => {
         if (element.style != undefined) {
-            if (display == null) {
-                element.style.display = '';
-                element.setAttribute('visible', '');
-                element.removeAttribute('hidden');
+            let visible = 1;
+            if (display != null) {
+                if (typeof(display) != 'boolean') {
+                    visible = -1;
+                }
+                else {
+                    visible = display ? 1 : 0;
+                }
             }
-            else if (typeof(display) == 'boolean') {
-                element.style.display = display ? '' : 'none';
-                element.setAttribute(display ? 'visible' : 'hidden', '');
-                element.removeAttribute(display ? 'hidden' : 'visible');
+
+            if (visible == 1) {
+                if (element.getAttribute('hidden') != 'always' && element.getAttribute('visible') != 'always') {
+                    element.style.display = '';
+                    element.setAttribute('visible', '');
+                    element.removeAttribute('hidden');
+                }
+                
+                if (element.getAttribute('relative') != null) {
+                    $x(element.getAttribute('relative')).show();
+                }
+            }
+            else if (visible == 0) {
+                if (element.getAttribute('visible') != 'always' && element.getAttribute('hidden') != 'always') {
+                    element.style.display = 'none';
+                    element.setAttribute('hidden', '');
+                    element.removeAttribute('visible');
+                }
+                
+                if (element.getAttribute('relative') != null) {
+                    $x(element.getAttribute('relative')).hide();
+                }
             }
             else {
                 element.style.display = display;
@@ -187,9 +209,15 @@ $root.prototype.show = function (display) {
 $root.prototype.hide = function () {
     this.objects.forEach(element => {
         if (element.style != undefined) {
-            element.style.display = 'none';
-            element.setAttribute('hidden', '');
-            element.removeAttribute('visible');
+            if (element.getAttribute('visible') != 'always' && element.getAttribute('hidden') != 'always') {
+                element.style.display = 'none';
+                element.setAttribute('hidden', '');
+                element.removeAttribute('visible');
+            }
+
+            if (element.getAttribute('relative') != null) {
+                $x(element.getAttribute('relative')).hide();
+            }
         }
     });
     return this;
@@ -1254,6 +1282,16 @@ $ajax = function (method, url, params = '', path = '/', element = null, p = true
     return new $api(method, url, params, path, element, p);
 }
 
+$ajax.settings = new Map();
+$ajax.match = function(url) {
+    for (let [pattern, setting] of $ajax.settings) {
+        if (url.includes(pattern) || new RegExp(pattern, 'i').test(url)) {
+            return setting;
+        }
+    }
+    return null;
+}
+
 // p - if to be $p
 $api = function (method, url, params = '', path = '/', element = null, p = true) {
 
@@ -1321,7 +1359,7 @@ $api.prototype.$send = function () {
     let url = this.url; //encodeURI(this.url); 必须后端配合才可以
     if (!this.cache) {
         url += url.includes('?') ? '&' : '?';
-        url += 'r' + new Date().valueOf() + '=';
+        url += 'r0x' + new Date().valueOf();
     }
 
     //open方法第三个参数设置请求是否为异步模式.如果是true, JavaScript函数将继续执行,而不等待服务器响应
@@ -1394,48 +1432,55 @@ $api.prototype.success = function (func) {
 //data 传递 data, value, text 三个变量的数据对象
 $cogo = function(todo, element, data) {
     todo = todo.trim();
+
     let method = 'GET';
+    let path = '/';
+    let setting = null;
 
     if (/^(get|post|delete|put)\s*:/i.test(todo)) {
         method = todo.takeBefore(':').trim().toUpperCase();
         todo = todo.takeAfter(':').trim();
     }
 
-    if (/^[a-z]+\s*/i.test(todo)) {
-        return $run(todo, element, data);
+    if (/^[a-z]+\s+/i.test(todo)) {
+        method = 'POST';
+        todo = '/api/cogo/pql?statement=' + encodeURIComponent(todo.$p(element, data));        
     }
     else {
-        let path = '';
-        if (todo.includes('->')) {
-            path = todo.takeAfter('->').trim();
-            todo = todo.takeBefore('->').trim();            
+        setting = $ajax.match(todo);
+
+        if (todo.includes('#')) {
+            path = todo.takeAfterLast('#').trim();
+            todo = todo.takeBeforeLast('#').trim();
         }
-        return $request(method, todo, null, path, element, data);
-    }
-}
 
-//run PQL
-$run = function(pql, element, data) {
-    return $request('POST', '/api/cogo/pql', 'statement=' + encodeURIComponent(pql.$p(element, data)), '/', element, data);
-}
-
-//cross domain
-$request = function(method, url, params, path, element, data) {
-    if (url != '') {
-        if (/^https?:/i.test(url)) {
-            url = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(url.$p(element, data)) + (params == null ? '' : '&data=' + encodeURIComponent(params.$p(element, data)));
+        if (/^https?:/i.test(todo)) {
+            todo = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(todo.$p(element, data));
         }
         else {
-            url = url.$p(element, data);
+            todo = todo.$p(element, data);
         }
+    }
 
+    if (todo != '') {
         return new Promise((resolve, reject) => {
-                    $ajax(method, url, params, path, element, false)
+                    $ajax(method, todo, null, path, element, false)
                         .error((status, statusText) => {
                             reject(statusText);
                         })
                         .success(result => {
-                            resolve(result);
+                            if (setting == null) {
+                                resolve(result);
+                            }
+                            else {
+                                let ready  = eval('_ = function(result) { with(result) { return ' + setting.ready + ' } }').call(window, result);
+                                if (ready) {
+                                    resolve(Json.find(result, setting.path));
+                                }
+                                else {
+                                    reject(Json.find(result, setting.info));
+                                }
+                            }
                         });
                 });
     }
@@ -1444,7 +1489,76 @@ $request = function(method, url, params, path, element, data) {
             resolve(null);
         });
     }
-}
+};
+//server event
+$FIRE = function (element, event, action, succeed, fail, except, complete) {
+    action = action.trim();
+    let expection = '';
+    if (!/^[a-z]+\s+/i.test(action) || /^(get|post|delete|put)\s*:/i.test(action)) {
+        if (action.includes('->')) {
+            expection = action.takeAfter('->').trim();
+            action = action.takeBefore('->').trim();
+        }
+    }
+
+    $cogo(action, element, element)
+        .then(data => {
+            let valid = true;
+            if (expection != '') {
+                switch (expection) {
+                    case 'empty':
+                        valid = $parseEmpty(data, true);
+                        break;
+                    case 'non-empty':
+                    case 'not-empty':
+                        valid = !$parseEmpty(data, false);
+                        break;
+                    case 'true':
+                        valid = $parseBoolean(data, true);
+                        break;
+                    case 'false':
+                        valid = !$parseBoolean(data, false);
+                        break;
+                    case 'zero':
+                        valid = $parseZero(data, 1);
+                        break;
+                    case 'non-zero':
+                    case 'not-zero':
+                        valid = !$parseZero(data, 0);
+                        break;
+                    default:                            
+                        valid = $parseBoolean(expection.eval(element, data), true);
+                        break;
+                }   
+            }
+            else if ((element.successText != null && element.successText != '') || (element.failureText != null && element.failureText != '')) {
+                valid = $parseBoolean(data, true);
+            }
+
+            if (valid) {
+                succeed.call(element, data);
+
+                let id = '#' + element.id;
+                if (Event.z.has(id)) {
+                    for (let watch of Event.z.get(id)) {
+                        if (watch.event == event) {
+                            watch.func(data);
+                        }
+                    }
+                }
+            }
+            else {
+                fail.call(element, data);
+            }
+        })
+        .catch(error => {
+            except.call(element, error);
+            console.error(error);
+        })
+        .finally(() => {
+            complete.call(element);
+        })
+};
 
 $lang = (function() {
     return (navigator.language || navigator.userLanguage).substring(0, 2).toLowerCase();
@@ -1480,38 +1594,76 @@ $finish = function(func) {
 }
 
 //queryString, query()方法不区分大小写
-$query = function (n = '') {	
-	if (n != '') {
-	    if ($query[n] != null) {
-	        return $query[n];
-	    }
-	    else {
-	        for (let k in $query) {
-                if (new RegExp('^' + n + '$', 'i').test(k)) {
-                    return $query[k];
-                }
+$query = function () {
+    let q = window.location.search.substring(1);
+    if(q != '')	{
+        q.split('&').forEach(p => {
+            if (p.includes('=')) {
+                $query[p.substring(0, p.indexOf('='))] = decodeURIComponent(p.substring(p.indexOf('=') + 1));
             }
-            return null;
-	    }
-	}
-	else {
-		let q = window.location.search.substring(1);
-		if(q != '')	{
-		    q.split('&').forEach(p => {
-		        if (p.includes('=')) {
-		            $query[p.substring(0, p.indexOf('='))] = decodeURIComponent(p.substring(p.indexOf('=') + 1));
-		        }
-		        else {
-                    $query[p] = '';
-		        }
-		    });
-		}				
-	}
+            else {
+                $query[p] = '';
+            }
+        });
+    }
 }
-$query.contains = function(n) {
-    return $query[n] != null;
+$query.s = { };
+$query.get = function(n) {
+    if ($query.s[n] != null) {
+        return $query.s[n];
+    }
+    else {
+        for (let k in $query.s) {
+            if (new RegExp('^' + n + '$', 'i').test(k)) {
+                return $query.s[k];
+            }
+        }
+        return null;
+    }
+}
+$query.has = function(n) {
+    return $query.s[n] != null;
 }
 $query();
+
+$cookie = function (name, value, expires, path, domain) {
+	//	document.cookie = 'cookieName=cookieData
+	//	[; expires=timeInGMTString]
+	//	[; path=pathName]
+	//	[; domain=domainName]
+	//	[; secure]'
+    //	document.cookie = 'name=value; expires=' + expiresTime.toGMTString() + '; path=/; domain=soufun.com';
+    document.cookie.split('; ')
+        .forEach(c => {
+            $cookie.s[c.substring(0, c.indexOf('='))] = c.substr(c.indexOf('=') + 1);
+        });    
+}
+$cookie.s = { };
+$cookie.get = function(name) {
+    return ($cookie.s[name] != undefined ? $cookie.s[name] : '');
+}
+$cookie.set = function(name, value, expires, path, domain) {
+    let cookie = name + '=' + value;
+    if (expires != null) {
+        let expiresTime = new Date();
+        let expiresTicks = expiresTime.getTime() + (expires * 1000);
+        expiresTime.setTime(expiresTicks);
+        cookie += '; expires=' + expiresTime.toGMTString();
+    }
+    if (path == null) {
+        path = '/';
+    }
+    cookie += '; path=' + path;
+    if (domain != null) {
+        cookie += '; domain=' + domain;
+    }
+
+    document.cookie = cookie;
+}
+$cookie.has = function(n) {
+    return $cookie.s[n] != null;
+}
+$cookie();
 
 String.prototype.$trim = function(char = '', char2 = '') {
     if (this != null) {
@@ -1952,15 +2104,7 @@ String.prototype.toBoolean = function(defaultValue = false) {
     }
 
     if (typeof (value) != 'boolean') {
-        if (value == 1) {
-            value = true;
-        }
-        else if (value == 0) {
-            value = false;
-        }
-        else {
-            value = defaultValue; 
-        }
+        value = $parseBoolean(value, defaultValue);
     }
 
     return value;
@@ -2251,7 +2395,7 @@ String.prototype.$p = function(element, list) {
     let query = /\&(amp;)?\(([a-z0-9_]+)\)\%?/i;
     while(query.test(str)) {
         let match = query.exec(str);
-        str = str.replace(match[0], $query.contains(match[2]) ? $query(match[2]).encodeURIComponent(match[0].endsWith('%')) : 'null');
+        str = str.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : 'null');
     }
 
     //$(selector)+-><[n][attr]?(1)
@@ -2462,7 +2606,6 @@ Json.toString = function(v) {
 }
 
 Json.find = function(jsonObject, path = '/') {
-    
     if (path != '/' && path != '') {
         let json = jsonObject;
         if (path.startsWith('/')) {
@@ -2527,17 +2670,26 @@ $parseFloat = function(value, defaultValue = 0) {
 }
 
 $parseBoolean = function(value, defaultValue = false) {
-    if (typeof (value) == 'number') {
+    if (value == null) {
+        return defaultValue;
+    }
+    else if (typeof (value) == 'boolean') {
+        return value;
+    }
+    else if (typeof (value) == 'number') {
         return value > 0;
     }
     else if (typeof (value) == 'string') {
         return value.toBoolean(defaultValue);
     }
-    else if (typeof (value) == 'boolean') {
-        return value;
-    }
     else if (value instanceof Array) {
         return value.length > 0;
+    }
+    else if (value.length != null) {
+        return value.length > 0;
+    }
+    else if (value.size != null) {
+        return value.size > 0;
     }
     else if (value instanceof Object) {
         let i = 0;
@@ -2576,6 +2728,64 @@ $parseObject = function(value, defaultValue = {}) {
     }
 }
 
+$parseEmpty = function(value, defaultValue = true) {
+    if (value == null) {
+        return defaultValue;
+    }
+    else if (typeof(value) == 'string') {
+        return value == '';
+    }
+    else if (value instanceof Array) {
+        return value.length == 0;
+    }
+    else if (typeof (value) == 'boolean') {
+        return !value;
+    }
+    else if (typeof (value) == 'number') {
+        return value <= 0;
+    }
+    else if (value instanceof Object) {
+        let i = 0;
+        for (let n in value) {
+            i++;
+            break;
+        }
+        return i == 0;
+    }
+    else {
+        return defaultValue;
+    }
+}
+
+$parseZero = function(value, defaultValue = 1) {
+    if (value == null) {
+        return defaultValue;
+    }
+    else if (typeof(value) == 'number') {
+        return value == 0;
+    }
+    else if (typeof(value) == 'string') {
+        return value.toInt(defaultValue) == 0;
+    }
+    else if (value instanceof Array) {
+        return value.length == 0;
+    }
+    else if (typeof (value) == 'boolean') {
+        return !value;
+    }
+    else if (value instanceof Object) {
+        let i = 0;
+        for (let n in value) {
+            i++;
+            break;
+        }
+        return i == 0;
+    }
+    else {
+        return defaultValue == 0;
+    }
+}
+
 Enum = function() {
     return new Enum.Entity(new RegExp('^(' + Array.from(arguments).join('|') + ')$', 'i'), arguments[0]);
 }
@@ -2607,8 +2817,9 @@ $listen = function(tagName) {
     return new Event.Entity(tagName);
 }
 
-Event.s = new Map();
-Event.x = new Map();
+Event.s = new Map(); //自定义组件事件 $listen
+Event.x = new Map(); //客户端事件监听
+Event.z = new Map(); //服务器端事件监听
 
 Event.bind = function (tag, eventName, func) {
      
@@ -2751,21 +2962,22 @@ Event.trigger = function(tag, func, ...args) {
 
 Event.interact = function(obj, element) {
     element.getAttributeNames().forEach(name => {
-        if (/-on$/i.test(name)) {
+        if (/-on$/i.test(name) || /-after$/i.test(name)) {
+            let side = name.takeAfterLast('-');
             let method = name.takeBeforeLast('-');
             let attr = obj['value'] != undefined ? 'value' : 'innerHTML';
             if (method.includes('-')) {                
                 attr = method.takeAfter('-');
                 method = method.takeBefore('-');                
             }
-            Event.watch(obj, method, element.getAttribute(name), attr);
+            Event.watch(obj, method, element.getAttribute(name), attr, side == 'on' ? 'x' : 'z');
         }
     });
 }
 
-Event.watch = function(obj, method, watcher, exp) {
-    let func = function() {
-        obj[method](exp);
+Event.watch = function(obj, method, watcher, exp, side = 'x') {
+    let func = function(data) {
+        obj[method](exp, data);
     }
     watcher.split(';')
         .map(w => {
@@ -2779,10 +2991,10 @@ Event.watch = function(obj, method, watcher, exp) {
                 .split(',')
                 .map(s => s.trim())
                 .forEach(s => {
-                    if (!Event.x.has(s)) {
-                        Event.x.set(s, []);
+                    if (!Event[side].has(s)) {
+                        Event[side].set(s, []);
                     }
-                    Event.x.get(s).push({
+                    Event[side].get(s).push({
                         'event': watch.event,
                         'func': func
                     });                    
@@ -3057,6 +3269,23 @@ $Settings.prototype.objectify = function(func) {
     return this;
 }
 
+$transfer = function(source, target) {
+    let excludings = new Set(['id', 'type']);
+    source.getAttributeNames()
+        .forEach(attr => {
+            if (!excludings.has(attr)) {
+                console.log(attr);
+                let value = source[attr] != null ? source[attr] : source.getAttribute(attr);
+                if (target[attr] != null) {
+                    target[attr] = value;
+                }
+                else {
+                    target.setAttribute(attr, value);
+                }
+            }
+        });
+}
+
 $enhance = function(object) {
     return new NativeElement(object);
 }
@@ -3089,6 +3318,7 @@ NativeElement.executeAopFunction = function(object, func, value) {
     }
 }
 
+//新定义扩展属性
 NativeElement.prototype.declare = function(variables) {
     for (let name in variables) {
         Object.defineProperty(this.object, name, {
@@ -3155,7 +3385,7 @@ NativeElement.prototype.setter = function(properties) {
     return this;
 }
 
-//不能用declare方法定义的属性
+//不能用declare方法定义的属性，或者要覆盖原生属性，最大自由度
 NativeElement.prototype.define = function(properties) {
     for (let name in properties) {
         Object.defineProperty(this.object, name, properties[name]);
@@ -3210,6 +3440,16 @@ $guid = function() {
 }
 
 $ready(function() {
+    //aop of $request
+    if ($cookie.has('oneapi.ajax.settings')) {
+        let ajax = $cookie('oneapi.ajax.settings');
+        if (ajax != null) {
+            Json.eval(ajax).forEach(setting => {
+                $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
+            });
+        }
+    }
+
     if ($x('html').attr('mobile') != null) {
         //<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         $x('head').append('META', { name: 'viewport', content: 'width=device-width, initial-scale=1.0, user-scalable=no' });
@@ -3242,11 +3482,6 @@ $root.initialize = function() {
                 this.style.cursor = 'default';
             });
         }
-    }
-    
-    //hide
-    for (let el of $a('[hidden]')) {
-        el.style.display = 'none';
     }
 }
 
@@ -3284,9 +3519,7 @@ $finish(function() {
         }
 
         document.body.style.overflowY = 'hidden';
-
-        layout();
-        
+        layout();        
         $x(window).bind('resize', layout);
     }
 
@@ -3327,7 +3560,7 @@ $post(function() {
         if (selector.startsWith('#')) {
             watches.forEach(watch => {
                 $listen(selector).on(watch.event, watch.func);
-            });            
+            });
         }
         else {
             watches.forEach(watch => {

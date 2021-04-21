@@ -817,7 +817,7 @@ TreeView.prototype.load = function() {
         this.templateObject
             .of(this, this.element)
             .setPage(0)            
-            .append(function() {
+            .load(function() {
                 //移除"加载中"节点
                 this.$removeLoadingNode();
                 
@@ -2172,11 +2172,11 @@ TreeNode.prototype.load = function (repopulate) {
             //owner, ownerElement
             .of(this, this.element)
             .setPage(0)
-            .load(this.data) 
+            .setData(this.data) 
             .on('lazyload', function() {            
                 this.owner.$populateChildren();
             })
-            .append(function(data) {
+            .load(function(data) {
                 if (this.data != '') {
                     //移除"加载中"节点
                     this.treeView.$removeLoadingNode(this);

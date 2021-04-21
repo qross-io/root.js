@@ -82,7 +82,7 @@ class Calendar {
 
             lunar: false, //农历
             holiday: false, //自定义的假日和工作日
-            extensionApi: '',
+            extensionApi: '/api/system/calendar?year=', //只有 lunar 或 holiday 启用时才有效
 
             frameClass: '-calendar', //整体框架样式
             titleClass: '-calendar-title', //整个日历的标题框样式
@@ -125,7 +125,6 @@ class Calendar {
             switchThisMonthOptionClass: '-calendar-switch-this-month-option',
             switchMonthCheckedOptionClass: '-calendar-switch-month-checked-option',
 
-            icon: 'font',//Enum('FONT', 'IMAGE'),
             align: Enum('LEFT', 'RIGHT')
         })
         .elementify(element => {
@@ -144,20 +143,6 @@ class Calendar {
                 this.container.style.position = 'absolute';
                 this.container.style.zIndex = 999;
                 this.container.style.border = '1px solid var(--primary)';
-
-                element.readOnly = true;
-                if (this.icon.toLowerCase() == 'font') {
-                    element.insertAdjacentHTML('afterEnd', '<a sign="CALENDAR-BUTTON" class="iconfont icon-calendar" href="javascript:void(0)" style="margin-left: -24px;"></a>');
-                }
-                else if (this.icon.toLowerCase() == 'image') {
-                    element.insertAdjacentHTML('afterEnd', '<a sign="CALENDAR-BUTTON" href="javascript:void(0)"><img src="' + $root.home + 'images/calendar' + $random(0, 4) + '.png" style="margin-left: -24px;" /></a>');
-                }
-                else if (/\.(jpg|png|jpeg|gif)$/i.test(this.icon)) {
-                    element.insertAdjacentHTML('afterEnd', '<a sign="CALENDAR-BUTTON" href="javascript:void(0)"><img src="' + this.icon + '" style="margin-left: -24px;" /></a>');
-                }
-                else {
-                    element.insertAdjacentHTML('afterEnd', '<a sign="CALENDAR-BUTTON" class="iconfont ' + this.icon + '" href="javascript:void(0)" style="margin-left: -24px;"></a>');
-                }
 
                 let calendar = this;
                 element.nextElementSibling.onclick = function(ev) {
@@ -218,6 +203,21 @@ class Calendar {
     get today() {
         return DateTime.now().get('yyyy-MM-dd');
     }
+
+    get value() {
+        if (this.mode == 'DAY') {
+            return this.date;
+        }
+        else if (this.mode == 'WEEK') {
+            return this.week;
+        }
+        else if (this.mode == 'RANGE') {
+            return [this.startDate, this.endDate];
+        }
+        else {
+            return null;
+        }
+    }
     
     get date() {
         return this.$date;
@@ -247,16 +247,16 @@ class Calendar {
          if (this.$week != '') {
             $x(this.container).select('tr[week=v' + this.$week + ']')
                 .css(this.weekRowClass)
-                .firstChild()
+                .first()
                 .css(this.weekOfYearClass);
         }
 
         $x(this.container).select('tr[week=v' + week + ']')
             .css(this.weekFocusRowClass)
-            .firstChild()
+            .first()
             .css(this.weekOfYearFocusClass)
             .parent()
-            .first()
+            .head()
             .objects
             .forEach(row => {
                 this.$week = week;
@@ -551,7 +551,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
 
     let calendar = this;
 
-    let table = $create('TABLE', { cellPadding: 3, cellSpacing: 1, border: 0, className: this.contentClass }, { }, { sign: 'M' + month.get('yyyy-MM'), month: month.get('yyyy-MM') });
+    let table = $create('TABLE', { cellPadding: 3, cellSpacing: 2, border: 0, className: this.contentClass }, { }, { sign: 'M' + month.get('yyyy-MM'), month: month.get('yyyy-MM') });
     let tbody = $create('TBODY');
     if (header) {
         tbody.appendChild($create('TR', { innerHTML: '<th class="' + this.headClass + '" colspan="' + (this.mode == 'WEEK' ? 8 : 7) + '">' + this.monthNames[month.getMonth() - 1] + '</th>' }));
@@ -1385,12 +1385,12 @@ Calendar.prototype.displayMonth = function() {
 
     let width = 0;
     for (let i = 0; i < this.months; i++) {
-        head.children[i].style.width = content.rows[0].cells[i].firstChild.offsetWidth + 'px';
+        head.children[i].style.width = (content.rows[0].cells[i].firstChild.offsetWidth + 12) + 'px';
         width += content.rows[0].cells[i].firstChild.offsetWidth;
         //content.rows[0].cells[i].firstChild.style.width = content.rows[0].cells[i].firstChild.offsetWidth + 'px';
     }
-    body.style.width = (width + 12 * this.months) + 'px';
-    $x(this.container).select('div[sign=CALENDAR-FOOT]').width(body.offsetWidth);
+    body.style.width = (width + 12 * this.months + 12) + 'px';
+    $x(this.container).select('div[sign=CALENDAR-FOOT]').width(body.offsetWidth - 20);
 
     this.loadExtraInfo();
 
@@ -1555,5 +1555,5 @@ Calendar.initializeAll = function() {
 }
 
 $finish(function() {
-    Calendar.initializeAll();    
+    Calendar.initializeAll();
 });

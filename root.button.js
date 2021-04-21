@@ -1,15 +1,10 @@
 
 // 提交按钮扩展
 
-///^\s*\$[a-z0-9_]+(\s+default\s+\S+[\s\S]*?)?(\s*,\s*\$[a-z0-9_]+(\s+default\s+\S+[\s\S]*?)?)*\s*$/i.test('$a default 1')
-
-/^\s*(\$[a-z0-9_]+|\$[a-z0-9_]+\s+default\s+\S+.*?)\s*(,\s*(\$[a-z0-9_]+|\$[a-z0-9_]+\s+default\s+\S+.*?)\s*)*$/i
-
 $enhance(HTMLButtonElement.prototype)
     .declare({
         enabledClass: '', //normal-button blue-button,
         disabledClass: '', //normal-button optional-button,
-        action: '', //要执行的 PQL 语句或要请求的接口
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
 
         confirmText: '', //确定提醒文字
@@ -18,9 +13,9 @@ $enhance(HTMLButtonElement.prototype)
         confirmTitle: 'Confirm', //确定框标题
         jumpingText: '', //跳转提醒文字
         jumpTo: '', //当动作action完成后要跳转到哪个页面
-        actionText: '', //点击按钮后的提示文字
-        
-        successWhen: '', //接口或PQL语句的成功条件，data 是接口返回的数据
+        clickText: '', //点击按钮后的提示文字
+
+        'onclick+': '',
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
@@ -30,6 +25,7 @@ $enhance(HTMLButtonElement.prototype)
 
         hint: null,
         callout: null,
+        alert: null,
 
         scale: 'normal',
         color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
@@ -55,9 +51,9 @@ $enhance(HTMLButtonElement.prototype)
     })
     .describe({
         onActionSuccess: null, // function(result) { },
-        onActionFail: null, //function(result) { },
+        onActionFailure: null, //function(result) { },
         onActionException: null, //function(error) { },
-        onActionComplete: null //function() { },
+        onActionCompletion: null //function() { },
     })
     .define({
         'text': {
@@ -71,9 +67,6 @@ $enhance(HTMLButtonElement.prototype)
             }
         },
         'hintText': {
-            get () {
-                return this.hintSpan != null ? this.hintSpan.innerHTML : '';
-            },
             set (text) {                
                 if (this.hintSpan != null) {
                     this.hintSpan.innerHTML = text;
@@ -83,6 +76,15 @@ $enhance(HTMLButtonElement.prototype)
                 
                 if (text != '' && this.callout != null) {
                     Callout(text).position(this, this.callout).show();
+                }
+
+                if (text != '' && this.alert != null) {
+                    if ($root.alert != null) {
+                        $root.alert(text);
+                    }
+                    else {
+                        window.alert(text);
+                    }
                 }                
             }
         }
@@ -135,47 +137,41 @@ HTMLButtonElement.prototype.response = function(correct) {
 HTMLButtonElement.prototype.go = function() {
 
     this.disable();
+    this.text = this.clickText.$p(this);
 
-    let button = this;    
-
-    button.text = button.actionText.$p(button);
-
-    $cogo(button.action, button.element)
-        .then(data => {
-            //一般数据会返回数据表受影响的行数
-            if (this.successWhen == '' ? $parseBoolean(data, true) :  $parseBoolean(this.successWhen.eval(this, data), false)) {
-                button.status = 1;
-                button.hintText = button.successText.$p(button, data);            
-                button.execute('onActionSuccess', data);
-                if (button.jumpTo != '') {
-                    button.text = button.jumpingText.$p(button, data);
-                    window.location.href = button.jumpTo.$p(button, data);
-                }
-                else {
-                    button.text = button.defaultText;
-                    button.enable();
-                }
+    $FIRE(this, 'click', this['onclick+'],
+        data => {
+            this.status = 1;
+            this.hintText = this.successText.$p(this, data);            
+            this.execute('onActionSuccess', data);
+            if (this.jumpTo != '') {
+                this.text = this.jumpingText.$p(this, data);
+                window.location.href = this.jumpTo.$p(this, data);
             }
             else {
-                button.status = 0;
-                button.hintText = button.failureText.$p(button, data);
-                button.execute('onActionFail', data);
-                button.text = button.defaultText;
-                button.enable();
+                this.text = this.defaultText;
+                this.enable();
             }
-        })
-        .catch(error => {
-            button.status = 1;
-            button.execute('onActionException', error);
-            button.hintText = button.exceptionText.$p(button);            
-            console.error(error);
-        })
-        .finally(() => {
-            button.execute('onActionComplete');
-            if (button.jumpTo == '') {
-                button.enable();
-            }            
-        });
+        }, 
+        data => {
+            this.status = 0;
+            this.hintText = this.failureText.$p(this, data);
+            this.execute('onActionFailure', data);
+            this.text = this.defaultText;
+            this.enable();
+        },
+        error => {
+            this.status = 1;
+            this.execute('onActionException', error);
+            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+        },
+        function() {
+            this.execute('onActionCompletion');
+            if (this.jumpTo == '') {
+                this.enable();
+            }
+        }
+    );
 }
 
 HTMLButtonElement.relationByInput = new Map();
@@ -203,8 +199,8 @@ HTMLButtonElement.prototype.initialize = function() {
         this.watch.split(',').map(tag => tag.trim()).forEach(tag => todo.push(tag));
     }
 
-    if (this.action != '') {
-        let holders = this.action.match(/\$\(#[^)]+\)/ig);
+    if (this['onclick+'] != '') {
+        let holders = this['onclick+'].match(/\$\(#[^)]+\)/ig);
         if (holders != null) {
             holders.map(tag => tag.$trim('$(', ')')).forEach(tag => todo.push(tag));
         }
@@ -227,12 +223,12 @@ HTMLButtonElement.prototype.initialize = function() {
         if (this.confirmText != '') {
             if ($root.confirm != null) {
                 let button = this;
-                $root.confirm(this.confirmText, this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
+                $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
                     .on('confirm', function() {                            
                         button.go();      
                     });
             }
-            else if (window.confirm(this.confirmText)) {
+            else if (window.confirm(this.confirmText.$p(this))) {
                 this.go();         
             }
         }
@@ -300,7 +296,7 @@ HTMLButtonElement.observe = function() {
 }
 
 $finish(function () {
-    for (let button of $a('button[action],button[watch]')) {
+    for (let button of $a('button')) {
         // root 设置为 button 表示组件已初始化
         if (button.getAttribute('root') == null) {
             button.setAttribute('root', 'BUTTON');

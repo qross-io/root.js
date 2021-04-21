@@ -4,22 +4,33 @@
     <meta charset="UTF-8">
     <title>Select</title>
     <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.animation.js"></script>    
+    <script type="text/javascript" src="/root.datetimepicker.js"></script>
     <script type="text/javascript" src="/root.input.js"></script>
     <script type="text/javascript" src="/root.select.js"></script>
-    <script type="text/javascript" src="/root.button.js"></script>
+    <script type="text/javascript" src="/root.button.js"></script>    
+    <script type="text/javascript" src="/root.datetime.js"></script>
+    <script type="text/javascript" src="/root.calendar.js"></script>
+    <script type="text/javascript" src="/root.clock.js"></script>
+    <script type="text/javascript" src="/root.popup.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/select.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/calendar.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/clock.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/iconfont.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+    .KE { background-color: #FF0000; }
+    </style>
 </head>
 <body style="padding: 50px;">
-
-    <select type="button" id="Button">
-            <option value="mysql">MySQL</option>
-            <option selected value="mariadb">MariaDB</option>
-            <option value="sqlserver">SQL Server</option>
-            <option value="postgresql">PostgreSQL</option>
-            <option value="oracle">Oracle</option>
-            <option value="hive">Hive</option>
-        </select>
+    <select type="radio" id="Radio1" for="abc">
+        <option value="mysql">MySQL</option>
+        <option selected value="mariadb">MariaDB</option>
+        <option value="sqlserver">SQL Server</option>
+        <option value="postgresql">PostgreSQL</option>
+        <option value="oracle">Oracle</option>
+        <option value="hive">Hive</option>
+    </select>
 
 <hr/>
 
@@ -32,9 +43,16 @@
     <option value="hive" src="/images/dbs/hive.png">Hive</option>
 </select>
 
-<input id="I1" type="password" placeholder="PASSWORD" />
-<input id="I2" type="confirm-password" placeholder="CONFIRM-PASSWORD" />
-<input id="I3" type="mobile" placeholder="MOBILE" />
+<hr/>
+<span id="S1" type="datetime" onpick="alert(this.value);" calendar-week-names="一,二,三,四,五,六,日" tip="Please pick date and time." message="HELLO, PICK A TIME FIRST." clock-minute-interval="10" clock-second-interval="0">today</span>
+<hr/>
+<input id="I1" type="datetime" required-text="请选择一个日期时间。" popup-position="left" calendar-week-names="一,二,三,四,五,六,日" title="Please pick date and time." clock-hour-interval="5" clock-minute-interval="10" clock-second-interval="30" />
+<input id="I2" type="calendar" onblur+="hello" />
+<input id="I3" type="datetime" placeholder="datetime" />
+<input id="I4" type="color" placeholder="color" onblur+="world" />
+<input id="I5" type="month" placeholder="month" />
+<input id="I6" type="range" placeholder="range" />
+<input id="I7" type="url" placeholder="url" />
 <input id="Number" type="number" strength="complex" size="40" positive="yes" pad="yes" precision="0" min="0" max="100" step="10" invalid-text="必须输入0到30之间的值。" style="width: 100px" />
 <input type="text" size="10" value="10" update-value-on="change:#Button" value:="$(#Button)[text]" update-size-on="click:#Button1" size:="$:[value]" />
 <button id="Button1" action="">SIZE</button>

@@ -40,6 +40,8 @@ class Clock {
         .elementify(element => {
             this.container = $create('DIV', { className: this.frameClass }, { }, { sign: 'CLOCK-CONTAINER' });
             element.parentNode.insertBefore(this.container, element);
+
+            element.remove();
         });
 
         if (this.minTime == 'now') {
@@ -58,6 +60,10 @@ class Clock {
 
     get tick() {
         return this.hourInterval == '0' && this.minuteInterval == '0' && this.secondInterval == '0';
+    }
+
+    get value() {
+        return this.time;
     }
 
     get time() {

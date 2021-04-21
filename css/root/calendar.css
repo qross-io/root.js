@@ -1,4 +1,5 @@
 
+input[type=calendar],input[type=datetime] { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #333333; border: 1px solid #666666; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
 
 .-calendar-nav { } 
 .-calendar-nav-button { font-size: 0.75rem; background-color: #EEEEEE; border: 1px solid #CCCCCC; }
@@ -13,11 +14,11 @@ calendar { display: none; }
 .-calendar-title-text { font-size: 1.5rem; text-align: center; color: var(--primary); letter-spacing: 1px; }
 .-calendar-title-text a:hover { text-decoration: none; color: var(--lighter); }
 .-calendar-nav-year-button { font-size: 1.1rem; background-color: #EEEEEE; border: 1px solid #CCCCCC; margin: 1rem 2rem; padding: 0rem 1rem; }
-.-calendar-head { margin: 0 auto; font-size: 1rem; text-align: center; padding: 0.6rem; font-family: 'Open Sans', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei'; border-bottom: 1px solid #999999; }
+.-calendar-head { margin: 0 auto; font-size: 1rem; text-align: center; padding: 0.4rem; font-family: 'Open Sans', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei'; border-bottom: 1px solid #999999; }
 .-calendar-head-title { font-size: 1.2rem; text-align: center; font-family: 'Open Sans', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei'; }
 .-calendar-week-head { font-size: 0.875rem; font-family: 'Open Sans', Tahoma, Geneva, Verdana, 'Microsoft YaHei'; border-bottom: 1px solid #CCCCCC; color: #333333; padding: 0.4rem 0; font-weight: normal; }
 .-calendar-week-name { font-size: 0.875rem; font-family: 'Open Sans', Tahoma, Geneva, Verdana, 'Microsoft YaHei'; border-bottom: 1px solid #CCCCCC;; color: #666666; border-bottom: 1px solid #CCCCCC; font-weight: normal; padding: 0.4rem 0; }
-.-calendar-content { margin: 0.6rem;  border-bottom: 1px solid #CCCCCC; }
+.-calendar-content { margin: 0.4rem 0rem 0.3 0rem;  border-bottom: 1px solid #CCCCCC; }
 .-calendar-content td { padding: 0.2rem 0.6rem;  text-align: center; cursor: default; border: 1px solid transparent; }
 .-calendar-content td div:first-child { font-size: 0.75rem; padding: 0rem 0.1rem; margin-left: -0.5rem; margin-top: -0.1rem; font-family: 'Consolas', 'Microsoft YaHei' }
 .-calendar-day { font-size: 1.2rem; margin: 0.2rem; }
