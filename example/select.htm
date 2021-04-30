@@ -23,7 +23,7 @@
     </style>
 </head>
 <body style="padding: 50px;">
-    <select type="radio" id="Radio1" for="abc">
+    <select type="button" id="Radio1" for="abc">
         <option value="mysql">MySQL</option>
         <option selected value="mariadb">MariaDB</option>
         <option value="sqlserver">SQL Server</option>
@@ -35,13 +35,15 @@
 <hr/>
 
 <select type="image" id="Image">
-    <option value="mysql" src="/images/dbs/mysql.png">MySQL</option>
-    <option selected value="mariadb" src="/images/dbs/mariadb.png">MariaDB</option>
-    <option value="mssql" src="/images/dbs/sqlserver.png">SQL Server</option>
-    <option value="postgresql" src="/images/dbs/postgresql.png">PostgreSQL</option>
-    <option value="oracle" src="/images/dbs/oracle.png">Oracle</option>
-    <option value="hive" src="/images/dbs/hive.png">Hive</option>
+    <option value="mysql" driver="11" src="/images/dbs/mysql.png">MySQL</option>
+    <option selected value="mariadb" driver="22" src="/images/dbs/mariadb.png">MariaDB</option>
+    <option value="mssql" driver="33" src="/images/dbs/sqlserver.png">SQL Server</option>
+    <option value="postgresql" driver="44" src="/images/dbs/postgresql.png">PostgreSQL</option>
+    <option value="oracle" driver="55" src="/images/dbs/oracle.png">Oracle</option>
+    <option value="hive" driver="66" src="/images/dbs/hive.png">Hive</option>
 </select>
+
+<input type="text" set-value-on="load; change: #Image -> $(#Image)[driver]" onload="" />
 
 <hr/>
 <span id="S1" type="datetime" onpick="alert(this.value);" calendar-week-names="一,二,三,四,五,六,日" tip="Please pick date and time." message="HELLO, PICK A TIME FIRST." clock-minute-interval="10" clock-second-interval="0">today</span>

@@ -801,7 +801,7 @@ TreeView.prototype.load = function() {
         this.templateObject
             //owner, ownerElement
             .of(this, this.element)
-            .load(this.data)
+            .setData(this.data)
             .on('lazyload', function() {
                 this.owner.$populateChildren();
                 this.owner.execute('onLazyLoaded');

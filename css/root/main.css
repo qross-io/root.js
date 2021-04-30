@@ -71,6 +71,10 @@ a:active { color: var(--lighter); text-decoration: none; }
 .bold { font-weight: bold; }
 .normal { font-weight: normal; }
 
+a.delete { color: #BB2222; text-decoration: underline; }
+a.delete:hover { text-decoration: none; color: #DD4444; }
+a.delete:active { color: #990000; text-decoration: underline; }
+
 @keyframes fade-in-out { 0%{opacity:0.2;} 50%{opacity:1;} 100%{opacity:0.2;} }
 .blink { animation-name: fade-in-out; animation-duration: 1s; animation-timing-function: ease; animation-iteration-count: infinite; }
 
@@ -148,7 +152,7 @@ button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SS
 .popup-bar { background-color: var(--primary); color: #FFFFFF; padding: 5px 10px; }
 .popup-close-button { float: right; color: #FFFFFF; margin: 5px 5px; }
 .popup-close-button:hover { font-weight: bold; color: #CCCCCC; }
-.popup-title { padding: 20px; font-size: 16px; }
+.popup-title { padding: 1.25rem; font-size: 0.875rem; }
 .popup-item { padding: 0px 20px 10px 20px; }
 .popup-item input { border-bottom: 2px solid var(--primary); border-width: 0px 0px 2px 0px; font-size: 16xp; outline: none; }
 .popup-scroll { padding: 0px 20px 10px 20px; height: 400px; overflow: auto; }

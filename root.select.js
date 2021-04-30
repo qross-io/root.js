@@ -64,7 +64,11 @@ class Select {
             reloadOn: '',
 
             onchange: null, //function(beforeOption, ev) { },
-            'onchange+': '' //server side event
+            'onchange+': null, //server side event
+            'onchange+success': null,
+            'onchange+failure': null,
+            'onchange+exception': null,
+            'onchange+completion': null,
         })
         .elementify(element => {
             if (this.type == 'BEAUTY') {
@@ -434,7 +438,16 @@ Select.prototype.setText = function(text) {
 }
 
 Select.prototype.getAttribute = function(attr) {
-    return this.options[this.selectedIndex].getAttribute(attr);
+    return this[attr] || this.container.getAttribute(attr) || this.options[this.selectedIndex].getAttribute(attr);  
+}
+
+Select.prototype.setAttribute = function(attr, value) {
+    if (this[attr] != undefined) {
+        this[attr] = value;
+    }
+    else {
+        this.container.setAttribute(attr, value);
+    }
 }
 
 class SelectOptGroup {
@@ -634,8 +647,8 @@ class SelectOption {
                 if (this.select.initialized) {
                     if (this.select.execute('onchange', this.select.options[before], this)) {
                         let option = this;
-                        if (this.select['onchange+'] != '') {
-                            $FIRE(this.select, 'chnage', this.select['onchange+'],
+                        if (this.select['onchange+'] != null) {
+                            $FIRE(this.select, 'onchange+',
                                     data => {
                                         this.hintText = this.successText.$p(this, data);
                                     }, 

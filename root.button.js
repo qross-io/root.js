@@ -1,5 +1,5 @@
 
-// 提交按钮扩展
+// 按钮扩展
 
 $enhance(HTMLButtonElement.prototype)
     .declare({
@@ -15,7 +15,6 @@ $enhance(HTMLButtonElement.prototype)
         jumpTo: '', //当动作action完成后要跳转到哪个页面
         clickText: '', //点击按钮后的提示文字
 
-        'onclick+': '',
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
@@ -49,12 +48,7 @@ $enhance(HTMLButtonElement.prototype)
             }            
         }
     })
-    .describe({
-        onActionSuccess: null, // function(result) { },
-        onActionFailure: null, //function(result) { },
-        onActionException: null, //function(error) { },
-        onActionCompletion: null //function() { },
-    })
+    .extend('onclick+')
     .define({
         'text': {
             get () {            
@@ -80,7 +74,7 @@ $enhance(HTMLButtonElement.prototype)
 
                 if (text != '' && this.alert != null) {
                     if ($root.alert != null) {
-                        $root.alert(text);
+                        $root.alert(text, this.confirmButtonText);
                     }
                     else {
                         window.alert(text);
@@ -139,39 +133,37 @@ HTMLButtonElement.prototype.go = function() {
     this.disable();
     this.text = this.clickText.$p(this);
 
-    $FIRE(this, 'click', this['onclick+'],
-        data => {
-            this.status = 1;
-            this.hintText = this.successText.$p(this, data);            
-            this.execute('onActionSuccess', data);
-            if (this.jumpTo != '') {
-                this.text = this.jumpingText.$p(this, data);
-                window.location.href = this.jumpTo.$p(this, data);
-            }
-            else {
+    if (this['onclick+'] != null) {
+        $FIRE(this, 'onclick+',
+            data => {
+                this.status = 1;
+                this.hintText = this.successText.$p(this, data);            
+                if (this.jumpTo != '') {
+                    this.text = this.jumpingText.$p(this, data);
+                    window.location.href = this.jumpTo.$p(this, data);
+                }
+                else {
+                    this.text = this.defaultText;
+                    this.enable();
+                }
+            }, 
+            data => {
+                this.status = 0;
+                this.hintText = this.failureText.$p(this, data);            
                 this.text = this.defaultText;
                 this.enable();
+            },
+            error => {
+                this.status = 1;            
+                this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+            },
+            function() {
+                if (this.jumpTo == '') {
+                    this.enable();
+                }
             }
-        }, 
-        data => {
-            this.status = 0;
-            this.hintText = this.failureText.$p(this, data);
-            this.execute('onActionFailure', data);
-            this.text = this.defaultText;
-            this.enable();
-        },
-        error => {
-            this.status = 1;
-            this.execute('onActionException', error);
-            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-        },
-        function() {
-            this.execute('onActionCompletion');
-            if (this.jumpTo == '') {
-                this.enable();
-            }
-        }
-    );
+        );
+    }
 }
 
 HTMLButtonElement.relationByInput = new Map();
@@ -199,7 +191,7 @@ HTMLButtonElement.prototype.initialize = function() {
         this.watch.split(',').map(tag => tag.trim()).forEach(tag => todo.push(tag));
     }
 
-    if (this['onclick+'] != '') {
+    if (this['onclick+'] != null) {
         let holders = this['onclick+'].match(/\$\(#[^)]+\)/ig);
         if (holders != null) {
             holders.map(tag => tag.$trim('$(', ')')).forEach(tag => todo.push(tag));
@@ -257,28 +249,27 @@ HTMLButtonElement.observe = function() {
     //为每个自定义标签添加监控
     for (let [name, buttons] of HTMLButtonElement.relationByInput) {
         let tag = $s(name);
-        if (tag != null) {
-            if (tag.$required) {
-                buttons.forEach(button => tag.relations.add(button));
-                HTMLInputElement.setterX.set('status', function(value) {
-                    this.relations.forEach(button => button.response(value));
-                });
-                
-                if (tag.status == 1) {
-                    buttons.forEach(button => button.response(1));
-                }
+        
+        if (tag != null && tag.$required) {
+            buttons.forEach(button => tag.relations.add(button));
+            HTMLInputElement.setterX.set('status', function(value) {
+                this.relations.forEach(button => button.response(value));
+            });
+            
+            if (tag.status == 1) {
+                buttons.forEach(button => button.response(1));
             }
-            else {
-                buttons.forEach(button => {
-                    button.satisfied ++;
-                    if (button.satisfied == button.relatived) {
-                        button.enable();
-                    }
-                });
-            }            
-
-            HTMLButtonElement.relationByInput.delete(name);
         }
+        else {
+            buttons.forEach(button => {
+                button.satisfied ++;
+                if (button.satisfied == button.relatived) {
+                    button.enable();
+                }
+            });
+        }            
+
+        HTMLButtonElement.relationByInput.delete(name);        
     }
 
     HTMLButtonElement._observed += 1;
@@ -288,7 +279,7 @@ HTMLButtonElement.observe = function() {
             window.setTimeout(HTMLButtonElement.observe, 200);
         }
         else {
-            HTMLButtonElement.relationByInput.forEach(input => {
+            HTMLButtonElement.relationByInput.forEach((button, input) => {
                 console.warn(input + ' may be incorrect.');
             });
         }
@@ -298,7 +289,7 @@ HTMLButtonElement.observe = function() {
 $finish(function () {
     for (let button of $a('button')) {
         // root 设置为 button 表示组件已初始化
-        if (button.getAttribute('root') == null) {
+        if (button.getAttribute('root') == null && (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null)) {
             button.setAttribute('root', 'BUTTON');
             button.initialize();
         }

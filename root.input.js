@@ -11,7 +11,6 @@ $enhance(HTMLInputElement.prototype)
         invalidText: '', //当格式不正确时的提醒文字
         validText: '',
 
-        'onblur+': '',
         successText: '',        
         failureText: '', 
         exceptionText: '',
@@ -27,8 +26,8 @@ $enhance(HTMLInputElement.prototype)
 
         autosize: false,
 
-        get: null, //pre-process 获取组件的值时对值进行处理，value 代表文本框的值，如 value.trim()
-        set: null, //post-process 设置组件的值时对值进行处理，value 代表文本框的值            
+        getter: null, //pre-process 获取组件的值时对值进行处理，value 代表文本框的值，如 value.trim()
+        setter: null, //post-process 设置组件的值时对值进行处理，value 代表文本框的值            
 
         positive: false, //number 类型下是否要求正数
         precision: -1,
@@ -37,13 +36,14 @@ $enhance(HTMLInputElement.prototype)
         strength: 'WEAK', //password only
         fit: '', //password only
 
-        icon: '' //根据不同的类型选择不同的 iconfont 图标（自动设置）        
+        icon: '', //根据不同的类型选择不同的 iconfont 图标（自动设置）
     })
     .getter({
         'strength': value => value.toUpperCase(),
         'precision': value => $parseInt(value, 0),
         'pad': value => $parseBoolean(value, false)
     })
+    .extend('onblur+')
     .define({
         type: {
             get() {
@@ -93,14 +93,14 @@ $enhance(HTMLInputElement.prototype)
         value: {
             get () {
                 let value = HTMLInputElement.valueDescriptor.get.call(this);
-                if (this.get != null) {
-                    value = function(exp, value) { return eval(exp); }.call(this, this.get, value);
+                if (this.getter != null) {
+                    value = function(exp, value) { return eval(exp); }.call(this, this.getter, value);
                 }
                 return value;
             },
             set (value) {
-                if (this.set != null) {            
-                    value = function(exp, value) { return eval(exp); }.call(this, this.set, value);
+                if (this.setter != null) {            
+                    value = function(exp, value) { return eval(exp); }.call(this, this.setter, value);
                 }
                 HTMLInputElement.valueDescriptor.set.call(this, value);
                 if (this.$required) {
@@ -223,9 +223,9 @@ HTMLInputElement.prototype.validate = function (toCheck = false) {
     }
 
     if (this.status == 1) {
-        if (toCheck && this['onblur+'] != '') {
+        if (toCheck && this['onblur+'] != null) {
             this.disabled = true;
-            $FIRE(this, 'click', this['onclick+'],
+            $FIRE(this, 'onblur+',
                     data => {
                         this.hintText = this.successText.$p(this, data);
                         this.className = this.validClass; 
@@ -277,19 +277,21 @@ HTMLInputElement.prototype.ajust = function() {
     }
 }
 
-HTMLInputElement.prototype.update = function(attr) {
-    if (attr != null) {
-        attr = attr.toCamel();
+HTMLInputElement.prototype.set = function(attr, format, ev) {
+    if (attr != null && format != null) {
+        let value = format.$p(this);
         if (this[attr] != null) {
-            let format = this.getAttribute(attr + ':');
-            if (format != null) {
-                this[attr] = format.$p(this);
-            }
-
+            this[attr] = value;
             if (attr == 'value') {
                 this.ajust();
             }
-        }    
+        }
+        else if (this[attr.toCamel()] != null) {
+            this[attr.toCamel()] = value;
+        }
+        else {
+            this.setAttribute(attr, value);
+        }
     }    
 }
     
@@ -475,13 +477,6 @@ HTMLInputElement.prototype.initialize = function() {
         this.icon = this.icon;
     }
 
-    Event.interact(this, this);
-    if (this.value == '') {
-        $post(function() {
-            input.update('value');
-        });        
-    }
-
     //enter event
     if (this.getAttribute('enter') != null) {
         $x(this).on('keypress', function(ev) {
@@ -490,6 +485,12 @@ HTMLInputElement.prototype.initialize = function() {
             }
         });
     }
+
+    Event.interact(this, this);
+
+    $post(function() {
+        Event.execute(input, 'onload');
+    });
 }
 
 HTMLInputElement.Key = {

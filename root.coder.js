@@ -35,10 +35,13 @@ class Coder {
         this.limited = false;
         
         this.onsave = textArea.getAttribute('onsave'); //客户端事件
-        this['onsave+'] = textArea.getAttribute('onsave+') || textArea.getAttribute('action') || ''; //服务器端事件
+        this['onsave+'] = textArea.getAttribute('onsave+'); //服务器端事件
+        this['onsave+success'] = textArea.getAttribute('onsave+success');
+        this['onsave+failure'] = textArea.getAttribute('onsave+failure');
+        this['onsave+exception'] = textArea.getAttribute('onsave+exception');
+        this['onsave+completion'] = textArea.getAttribute('onsave+completion');
         this.onfocus = textArea.getAttribute('onfocus');
         this.onblur = textArea.getAttribute('onblur');
-
 
         this.saveText = textArea.getAttribute('save-text') || textArea.getAttribute('saveText') || '';
         this.savingText = textArea.getAttribute('saving-text') || textArea.getAttribute('savingText') || '';
@@ -176,6 +179,8 @@ class Coder {
         if (this.saveText != '') {
             this.hintText = this.saveText;
         }
+
+        Event.interact(this, textArea);
     }
 
     get mode() {
@@ -196,7 +201,7 @@ class Coder {
     }
 
     set value(value) {
-        this.mirror.setValue( value);
+        this.mirror.setValue(value);
     }
 
     get readOnly() {
@@ -289,6 +294,19 @@ Coder.prototype.on = function(eventName, func) {
     return this;
 }
 
+Coder.prototype.save = function() {
+    Coder.save(this.mirror);
+}
+
+Coder.prototype.clear = function() {
+    this.value = '';
+}
+
+Coder.prototype.copy = function() {
+    this.textArea.select();
+    document.execCommand('Copy');
+}
+
 Coder.save = function(cm) {
     let coder = $coder(cm.getTextArea().id);
 
@@ -344,26 +362,28 @@ Coder.save = function(cm) {
 
     if (valid == 1 && !coder.readOnly && coder.textArea.value != coder.value) {
         if (Event.execute(coder.name, 'onsave')) {
-            if (coder['onsave+'] != '') {
+            if (coder['onsave+'] != null) {
+                if (coder['onsave+'].endsWith('=')) {
+                    coder['onsave+'] = coder['onsave+'] + '{value}%';
+                }
                 coder.hintText = coder.savingText.$p(coder, data);
-                $FIRE(coder, 'save', coder['onsave+'],
+                $FIRE(coder, 'onsave+',
                     data => {
                         this.textArea.value = this.value;
                         this.hintText = this.successText == '' ? this.savedText.$p(this, data) : this.successText.$p(this, data);
+                        Event.execute(this.name, 'onsave+success', data);
                     }, 
                     data => {
                         this.errorText = this.failureText.$p(this, data);
+                        Event.execute(this.name, 'onsave+failure', data);
                     },
                     error => {
                         this.errorText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                        Event.execute(this.name, 'onsave+exception', error);
                     },
                     function() {
-
-                    });
-                $cogo(coder.saveAction + (coder.saveAction.endsWith('=') ? '{value}%' : ''), coder.textArea, coder)
-                    .then(data => {
-                        
-                    });                
+                        Event.execute(this.name, 'onsave+completion');
+                    });               
             }
             else {
                 coder.textArea.value = coder.value;
@@ -377,27 +397,29 @@ Coder.prototype.setOption = function(option, value) {
     this.mirror.setOption(option, value);
 }
 
-Coder.prototype.show = function(visible = true) {
-    if (visible) {
-        this.textArea.nextElementSibling.style.display = '';
-        this.textArea.setAttribute('visible', '');
-        this.textArea.removeAttribute('hidden');
-        this.hintSpan.style.display = '';
-        this.hintSpan.setAttribute('visible', '');
-        this.hintSpan.removeAttribute('hidden');
+Coder.prototype.setAttribute = function(attr, value) {
+    if (this[attr] != undefined) {
+        this[attr] = value;
+    }
+    else if (this.options[attr] != undefined) {
+        this.options[attr] = value;
+        this.mirror.setOption(attr, value);
     }
     else {
-        this.hide();
+        this.textArea.setAttribute(attr, value);
     }
 }
 
-Coder.prototype.hide = function() {
-    this.textArea.nextElementSibling.style.display = 'none';
-    this.textArea.setAttribute('hidden', '');
-    this.textArea.removeAttribute('visible');
-    this.hintSpan.style.display = 'none';
-    this.hintSpan.setAttribute('hidden', '');
-    this.hintSpan.removeAttribute('visible');
+Coder.prototype.getAttribute = function(attr) {
+    if (this[attr] != undefined) {
+        return this[attr];
+    }
+    else if (this.options[attr] != undefined) {
+        return this.options[attr];
+    }
+    else {
+        return this.textArea.getAttribute(attr);
+    }
 }
 
 Coder.initializeAll = function() {

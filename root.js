@@ -1449,9 +1449,10 @@ $cogo = function(todo, element, data) {
     else {
         setting = $ajax.match(todo);
 
-        if (todo.includes('#')) {
-            path = todo.takeAfterLast('#').trim();
-            todo = todo.takeBeforeLast('#').trim();
+        if (/#\s*\//.test(todo)) {
+            let sp = /#\s*\//.exec(todo)[0];
+            path = todo.substring(todo.lastIndexOf('sp') + 1).trim();
+            todo = todo.takeBeforeLast(sp).trim();
         }
 
         if (/^https?:/i.test(todo)) {
@@ -1491,73 +1492,70 @@ $cogo = function(todo, element, data) {
     }
 };
 //server event
-$FIRE = function (element, event, action, succeed, fail, except, complete) {
-    action = action.trim();
-    let expection = '';
-    if (!/^[a-z]+\s+/i.test(action) || /^(get|post|delete|put)\s*:/i.test(action)) {
-        if (action.includes('->')) {
-            expection = action.takeAfter('->').trim();
-            action = action.takeBefore('->').trim();
+$FIRE = function (element, event, succeed, fail, except, complete) {
+    let action = element[event].trim();
+    if (action != '') {
+        let expection = '';
+        if (!/^[a-z]+\s+/i.test(action) || /^(get|post|delete|put)\s*:/i.test(action)) {
+            if (action.includes('->')) {
+                expection = action.takeAfter('->').trim();
+                action = action.takeBefore('->').trim();
+            }
         }
-    }
 
-    $cogo(action, element, element)
-        .then(data => {
-            let valid = true;
-            if (expection != '') {
-                switch (expection) {
-                    case 'empty':
-                        valid = $parseEmpty(data, true);
-                        break;
-                    case 'non-empty':
-                    case 'not-empty':
-                        valid = !$parseEmpty(data, false);
-                        break;
-                    case 'true':
-                        valid = $parseBoolean(data, true);
-                        break;
-                    case 'false':
-                        valid = !$parseBoolean(data, false);
-                        break;
-                    case 'zero':
-                        valid = $parseZero(data, 1);
-                        break;
-                    case 'non-zero':
-                    case 'not-zero':
-                        valid = !$parseZero(data, 0);
-                        break;
-                    default:                            
-                        valid = $parseBoolean(expection.eval(element, data), true);
-                        break;
-                }   
-            }
-            else if ((element.successText != null && element.successText != '') || (element.failureText != null && element.failureText != '')) {
-                valid = $parseBoolean(data, true);
-            }
-
-            if (valid) {
-                succeed.call(element, data);
-
-                let id = '#' + element.id;
-                if (Event.z.has(id)) {
-                    for (let watch of Event.z.get(id)) {
-                        if (watch.event == event) {
-                            watch.func(data);
-                        }
-                    }
+        $cogo(action, element, element)
+            .then(data => {
+                let valid = true;
+                if (expection != '') {
+                    switch (expection) {
+                        case 'empty':
+                            valid = $parseEmpty(data, true);
+                            break;
+                        case 'non-empty':
+                        case 'not-empty':
+                            valid = !$parseEmpty(data, false);
+                            break;
+                        case 'true':
+                            valid = $parseBoolean(data, true);
+                            break;
+                        case 'false':
+                            valid = !$parseBoolean(data, false);
+                            break;
+                        case 'zero':
+                            valid = $parseZero(data, 1);
+                            break;
+                        case 'non-zero':
+                        case 'not-zero':
+                            valid = !$parseZero(data, 0);
+                            break;
+                        default:                            
+                            valid = $parseBoolean(expection.eval(element, data), true);
+                            break;
+                    }   
                 }
-            }
-            else {
-                fail.call(element, data);
-            }
-        })
-        .catch(error => {
-            except.call(element, error);
-            console.error(error);
-        })
-        .finally(() => {
-            complete.call(element);
-        })
+                else if ((element.successText != null && element.successText != '') || (element.failureText != null && element.failureText != '')) {
+                    valid = $parseBoolean(data, true);
+                }
+
+                if (valid) {
+                    Event.execute(element, event + '+success', data);
+                    succeed.call(element, data);                
+                }
+                else {
+                    Event.execute(element, event + '+failure', data);
+                    fail.call(element, data);                
+                }
+            })
+            .catch(error => {
+                Event.execute(element, event + '+exception', error);
+                except.call(element, error);            
+                console.error(error);
+            })
+            .finally(() => {
+                Event.execute(element, event + '+completion');
+                complete.call(element);            
+            });
+    }
 };
 
 $lang = (function() {
@@ -2817,9 +2815,9 @@ $listen = function(tagName) {
     return new Event.Entity(tagName);
 }
 
+// id -> event-name -> [func]
 Event.s = new Map(); //自定义组件事件 $listen
 Event.x = new Map(); //客户端事件监听
-Event.z = new Map(); //服务器端事件监听
 
 Event.bind = function (tag, eventName, func) {
      
@@ -2850,7 +2848,7 @@ Event.bind = function (tag, eventName, func) {
         }
     }
 
-    if (extension) {
+    if (extension || eventName == 'onload') {
         if (id != '') {
             //按 id 绑定
             if (!Event.s.has(id)) {
@@ -2960,45 +2958,140 @@ Event.trigger = function(tag, func, ...args) {
     return final;  
 }
 
+Event.express = function(exp, ...args) {
+    for (let sentence of exp.split(';')) {
+        let value = '';
+        if (sentence.includes('->')) {
+            value = sentence.takeAfter('->').trimLeft();
+            sentence = sentence.takeBefore('->').trimRight();
+        }
+        let [method, selector] = sentence.includes(':') ? [sentence.takeBefore(':').trim(), sentence.takeAfter(':').trim()] : [sentence.trim(), ''];
+        let item = '';
+        if (method.includes('-')) {
+            item = method.takeAfterLast('-');
+            method = method.takeBeforeLast('-').toCamel();
+        }
+
+        if (selector == '') {
+            if (item != '' && value != '') {
+                this[method](item, value, ...args);
+            }
+            else if (item != '' && value == '') {
+                this[method](item, ...args);
+            }
+            else {
+                this[method](...args);
+            }
+        }
+        else {
+            selector.split(',')
+                .map(v => v.trim())
+                .forEach(r => {
+                    if (r.startsWith('#')) {
+                        let s = $s(r); 
+                        if (s[method] == null) {
+                            s = $x(r);
+                        }
+                        if (item != '' && value != '') {
+                            s[method](item, value, ...args);
+                        }
+                        else if (item != '' && value == '') {
+                            s[method](item, ...args);
+                        }
+                        else {
+                            s[method](...args);
+                        }                        
+                    }
+                    else {
+                        let x = $x(r);
+                        if (x[method] != null)  {
+                            if (item != '' && value != '') {
+                                x[method](item, value, ...args);
+                            }
+                            else if (item != '' && value == '') {
+                                x[method](item, ...args);
+                            }
+                            else {
+                                x[method](...args);
+                            }
+                        }
+                        else {
+                            x.objects.forEach(s => {
+                                if (item != '' && value != '') {
+                                    s[method](item, value, ...args);
+                                }
+                                else if (item != '' && value == '') {
+                                    s[method](item, ...args);
+                                }
+                                else {
+                                    s[method](...args);
+                                }
+                            });
+                        }
+                    }
+                });
+        }
+    }        
+}
+
 Event.interact = function(obj, element) {
     element.getAttributeNames().forEach(name => {
-        if (/-on$/i.test(name) || /-after$/i.test(name)) {
-            let side = name.takeAfterLast('-');
+        if (/^on/i.test(name) && name.endsWith('-')) {
+            //on{event}-
+            Event.bind(obj, name.dropRight(1), function(...args) {
+                Event.express.call(obj, element.getAttribute(name), ...args);
+            });
+        }
+        else if (/-on$/i.test(name)) {
+            //{method}-{attr}-on
             let method = name.takeBeforeLast('-');
             let attr = obj['value'] != undefined ? 'value' : 'innerHTML';
             if (method.includes('-')) {                
                 attr = method.takeAfter('-');
                 method = method.takeBefore('-');                
             }
-            Event.watch(obj, method, element.getAttribute(name), attr, side == 'on' ? 'x' : 'z');
+            Event.watch(obj, method, element.getAttribute(name), attr);
         }
     });
 }
 
-Event.watch = function(obj, method, watcher, exp, side = 'x') {
-    let func = function(data) {
-        obj[method](exp, data);
+Event.watch = function(obj, method, watcher, attr) {
+    let value = '';
+    if (watcher.includes('->')) {
+        value = watcher.takeAfter('->').trim();
+        watcher = watcher.takeBefore('->').trim();
     }
+    let func = function(data) {
+        obj[method](attr, value, data);
+    };
     watcher.split(';')
         .map(w => {
-            return {
+            return w.includes(':') ? {
                 event: w.takeBefore(':').trim(),
                 selector: w.takeAfter(':').trim()
+            } : {
+                event: w,
+                selector: (function() {                    
+                    if (obj.id == '') {                        
+                        obj.id = obj.nodeName + '_' + document.components.size;
+                    }
+                    return '#' + obj.id;                    
+                })()
             };
         })
-        .forEach(watch => {
+        .forEach(watch => {            
             watch.selector
                 .split(',')
                 .map(s => s.trim())
                 .forEach(s => {
-                    if (!Event[side].has(s)) {
-                        Event[side].set(s, []);
+                    if (!Event.x.has(s)) {
+                        Event.x.set(s, []);
                     }
-                    Event[side].get(s).push({
+                    Event.x.get(s).push({
                         'event': watch.event,
                         'func': func
                     });                    
-                });
+                });            
         });
 }
 
@@ -3204,7 +3297,7 @@ $Settings.prototype.declare = function(variables) {
     
     if (this.object['name'] != null && this.object['name'] != '') {
         document.components.set(this.object['name'], this.object);
-    }    
+    }
 
     return this;
 }
@@ -3274,7 +3367,6 @@ $transfer = function(source, target) {
     source.getAttributeNames()
         .forEach(attr => {
             if (!excludings.has(attr)) {
-                console.log(attr);
                 let value = source[attr] != null ? source[attr] : source.getAttribute(attr);
                 if (target[attr] != null) {
                     target[attr] = value;
@@ -3318,7 +3410,7 @@ NativeElement.executeAopFunction = function(object, func, value) {
     }
 }
 
-//新定义扩展属性
+//新定义扩展属性, 由元素属性保存值
 NativeElement.prototype.declare = function(variables) {
     for (let name in variables) {
         Object.defineProperty(this.object, name, {
@@ -3364,7 +3456,7 @@ NativeElement.prototype.declare = function(variables) {
                 }
                 this.setAttribute(name, value);
             }
-        })
+        });
     }
     return this;
 };
@@ -3393,7 +3485,25 @@ NativeElement.prototype.define = function(properties) {
     return this;
 };
 
-//声明隐式变量, 非标签中声明的参数或扩展方法
+//绑定服务器端事件
+NativeElement.prototype.extend = function(...events) {
+    events.forEach(event => {
+        [event, event + 'success', event + 'failure', event + 'exception', event + 'completion']
+            .forEach(name => {
+                Object.defineProperty(this.object, name, {
+                    get() {
+                        return this.getAttribute(name);
+                    },
+                    set (value) {
+                        this.setAttribute(name, value);
+                    }
+                });
+            });
+    });  
+    return this;
+}
+
+//声明隐式变量, 非标签中声明的参数或扩展方法，下划线开头的私有变量保存值
 NativeElement.prototype.describe = function(variables) {
     for (let name in variables) {
         this.object['_' + name] = null;
@@ -3442,9 +3552,9 @@ $guid = function() {
 $ready(function() {
     //aop of $request
     if ($cookie.has('oneapi.ajax.settings')) {
-        let ajax = $cookie('oneapi.ajax.settings');
+        let ajax = $cookie.get('oneapi.ajax.settings');
         if (ajax != null) {
-            Json.eval(ajax).forEach(setting => {
+            Json.eval(decodeURIComponent(ajax)).forEach(setting => {
                 $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
             });
         }
@@ -3564,8 +3674,22 @@ $post(function() {
         }
         else {
             watches.forEach(watch => {
-                $x(selector).on(watch.event, watch.func);
+                $x(selector).on(watch.event, watch.func);                
             });
         }
     }
+    Event.x.clear();
+
+    $a('h1,h2,h3,[click-to-copy]').forEach(h => {
+        h.style.cursor = 'pointer';
+        if (h.title == '') {
+            h.title = 'Click to copy';
+        }
+        $x(h).on('click', function() {
+            $x(h).insertBehind('INPUT', { value: $text(h.getAttribute('click-to-copy') == null || h.getAttribute('click-to-copy') == '' ? h : $s(h)) });
+            h.nextElementSibling.select();
+            document.execCommand('Copy');
+            h.nextElementSibling.remove();
+        });
+    });
 });
