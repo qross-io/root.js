@@ -1,7 +1,5 @@
-﻿
-
 /*
-    <table id="" datatable="Boolean" data="URL"
+    <table id="" data="URL"
         imagesBaseUrl="URL" filterImageUrl="URL" searchImageUrl="URL" pickerImageUrl="URL" ascImageUrl="URL" descImageUrl="URL"
         rowClass="ClassName" alternativeRowClass="ClassName" hoverRowClass="ClassName" activeRowClass="ClassName" focusRowClass="ClassName"
         hoverColumnClass="ClassName" activeColumnClass="ClassName" focusColumnClass="ClassName">
@@ -19,35 +17,13 @@
             </tr>
         </tbody>
     </table>
-
-    //原本无数据，从接口加载部分数据(分页), 排序和过滤时重新加载
-
-    ## Idea ##
-    能获取到表格内的数据或者原始Json数据   dataTable.rows[i].cells[i].data
-    多选 - CheckList, focusRows
-    拖动排序 - 可能适用于FocusView
-
-    statusColumnClass
-    statusCellClass
-    enable()
-    disable()
-
-    this.imagesBaseUrl = table.getAttribute('imagesBaseUrl') || $root.home + 'images/';
-    //this.searchImageUrl = table.getAttribute('searchImageUrl') || 'search.png';
-    //this.pickerImageUrl = table.getAttribute('pickerImageUrl') || 'picker.png';
-    this.ascImageUrl = table.getAttribute('ascImageUrl') || 'asc.png';
-    this.descImageUrl = table.getAttribute('descImageUrl') || 'desc.png';
 */
 
-DataTable = function(element) {
-
-    $initialize(this)
-    .with(element)
+$enhance(HTMLTableElement.prototype)
     .declare({
-        name: 'DataTable_' + document.components.size,
-
+        name: 'Table_' + document.components.size,
         exclusions: '', //0, n
-        
+
         captionClass: '', //caption
         headerClass: 'header-row', //thead
         footerClass: '', //tfoot        
@@ -56,7 +32,7 @@ DataTable = function(element) {
         hoverRowClass: 'row-hover',
         activeRowClass: 'row-active',
         focusRowClass: 'row-focus',
-
+                
         //hoverColumnClass: '',
         //activeColumnClass: '',
         //focusColumnClass: '',
@@ -66,11 +42,7 @@ DataTable = function(element) {
         //focusCellClass: '',
         //editingCellClass: '',
 
-        tBodyIndex: 0, //默认的tbody容器索引
         data: '',
-        template: '',
-
-        reloadOnFilterOrSorting: false, //如果为true, 则到后端请求数据, 如果为false, 则仅在前端过滤和筛选
 
         onrowhover: null, //function(row) { },
         onrowleave: null, //function(row) { },
@@ -83,53 +55,46 @@ DataTable = function(element) {
         onfilter: null, //function() {},
         onsort: null, //function() {},
         onfiltercancel: null, //function() {}
+        
+        reloadOnFilterOrSorting: false, //如果为true, 则到后端请求数据, 如果为false, 则仅在前端过滤和筛选
+        reloadOnFilter: false,
+        reloadOnSort: false
     })
-    .elementify(element => {
-        this.table = element;
-        element.removeAttribute('data');
+    .define({
+        'value': {
+            get () {            
+                return '';
+            }
+        }
     });
 
-    if (this.table.querySelector('template') != null) {
-        this.template = new Template(this.table.querySelector('template'), this.table.tBodies[this.tBodyIndex])
-                            .of(this, this.table)
+HTMLTableElement.prototype.template = null;
+HTMLTableElement.prototype.cols = new Array(); //表格的列数组
+HTMLTableElement.prototype.excludedRows = new Set();
+HTMLTableElement.prototype.hoverRow = null;
+//HTMLTableElement.prototype.hoverColumn = -1;
+HTMLTableElement.prototype.focusRow = null;
+//HTMLTableElement.prototype.focusRows = new Array();
+//HTMLTableElement.prototype.focusColumn = -1;
+//数据源数据是否已经加载完成
+HTMLTableElement.prototype.loaded = false;
+
+HTMLTableElement.prototype.initialize = function() {
+    if (this.id == '') {
+        this.id = this.name;
+    }
+
+    if (this.querySelector('template') != null) {
+        this.template = new Template(this.querySelector('template'))
+                            .of(this, this)
                             .asArray();
     }
 
-    //表格的列，与原生的cols区分
-    this.columns = new Object();
-}
-
-$table = function(name) {
-    let table = $t(name);
-    if (table != null && table.tagName == 'DATATABLE') {
-        return table;
+    if (this.tBodies.length == 0) {
+        this.appendChild($create('TBODY'));        
     }
-    else {
-        return null;
-    }
-}
-
-DataTable.prototype.table = null;
-
-DataTable.prototype.excludedRows = new Set();
-DataTable.prototype.hoverRow = null;
-//DataTable.prototype.hoverColumn = -1;
-//TR
-DataTable.prototype.focusRow = null;
-//DataTable.prototype.focusRows = new Array();
-//DataTable.prototype.focusColumn = -1;
-//数据源数据是否已经加载完成
-DataTable.prototype.loaded = false;
-
-DataTable.prototype.apply = function() {
     
-    if (this.table == null) {
-        throw new Error('Must specify a table element.');
-    }
-
-    if (this.table.tBodies.length == 0) {
-        this.table.appendChild($create('TBODY'));        
-    }
+    Event.interact(this, this);
 
     if (this.data == '') {
         this.__initializeSettings();
@@ -142,21 +107,16 @@ DataTable.prototype.apply = function() {
         this.load();
     }
 
-    if (typeof (this.reloadOnFilterOrSorting) != 'boolean') {
-        this.reloadOnFilterOrSorting = $parseBoolean(this.reloadOnFilterOrSorting, false);
-    }
-
-    let dataTable = this;
-    $x(this.table)
-        .bind('mouseover', function (ev) { dataTable.hover(ev); })
-        .bind('mouseout', function (ev) { dataTable.leave(ev); })
-        .bind('mousedown', function (ev) { dataTable.active(ev); })
-        .bind('mouseup', function (ev) { dataTable.focus(ev); })
-        .bind('dblclick', function (ev) { dataTable.dblclick(ev); });
-    
+    let table = this;
+    $x(this)
+        .bind('mouseover', function (ev) { table.hover(ev); })
+        .bind('mouseout', function (ev) { table.leave(ev); })
+        .bind('mousedown', function (ev) { table.active(ev); })
+        .bind('mouseup', function (ev) { table.focus(ev); })
+        .bind('dblclick', function (ev) { table.dblclick(ev); });    
 }
 
-DataTable.prototype.hover = function (ev) {
+HTMLTableElement.prototype.hover = function (ev) {
 
     let row = this.__bubbleRow(ev);
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow) {
@@ -173,7 +133,7 @@ DataTable.prototype.hover = function (ev) {
     }
 }
 
-DataTable.prototype.leave = function (ev) {
+HTMLTableElement.prototype.leave = function (ev) {
     if (this.hoverRow != null) {
         this.hoverRow.className = Number.parseInt(this.hoverRow.getAttribute('index')) % 2 == 0 ? this.rowClass : this.alternativeRowClass;
         this.execute('onrowleave', this.hoverRow);
@@ -187,14 +147,14 @@ DataTable.prototype.leave = function (ev) {
 //    }
 }
 
-DataTable.prototype.active = function (ev) {
+HTMLTableElement.prototype.active = function (ev) {
     let row = this.__bubbleRow(ev);
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow && !row.isFocusRow) {
         row.tr.className = this.activeRowClass;
     }
 }
 
-DataTable.prototype.focus = function (ev) {
+HTMLTableElement.prototype.focus = function (ev) {
     let row = this.__bubbleRow(ev);
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow && !row.isFocusRow) {
         this.hoverRow = null;
@@ -209,14 +169,14 @@ DataTable.prototype.focus = function (ev) {
     }
 }
 
-DataTable.prototype.dblclick = function (ev) {
+HTMLTableElement.prototype.dblclick = function (ev) {
     let row = this.__bubbleRow(ev);
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow) {
         this.execute('onrowdblclick', row.tr);
     }
 }
 
-DataTable.prototype.remove = function(row) {
+HTMLTableElement.prototype.remove = function(row) {
     if (row == null) {
         row = this.focusRow;
     }
@@ -229,7 +189,7 @@ DataTable.prototype.remove = function(row) {
     }
 }
 
-DataTable.prototype.__bubbleRow = function (ev) {
+HTMLTableElement.prototype.__bubbleRow = function (ev) {
     let isContent = false;
     let tr = ev.target;
     let td = null;
@@ -252,11 +212,11 @@ DataTable.prototype.__bubbleRow = function (ev) {
     };
 }
 
-DataTable.prototype.__initializeAllRows = function() {
+HTMLTableElement.prototype.__initializeAllRows = function() {
 
     let rows = 0;
 
-    for (let tr of this.table.tBodies[0].children) {
+    for (let tr of this.tBodies[0].children) {
         if (tr.firstElementChild != null && tr.style.display != 'none') {
             if (tr.firstElementChild.nodeName == 'TD') {
                 tr.className = rows % 2 == 0 ? this.rowClass : this.alternativeRowClass;
@@ -271,7 +231,7 @@ DataTable.prototype.__initializeAllRows = function() {
     }
 }
 
-DataTable.clearFilter = function(tr, columnName) {
+HTMLTableElement.clearFilter = function(tr, columnName) {
     //在meet中去掉
     if (tr.getAttribute("filter-meet") != null) {
         if (tr.getAttribute('filter-meet') == '(' + columnName + ')') {
@@ -296,17 +256,22 @@ DataTable.clearFilter = function(tr, columnName) {
     }
 }
 
-DataTable.prototype.__initializeSettings = function () {
+HTMLTableElement.prototype.__initializeSettings = function () {
 
-    for (let child of this.table.children) {
+    for (let child of this.children) {
         if (child.nodeName == 'COLGROUP') {
             let i = 0;
             for (let col of child.children) {
-                for (let j = 0; j < col.span; j++) {
-                    let name = col.getAttribute('name') || this.name + '_' + i;
-                    this.columns[name] = new DataColumn(name, i, col);
-                    i++;
+                if (col.name == '') {
+                    col.name = this.id + '_' + i;
                 }
+                col.index = i;
+                if (col.editable) {
+                    col.editor = new Editor(col).apply('#' + (col.parentNode.nodeName == 'COLGROUP' ? col.parentNode.parentNode.id : col.parentNode.id) + ' tbody td:nth-child(' + (i + 1) + ')');
+                }
+
+                this.cols[i] = col;                
+                i += col.span;
             }
         }        
         else if (child.nodeName == 'THEAD') {
@@ -325,18 +290,17 @@ DataTable.prototype.__initializeSettings = function () {
     }
     
     //filter or sorting
-    let dataTable = this;    
-    for (let name in this.columns) {
-        let column = this.columns[name];
-
-        if (column.filterable && column.sortable) {
+    let table = this;    
+    for (let i = 0; i < this.cols.length; i++) {
+        let col = this.cols[i];
+        if (col.filterable && col.sortable) {
             //筛选和排序 - 下拉菜单(PC) 或弹出框(Mobile)
             //暂时不支持
         }
-        else if (column.filterable) {
+        else if (col.filterable) {
             //仅筛选 - 直接输入或下拉菜单或弹出框 - 支持输入和选择两种模式
             //以下是需要整合的代码        
-            let th = this.table.tHead.rows[0].cells[column.index];
+            let th = this.tHead.rows[0].cells[col.index];
             //let span = $create('SPAN', {}, { borderRight: '2px solid var(--primary)', borderBottom: '2px solid var(--primary)', width: '5px', height: '5px', display: 'inline-block', transform: 'rotate(45deg)', margin: '0px 0px 2px 6px' });
             let ficn = $create('I', { className: 'iconfont icon-filter f14' }, { marginLeft: '5px' });
             let sicn = $create('I', { className: 'iconfont icon-sousuo f14' }, { marginLeft: '-20px' });
@@ -364,38 +328,38 @@ DataTable.prototype.__initializeSettings = function () {
                 if (changed) {
                     //do filter
                     //在table上保存当前过滤词, 目的是data属性可用
-                    dataTable.table.setAttribute(column.name, text);
+                    table.setAttribute(col.name, text);
                     //清除所有通过数据源加载的行
-                    if (dataTable.reloadOnFilterOrSorting) {
-                        dataTable.clear();
+                    if (table.reloadOnFilterOrSorting) {
+                        table.clear();
                     }
                     //过滤剩下的行
                     //在tr上增加filter-meet="(column-name)(column-name)"和filter-miss="(column-name)"属性
-                    if (dataTable.table.tBodies[0].children.length > 0) {
-                        for (let i = dataTable.table.tBodies[0].children.length - 1; i >= 0; i--) {
-                            let tr = dataTable.table.tBodies[0].children[i];
+                    if (table.tBodies[0].children.length > 0) {
+                        for (let i = table.tBodies[0].children.length - 1; i >= 0; i--) {
+                            let tr = table.tBodies[0].children[i];
                             //清除过滤词
                             if (text == '') {
-                                DataTable.clearFilter(tr, column.name);
-                                dataTable.execute('onfiltercancel');
+                                DataTable.clearFilter(tr, col.name);
+                                table.execute('onfiltercancel');
                             }
                             //添加或替换过滤词
                             else {
-                                if (tr.cells[column.index].textContent.includes(text)) {
+                                if (tr.cells[col.index].textContent.includes(text)) {
                                     //在meet中增加
                                     if (tr.getAttribute("filter-meet") == null) {
-                                        tr.setAttribute('filter-meet', '(' + column.name + ')');
+                                        tr.setAttribute('filter-meet', '(' + col.name + ')');
                                     }
-                                    else if (!tr.getAttribute('filter-meet').includes('(' + column.name + ')')) {
-                                        tr.setAttribute('filter-meet', tr.getAttribute('filter-meet') + '(' + column.name + ')');
+                                    else if (!tr.getAttribute('filter-meet').includes('(' + col.name + ')')) {
+                                        tr.setAttribute('filter-meet', tr.getAttribute('filter-meet') + '(' + col.name + ')');
                                     }   
                                     //从miss中去掉
                                     if (tr.getAttribute("filter-miss") != null) {
-                                        if (tr.getAttribute('filter-miss') == '(' + column.name + ')') {
+                                        if (tr.getAttribute('filter-miss') == '(' + col.name + ')') {
                                             tr.removeAttribute('filter-miss');                                            
                                         }
                                         else {
-                                            tr.setAttribute('filter-miss', tr.getAttribute('filter-miss').replace('(' + column.name + ')', ''));
+                                            tr.setAttribute('filter-miss', tr.getAttribute('filter-miss').replace('(' + col.name + ')', ''));
                                         }
                                     }
 
@@ -406,20 +370,20 @@ DataTable.prototype.__initializeSettings = function () {
                                 else {
                                     //从meet中去掉
                                     if (tr.getAttribute("filter-meet") != null) {
-                                        if (tr.getAttribute('filter-meet') == '(' + column.name + ')') {
+                                        if (tr.getAttribute('filter-meet') == '(' + col.name + ')') {
                                             tr.removeAttribute('filter-meet');
                                         }
                                         else {
-                                            tr.setAttribute('filter-meet', tr.getAttribute('filter-meet').replace('(' + column.name + ')', ''));
+                                            tr.setAttribute('filter-meet', tr.getAttribute('filter-meet').replace('(' + col.name + ')', ''));
                                         }
                                     }
                                     
                                     //在miss中增加
                                     if (tr.getAttribute("filter-miss") == null) {
-                                        tr.setAttribute('filter-miss', '(' + column.name + ')');
+                                        tr.setAttribute('filter-miss', '(' + col.name + ')');
                                     }
-                                    else if (!tr.getAttribute('filter-miss').includes('(' + column.name + ')')) {
-                                        tr.setAttribute('filter-miss', tr.getAttribute('filter-miss') + '(' + column.name + ')');
+                                    else if (!tr.getAttribute('filter-miss').includes('(' + col.name + ')')) {
+                                        tr.setAttribute('filter-miss', tr.getAttribute('filter-miss') + '(' + col.name + ')');
                                     }
 
                                     tr.style.display = 'none';
@@ -428,14 +392,14 @@ DataTable.prototype.__initializeSettings = function () {
                         }
                     }
 
-                    dataTable.execute('onfilter');
+                    table.execute('onfilter');
 
                     //设置行样式或加载数据后设置行样式
-                    if (dataTable.data == '') {
-                        dataTable.__initializeSettings();
+                    if (table.data == '') {
+                        table.__initializeSettings();
                     }
-                    else if (dataTable.reloadOnFilterOrSorting) {
-                        dataTable.load();
+                    else if (table.reloadOnFilterOrSorting) {
+                        table.load();
                     }
                     //保存当前的过滤词
                     th.setAttribute('filter', text);
@@ -443,15 +407,15 @@ DataTable.prototype.__initializeSettings = function () {
                 th.innerHTML = '';
                 th.innerHTML = text == '' ? th.title : text;
                 th.appendChild(text == '' ? ficn : cicn);
-                column.filtering = false;
+                col.filtering = false;
             }
 
             th.ondblclick = function(ev) {
-                if (!column.filtering) {
+                if (!col.filtering) {
                     th.innerHTML = '';
                     th.appendChild(input);
                     th.appendChild(sicn);
-                    column.filtering = true;
+                    col.filtering = true;
                     //filter属性保存当前使用的过滤词
                     if (th.getAttribute('filter') != null) {
                         th.firstChild.value = th.getAttribute('filter');
@@ -463,24 +427,24 @@ DataTable.prototype.__initializeSettings = function () {
             cicn.onclick = function(ev) {
 
                 //在table上保存当前过滤词, 目的是data属性可用
-                dataTable.table.setAttribute(column.name, '');
+                table.setAttribute(col.name, '');
                 //清除所有通过数据源加载的行
-                if (dataTable.reloadOnFilterOrSorting) {
-                    dataTable.clear();
+                if (table.reloadOnFilterOrSorting) {
+                    table.clear();
                 }
 
-                for (let i = dataTable.table.tBodies[0].children.length - 1; i >= 0; i--) {
-                    DataTable.clearFilter(dataTable.table.tBodies[0].children[i], column.name);                    
+                for (let i = table.tBodies[0].children.length - 1; i >= 0; i--) {
+                    DataTable.clearFilter(table.tBodies[0].children[i], col.name);                    
                 }
                 
-                dataTable.execute('onfiltercancel');
+                table.execute('onfiltercancel');
 
                 //设置行样式或加载数据后设置行样式
-                if (dataTable.data == '') {
-                    dataTable.__initializeSettings();
+                if (table.data == '') {
+                    table.__initializeSettings();
                 }
-                else if (dataTable.reloadOnFilterOrSorting) {
-                     dataTable.load();
+                else if (table.reloadOnFilterOrSorting) {
+                     table.load();
                 }
                 //保存当前的过滤词
                 th.setAttribute('filter', '');
@@ -495,15 +459,15 @@ DataTable.prototype.__initializeSettings = function () {
                 return false;
             }
 
-            if (column.filterOptions != '') {                
+            if (col.filterOptions != '') {                
                 th.onmouseover = function(ev) {
 
                 }
             }        
         }
-        else if (column.sortable) {
+        else if (col.sortable) {
             //仅排序 - 点击或下拉菜单或弹出框 - 无排序/正序/倒序
-            let th = this.table.tHead.rows[0].cells[column.index];
+            let th = this.tHead.rows[0].cells[col.index];
             th.title = 'Click to Sort';
             th.style.cursor = 'pointer';
             //th.style.textDecoration = 'underline';
@@ -517,10 +481,10 @@ DataTable.prototype.__initializeSettings = function () {
                     sorting = 'desc';
                 }
 
-                let data = Array.from(dataTable.table.rows)
+                let data = Array.from(table.rows)
                                 .filter(tr => tr.cells[0].nodeName == 'TD')
                                 .map(tr => { 
-                                    let v = tr.cells[column.index].textContent;
+                                    let v = tr.cells[col.index].textContent;
                                     if (v.isNumberString() || v.isTimeString()) {
                                         v = v.toFloat(0);
                                     }
@@ -528,17 +492,17 @@ DataTable.prototype.__initializeSettings = function () {
                                 })
                                 ['$' + sorting]('score') //do sort
                                 .map(item => item.row);
-                let order = Array.from(data).$asc();
 
+                let order = Array.from(data).$asc();
                 for (let i = 0; i < data.length; i++) {
                     if (data[i] > order[i]) { //只有大于一种情况
-                        dataTable.table.tBodies[dataTable.tBodyIndex].insertBefore(dataTable.table.rows[data[i]], dataTable.table.rows[order[i]]);
+                        table.tBodies[0].insertBefore(table.rows[data[i]], table.rows[order[i]]);
                         if (data[i] - order[i] > 1) {
-                            if (data[i] == dataTable.table.rows.length - 1) {
-                                dataTable.table.tBodies[dataTable.tBodyIndex].appendChild(dataTable.table.rows[order[i] + 1]);
+                            if (data[i] == table.rows.length - 1) {
+                                table.tBodies[0].appendChild(table.rows[order[i] + 1]);
                             }
                             else {
-                                dataTable.table.tBodies[dataTable.tBodyIndex].insertBefore(dataTable.table.rows[order[i] + 1], dataTable.table.rows[data[i] + 1]);
+                                table.tBodies[0].insertBefore(table.rows[order[i] + 1], table.rows[data[i] + 1]);
                             }
                         }                
                         for (let j = i + 1; j < data.length; j++) {
@@ -566,9 +530,9 @@ DataTable.prototype.__initializeSettings = function () {
     }
 }
 
-DataTable.prototype.__formatCellData = function(row) {
-    for (let name in this.columns) {
-        let col = this.columns[name];
+HTMLTableElement.prototype.__formatCellData = function(row) {
+    for (let i = 0; i < this.cols.length; i++) {
+        let col = this.cols[i];
         if (col.map != null) {            
             let data = row.cells[col.index].innerHTML;
             if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
@@ -579,12 +543,12 @@ DataTable.prototype.__formatCellData = function(row) {
     }
 }
 
-DataTable.prototype.__formatAllCellData = function() {
+HTMLTableElement.prototype.__formatAllCellData = function() {
     //初始化列的值
-    for (let name in this.columns) {
-        let col = this.columns[name];
+    for (let i = 0; i < this.cols.length; i++) {
+        let col = this.cols[i];
         if (col.map != null) {
-            for (let row of this.table.rows) {
+            for (let row of this.rows) {
                 let data = row.cells[col.index].innerHTML;
                 if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
                     row.cells[col.index].innerHTML = col.map[data];
@@ -595,15 +559,17 @@ DataTable.prototype.__formatAllCellData = function() {
     }
 }
 
-DataTable.prototype.clear = function() {
-    for (let i = this.table.tBodies[this.tBodyIndex].children.length - 1; i >= 0; i--) {
-        this.table.tBodies[this.tBodyIndex].children[i].remove();        
+HTMLTableElement.prototype.clear = function() {
+    for (let i = this.tBodies[0].children.length - 1; i >= 0; i--) {
+        let element = this.tBodies[0].children[i];
+        if (element.getAttribute('irremovable') == null) {
+            element.remove();
+        }        
     }
 }
 
 //添加新行 Object row as list
-DataTable.prototype.append = function(row) {
-
+HTMLTableElement.prototype.append = function(row) {
     this.template
         .setData([row])
         .load(function(data) {
@@ -612,12 +578,7 @@ DataTable.prototype.append = function(row) {
         });    
 }
 
-DataTable.prototype.load = function(data) {
-
-    if (data != null) {
-        this.data = data;
-    }
-
+HTMLTableElement.prototype.load = function() {
      //数据格式未实现
     // #{name}
     // #{0}
@@ -647,17 +608,25 @@ DataTable.prototype.load = function(data) {
         });   
 }
 
-DataTable.prototype.reload = function() {
+HTMLTableElement.prototype.reload = function() {
     this.clear();
     this.load();
 }
 
-DataColumn = function (name, index, col) {
+$enhance(HTMLTableColElement.prototype)
+    .declare({
+        name: '',
+        editable: false,
+        filterable: false,
+        filterStyle: Enum('INPUT', 'LIST'), //PC模式下是下拉菜单, MOBILE模式下是弹出框
+        sortable: false,
+        sortingStyle: Enum('LINK', 'LIST'),
+        map: function(value) {
+            return value != null ? value.toMap() : null;
+        },
+        index: -1
+    });
 
-    this.name = name;
-    this.index = index; //columnIndex
-    this.col = col;
-    
     //this.defaultClass = col.getAttribute('defaultClass') || '';
     //this.hoverClass = col.getAttribute('hoverClass') || '';
     //this.activeClass = col.getAttribute('activeClass') || '';
@@ -668,60 +637,24 @@ DataColumn = function (name, index, col) {
     //this.focusCellClass = col.getAttribute('focusCellClass') || '';
     //this.editingCellClass = col.getAttribute('editingCellClass') || '';
 
-    $initialize(this)
-        .with(col)
-        .declare({
-            filterable: false,
-            filterStyle: Enum('INPUT', 'LIST'), //PC模式下是下拉菜单, MOBILE模式下是弹出框
-            sortable: false,
-            sortingStyle: Enum('LINK', 'LIST'),
-            map: function(value) {
-                return value != null ? value.toMap('&', '=') : null;
-            }
-        });
-
-    //通过 datatable[name=1,2,3] 来设置初始过滤器
+    //通过 table[name=1,2,3] 来设置初始过滤器
     //无选项的filterable 编辑文本来进行过滤
     //有选项的filterable 下拉菜单进行过滤
     //this.filterOptions = col.getAttribute("filterOptions") || '';
-    //通过 datatable[name=az,za] 来设置初始初始排序
+    //通过 table[name=az,za] 来设置初始初始排序
     //this.sortingOptions = col.getAttribute("sortingOptions") || { 'asc' : 'az', 'desc': 'za' };
     //search 即通过编辑表头文字来进行筛选
-    
-    this.editor = this.col.getAttribute('editable') == null ? null : 
-        new Editor(this.col).apply('#' + (col.parentNode.nodeName == 'COLGROUP' ? col.parentNode.parentNode.id : col.parentNode) + ' tr td:nth-child(' + (this.index + 1) + ')');
-} 
 
-DataColumn.prototype.filtering = false;
-DataColumn.prototype.sorting = false;
-
-DataTable.apply = function (table) {
-
-    if (typeof (table) == 'string') {
-        table = $s(table);
-    }
-
-    if (table.nodeName != null && table.nodeName == 'TABLE') {
-        if (table.getAttribute('root') == null) {
-            table.setAttribute('root', 'DATATABLE');
-
-            new DataTable(table).apply();
-        }
-    }
-    else {
-        throw new Error('DataTable only can be apply TABLE element.');
-    }
-}
-
-DataTable.initializeAll = function () {
-    let tables = document.querySelectorAll('table[data]');
-    for (let table of tables) {
-        if (table.getAttribute('root') == null) {
-            DataTable.apply(table);        
-        }
-    }
-}
+HTMLTableColElement.prototype.filtering = false;
+HTMLTableColElement.prototype.sorting = false;
+HTMLTableColElement.prototype.editor = null;
 
 $finish(function () {
-    DataTable.initializeAll();
+    for (let table of $a('table[data]')) {
+        // root 设置为 button 表示组件已初始化
+        if (table.getAttribute('root') == null) {
+            table.setAttribute('root', 'TABLE');
+            table.initialize();
+        }
+    }
 });

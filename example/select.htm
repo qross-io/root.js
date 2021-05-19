@@ -17,13 +17,13 @@
     <link href="/css/root/select.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/calendar.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/clock.css" rel="stylesheet" type="text/css" />
-    <link href="/css/root/iconfont.css" rel="stylesheet" type="text/css" />
+    <link href="iconfont.css" rel="stylesheet" type="text/css" />
     <style type="text/css">
     .KE { background-color: #FF0000; }
     </style>
 </head>
 <body style="padding: 50px;">
-    <select type="button" id="Radio1" for="abc">
+    <select type="button" id="Radio1" for="abc" value="oracle">
         <option value="mysql">MySQL</option>
         <option selected value="mariadb">MariaDB</option>
         <option value="sqlserver">SQL Server</option>
@@ -34,7 +34,11 @@
 
 <hr/>
 
-<select type="image" id="Image">
+<p>
+<i class="iconfont icon-formatpainter"></i> HELLO WORLD
+</p>
+
+<select type="checkbox" value="hive" id="Image">
     <option value="mysql" driver="11" src="/images/dbs/mysql.png">MySQL</option>
     <option selected value="mariadb" driver="22" src="/images/dbs/mariadb.png">MariaDB</option>
     <option value="mssql" driver="33" src="/images/dbs/sqlserver.png">SQL Server</option>
@@ -49,16 +53,49 @@
 <span id="S1" type="datetime" onpick="alert(this.value);" calendar-week-names="一,二,三,四,五,六,日" tip="Please pick date and time." message="HELLO, PICK A TIME FIRST." clock-minute-interval="10" clock-second-interval="0">today</span>
 <hr/>
 <input id="I1" type="datetime" required-text="请选择一个日期时间。" popup-position="left" calendar-week-names="一,二,三,四,五,六,日" title="Please pick date and time." clock-hour-interval="5" clock-minute-interval="10" clock-second-interval="30" />
-<input id="I2" type="calendar" onblur+="hello" />
+<input id="I2" type="calendar" onchange+="hello" />
 <input id="I3" type="datetime" placeholder="datetime" />
-<input id="I4" type="color" placeholder="color" onblur+="world" />
+<input id="I4" type="color" placeholder="color" onchange+="world" />
 <input id="I5" type="month" placeholder="month" />
 <input id="I6" type="range" placeholder="range" />
 <input id="I7" type="url" placeholder="url" />
 <input id="Number" type="number" strength="complex" size="40" positive="yes" pad="yes" precision="0" min="0" max="100" step="10" invalid-text="必须输入0到30之间的值。" style="width: 100px" />
-<input type="text" size="10" value="10" update-value-on="change:#Button" value:="$(#Button)[text]" update-size-on="click:#Button1" size:="$:[value]" />
+<input id="I8" type="text" size="10" value="10" onchange="alert(this.value)" update-value-on="change:#Button" value:="$(#Button)[text]" update-size-on="click:#Button1" size:="$:[value]" />
 <button id="Button1" action="">SIZE</button>
+<div id="Div1"><a id="A1"></a></div>
 <script type="text/javascript">
+let _a = new Object();
+class Test {
+    constructor() {
+        this.os = { };
+    }
+}
+Test.prototype.ot = null;
+Object.defineProperty(Test.prototype, 'or', {
+    get() {
+        return _a;
+    }
+});
+
+let t1 = new Test();
+t1.os.a = 1;
+t1.ot = new Object();
+t1.ot.a = 2;
+let t2 = new Test();
+t2.ot = new Object();
+console.log(t2.os.a);
+console.log(t2.ot);
+
+
+let map = new Map();
+let a1 = $s('#A1');
+map.set(a1, "123");
+a1.remove();
+$s('#Div1').appendChild($create('A', { id: 'A1'}));
+let a2 = $s('#A1');
+map.set(a2, "456");
+console.log(a1 == a2);
+console.log(map);
 </script>
 </body>
 </html>

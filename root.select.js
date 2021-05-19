@@ -59,7 +59,9 @@ class Select {
    
             data: '',
             
-            _disabled: false,
+            _disabled: function(value) {
+                return value == 'disabled' || $parseBoolean(value, false);
+            },
 
             reloadOn: '',
 
@@ -92,17 +94,22 @@ class Select {
                 this.multiple = true;
             }
             
+            this.$value = element.getAttribute('value') || '';
             this.element = element;
         });        
 
         if (this.type != 'ORIGINAL') {
             let select = this;
-            this.container.onclick = function(ev) { 
+            this.container.onclick = function(ev) {
                 let target = ev.target;
+                let allowed = true;
+                if (select.type == 'RADIO' || select.type == 'CHECKBOX') {
+                    allowed = target.nodeName == 'INPUT' || target.nodeName == 'LABEL';
+                }
                 while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
                     target = target.parentNode;
                 }
-                if (target.nodeName != 'BODY') {
+                if (allowed && target.nodeName != 'BODY') {
                     let index = target.getAttribute('index').toInt();
                     if (select.multiple) {
                         select.options[index].selected = !select.options[index].selected;
@@ -165,10 +172,8 @@ class Select {
     }
 
     set disabled(disabled) {
-        if (disabled != this._disabled) {
-            this.options.forEach(option => option.disabled = disabled);
-            this._disabled = disabled;
-        }
+        this.options.forEach(option => option.disabled = disabled);
+        this._disabled = disabled;        
     }
 
     get text() {
@@ -249,6 +254,14 @@ class Select {
     get initialized() {
         return this._initialized;
     }
+
+    get hidden() {
+        return this.container.hidden;
+    }
+
+    set hidden(value) {
+        this.container.hidden = value;
+    }
 }
 
 SelectButtonScale = {
@@ -286,6 +299,13 @@ Select.prototype.apply = function() {
         }
     }
 
+    if (this.$value != '') {
+        this.$value.split(',')
+            .forEach(v => {
+                this.options.filter(option => option.value == v).forEach(option => option.selected = true);
+            });
+    }
+    
     if (this.selectedIndex > -1) {
         if (this.text == '') {
             this.setText(this.options.filter(option => option.selected).map(option => option.text).join(','));
@@ -295,8 +315,14 @@ Select.prototype.apply = function() {
         }
     }
     
+    Event.interact(this, this.element);
+    
     if (this.type != 'ORIGINAL') {
         this.element.remove();
+    }
+
+    if (this._disabled) {
+        this.disabled = true;
     }
 
     this._initialized = true;
@@ -475,10 +501,10 @@ class SelectOption {
                 _className: '', //默认从Select继承
                 _disabledClass: '', //默认从Select继承
                 _selected: function(value) {
-                    return value === '' || value == 'selected' || $parseBoolean(value, false);
+                    return value == 'selected' || $parseBoolean(value, false);
                 },
                 _disabled: function(value) {
-                    return value === '' || value == 'disabled' || $parseBoolean(value, false);
+                    return value == 'disabled' || $parseBoolean(value, false);
                 },
                 show: '', //切换到当前选项时显示哪些元素
                 hide: '' //切换到当前选项时隐藏哪些元素
@@ -646,23 +672,20 @@ class SelectOption {
                 //事件在加载完成后才触发
                 if (this.select.initialized) {
                     if (this.select.execute('onchange', this.select.options[before], this)) {
-                        let option = this;
                         if (this.select['onchange+'] != null) {
                             $FIRE(this.select, 'onchange+',
-                                    data => {
+                                    function(data) {
                                         this.hintText = this.successText.$p(this, data);
                                     }, 
-                                    data => {
+                                    function(data) {
                                         this.hintText = this.failureText.$p(this, data);
-                                        this._rollback(before, option.index);
+                                        this._rollback(before, this.selectedIndex);
                                     },
-                                    error => {
+                                    function(error) {
                                         this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-                                        this._rollback(before, option.index);
+                                        this._rollback(before, this.selectedIndex);
                                     },
-                                    function() {
-                                        this.disabled = false;
-                                    });                            
+                                    function() { });
                         }
                     }
                     else {
@@ -895,7 +918,7 @@ Select['RADIO'] = {
         return div;
     },
     selectAop: function(yes) {
-
+        this.container.firstChild.checked = yes;
     },
     disableAop: function(yes = true) {
         this.container.firstChild.disabled = yes;

@@ -58,7 +58,9 @@ FocusView = function(element) {
 	this.tagName = 'FOCUSVIEW';
 	if (this.name != '') {
 		document.components.set(this.name, this);
-	}	
+	}
+
+	this.events = new Map();
 }
 
 $focus = function(name) {

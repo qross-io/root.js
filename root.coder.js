@@ -143,7 +143,7 @@ class Coder {
         this.nodeName = 'CODER';
         this.tagName = 'CODER';
         document.tags.add('CODER');
-        document.components.set(this.name, this);
+        document.components.set(this.name, this);       
 
         //save
         CodeMirror.commands[this.name + '-save'] = Coder.save;
@@ -171,15 +171,20 @@ class Coder {
                                        { marginTop: '-35px', padding: '5px 10px', textAlign: 'right', position: 'relative',
                                          borderRadius: '3px', fontSize: '0.625rem', display: 'none', 
                                          display: 'none', float: 'right' });
-        $x(textArea.nextElementSibling).insertBehind(this.hintSpan);
-        textArea.setAttribute('hidden', 'always');
-        textArea.nextElementSibling.id = this.name + '_Code';
+        $x(this.frame).insertBehind(this.hintSpan);
+
+        if (textArea.hidden) {
+            this.frame.hidden = true;    
+        }
+        textArea.setAttribute('always', 'hidden');
+        textArea.hidden = true;
+        this.frame.id = this.name + '_Code';
         textArea.setAttribute('relative', `#${this.name}_Code,#${this.name}_Hint`);
 
         if (this.saveText != '') {
             this.hintText = this.saveText;
         }
-
+        
         Event.interact(this, textArea);
     }
 
@@ -236,6 +241,15 @@ class Coder {
         }
     }
 
+    get hidden() {
+        return this.frame.hidden;
+    }
+
+    set hidden(value) {
+        this.frame.hidden = value;
+        this.hintSpan.hidden = value;
+    }
+
     set hintText(text) {
         if (this.hintSpan.style.display == 'none') {
             this.hintSpan.style.display = '';
@@ -271,7 +285,7 @@ $coder = function(name) {
     }
 }
 
-Coder.reserved = new Set(['coder', 'class', 'mode', 'readonly', 'read-only', 'validator']);
+Coder.reserved = new Set(['coder', 'class', 'mode', 'readonly', 'read-only', 'validator', "alternative"]);
 
 Coder.mineTypes = {
     'sh': 'text/x-sh',
@@ -317,7 +331,7 @@ Coder.save = function(cm) {
             valid = 0;
         }       
     }
-    else {
+    else if (coder.validator != '') {
         if (coder.mode == 'json') {
             let json = null;
             let value = coder.value.trim();
@@ -366,23 +380,24 @@ Coder.save = function(cm) {
                 if (coder['onsave+'].endsWith('=')) {
                     coder['onsave+'] = coder['onsave+'] + '{value}%';
                 }
-                coder.hintText = coder.savingText.$p(coder, data);
+                coder.hintText = coder.savingText.$p(coder);
                 $FIRE(coder, 'onsave+',
-                    data => {
+                    //data => { 使用匿名函数不能正确传递 this
+                    function(data) {
                         this.textArea.value = this.value;
                         this.hintText = this.successText == '' ? this.savedText.$p(this, data) : this.successText.$p(this, data);
-                        Event.execute(this.name, 'onsave+success', data);
+                        //Event.execute(this.name, 'onsave+success', data);
                     }, 
-                    data => {
+                    function(data) {
                         this.errorText = this.failureText.$p(this, data);
-                        Event.execute(this.name, 'onsave+failure', data);
+                        //Event.execute(this.name, 'onsave+failure', data);
                     },
-                    error => {
+                    function(error) {
                         this.errorText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-                        Event.execute(this.name, 'onsave+exception', error);
+                        //Event.execute(this.name, 'onsave+exception', error);
                     },
                     function() {
-                        Event.execute(this.name, 'onsave+completion');
+                        //Event.execute(this.name, 'onsave+completion');
                     });               
             }
             else {
@@ -420,6 +435,10 @@ Coder.prototype.getAttribute = function(attr) {
     else {
         return this.textArea.getAttribute(attr);
     }
+}
+
+Coder.prototype.set = function(property, value) {
+    this.setAttribute(property, value);
 }
 
 Coder.initializeAll = function() {

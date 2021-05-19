@@ -12,7 +12,7 @@ $enhance(HTMLButtonElement.prototype)
         cancelButtonText: 'Cancel', //确定框取消按钮
         confirmTitle: 'Confirm', //确定框标题
         jumpingText: '', //跳转提醒文字
-        jumpTo: '', //当动作action完成后要跳转到哪个页面
+        href: '', //跳转到哪个页面
         clickText: '', //点击按钮后的提示文字
 
         successText: '', //执行成功后的提示文字
@@ -26,7 +26,7 @@ $enhance(HTMLButtonElement.prototype)
         callout: null,
         alert: null,
 
-        scale: 'normal',
+        scale: 'normal', //little/small/normal/big/large
         color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
     })
     .getter({
@@ -65,7 +65,7 @@ $enhance(HTMLButtonElement.prototype)
                 if (this.hintSpan != null) {
                     this.hintSpan.innerHTML = text;
                     this.hintSpan.className = (this.status != 1 ? this.errorTextClass : this.validTextClass);
-                    this.hintSpan.style.display = text == '' ? 'none' : '';
+                    this.hintSpan.hidden = text == '';
                 }
                 
                 if (text != '' && this.callout != null) {
@@ -135,30 +135,30 @@ HTMLButtonElement.prototype.go = function() {
 
     if (this['onclick+'] != null) {
         $FIRE(this, 'onclick+',
-            data => {
+            function(data) {
                 this.status = 1;
                 this.hintText = this.successText.$p(this, data);            
-                if (this.jumpTo != '') {
+                if (this.href != '') {
                     this.text = this.jumpingText.$p(this, data);
-                    window.location.href = this.jumpTo.$p(this, data);
+                    window.location.href = this.href.$p(this, data);
                 }
                 else {
                     this.text = this.defaultText;
                     this.enable();
                 }
             }, 
-            data => {
+            function(data) {
                 this.status = 0;
                 this.hintText = this.failureText.$p(this, data);            
                 this.text = this.defaultText;
                 this.enable();
             },
-            error => {
-                this.status = 1;            
+            function(error) {
+                this.status = -1;            
                 this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
             },
             function() {
-                if (this.jumpTo == '') {
+                if (this.href == '') {
                     this.enable();
                 }
             }
@@ -198,50 +198,59 @@ HTMLButtonElement.prototype.initialize = function() {
         }
     }
 
-    todo.forEach(tag => {
-        if (!HTMLButtonElement.relationByInput.has(tag)) {
-            HTMLButtonElement.relationByInput.set(tag, new Set());
-        }
-        HTMLButtonElement.relationByInput.get(tag).add(this);
-        this.relations.add(tag);
-    });
-
-    this.relatived = this.relations.size;
-    if (this.relatived > 0) {
-        this.disable();
-    }
-
-    $x(this).on('click', function(ev) {
-        if (this.confirmText != '') {
-            if ($root.confirm != null) {
-                let button = this;
-                $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
-                    .on('confirm', function() {                            
-                        button.go();      
-                    });
+    if (todo.length > 0) {
+        todo.forEach(tag => {
+            if (!HTMLButtonElement.relationByInput.has(tag)) {
+                HTMLButtonElement.relationByInput.set(tag, new Set());
             }
-            else if (window.confirm(this.confirmText.$p(this))) {
-                this.go();         
-            }
-        }
-        else {
-            this.go();
-        }
-    });
+            HTMLButtonElement.relationByInput.get(tag).add(this);
+            this.relations.add(tag);
+        });
 
-    if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
-        if (this.hint != null || this.callout == null) {
-            if (this.hintSpan == null) {
-                if (this.hint != null && this.hint != '') {
-                    this.hintSpan = $s(this.hint);
+        this.relatived = this.relations.size;
+        if (this.relatived > 0) {
+            this.disable();
+        }
+
+        $x(this).on('click', function(ev) {
+            if (this.confirmText != '') {
+                if ($root.confirm != null) {
+                    let button = this;
+                    $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
+                        .on('confirm', function() {                            
+                            button.go();      
+                        });
                 }
-                else {
-                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
-                    $x(this).insertBehind(this.hintSpan);
+                else if (window.confirm(this.confirmText.$p(this))) {
+                    this.go();         
                 }
             }
+            else {
+                this.go();
+            }
+        });
+
+        if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+            if (this.hint != null || this.callout == null) {
+                if (this.hintSpan == null) {
+                    if (this.hint != null && this.hint != '') {
+                        this.hintSpan = $s(this.hint);
+                    }
+                    else {
+                        this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
+                        $x(this).insertBehind(this.hintSpan);
+                    }
+                }
+            }
         }
     }
+    else if (this.getAttribute('href') != null) {
+        $x(this).bind('click', function() {
+            window.location.href = this.href.$p(this);
+        });
+    }
+
+    Event.interact(this, this);
 }
 
 HTMLButtonElement._observed = 0;
@@ -286,16 +295,20 @@ HTMLButtonElement.observe = function() {
     }
 }
 
-$finish(function () {
-    for (let button of $a('button')) {
+HTMLButtonElement.initializeAll = function(container) {
+    for (let button of $n(container, 'button')) {
         // root 设置为 button 表示组件已初始化
-        if (button.getAttribute('root') == null && (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null)) {
+        if (button.getAttribute('root') == null && (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null || button.getAttribute('href') != null)) {
             button.setAttribute('root', 'BUTTON');
             button.initialize();
         }
     }
 
     HTMLButtonElement.observe();
+}
+
+$finish(function () {
+    HTMLButtonElement.initializeAll();
 });
 
 /*

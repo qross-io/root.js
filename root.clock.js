@@ -160,6 +160,14 @@ class Clock {
 
         this.secondInput.value = (second < 10 ? '0' + second : second);
     }
+
+    get hidden() {
+        return this.container.hidden;
+    }
+
+    set hidden(value) {
+        this.container.hidden = value;
+    }
 }
 
 $clock = function(name) {

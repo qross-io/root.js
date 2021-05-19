@@ -808,6 +808,8 @@ TreeView.prototype.load = function() {
             })
     }
 
+    Event.interact(this, this.element);
+
     //如果已经加载则不再执行beforeLoad事件
     if (this.loaded ? true : this.execute('onBeforeLoad')) {
 

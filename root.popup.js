@@ -109,6 +109,8 @@ Popup = function (element) {
         offsetX: 0,
         offsetY: 0,
 
+        source: null,
+
         openButton: '$x',
         closeButton: '$x',
         confirmButton: '$x',
@@ -189,7 +191,9 @@ Popup = function (element) {
     this.closeButton.bind('click', ev => popup.close(ev));
     this.confirmButton.bind('click', ev => popup.confirm(ev));
     this.cancelButton.bind('click', ev => popup.cancel(ev));
-            
+     
+    Event.interact(this, this.element);
+
     if (this.visible) {
         this.open();
     }
@@ -417,49 +421,39 @@ Popup.prototype.hide = function(quick, ev) {
 }
 
 Popup.prototype.open = function(ev) {
-	/// <summary>打开</summary>
-	/// <param name="ev" type="Event">事件参数</param>
-
     if(document.popup == null || document.popup.id != this.id) {
 		if(this.execute('onopen', ev)) {
 			this.show(null, ev);			
 		}
-	}
+    }
+    return this;
 };
 	
-Popup.prototype.close = function(ev)
-{
-	/// <summary>关闭</summary>
-	/// <param name="ev" type="Event">事件参数</param>
-	
-	if(document.popup == null || document.popup.id == this.id) {
+Popup.prototype.close = function(ev) {
+    if(document.popup == null || document.popup.id == this.id) {
 		if(this.execute('onclose', ev)) {
 			this.hide(null, ev);
 		}
-	}
+    }
+    return this;
 };
 	
 Popup.prototype.confirm = function(ev) {
-	/// <summary>确认</summary>
-	/// <param name="ev" type="Event">事件参数</param>
-	
 	if(document.popup == null || document.popup.id == this.id) {
 		if(this.execute('onconfirm', ev)) {
 			this.hide(null, ev);
 		}
-	}
+    }
+    return this;
 };
 	
-Popup.prototype.cancel = function(ev)
-{
-	/// <summary>取消</summary>
-	/// <param name="ev" type="Event">Firefox事件参数</param>
-	
+Popup.prototype.cancel = function(ev) {
 	if(document.popup == null || document.popup.id == this.id) {
 		if(this.execute('oncancel', ev)) {
 			this.hide(null, ev);
 		}
-	}
+    }
+    return this;
 };
 
 Popup.prototype.getPositionX = function (x, ev) {
@@ -585,6 +579,13 @@ Popup.prototype.getOffsetTop = function (p) {
         v = window.innerHeight - this.element.offsetHeight + $root.scrollTop();
     }
     return Math.round(v);
+}
+
+Popup.prototype.clearEvents = function() {
+    if (this.events != null) {
+        this.events.clear();
+    }
+    return this;
 }
 
 Popup.resize = function() {

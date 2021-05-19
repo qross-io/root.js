@@ -30,7 +30,7 @@ class Editor {
                     }
                     return imagesBaseUrl;
                 },
-                type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBOX|CHECKBUTTON|SWITCH|SWITCHBUTTON|STAR|STARBUTTON',
+                type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBUTTON|SWITCHBUTTON|STAR|STARBUTTON',
                 /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
                 action: '',
 
@@ -44,7 +44,6 @@ class Editor {
                     }
                 },
                 kilo: false,
-                autoScaling: false,
                 placeHolder: '',
 
                 //switch - [yes,no]
@@ -61,27 +60,25 @@ class Editor {
                                 else if (options.isObjectString()) {
                                     return Json.eval(options)                                
                                 }
+                                else if (options.startsWith('#')) {
+                                    let select = $s(options);
+                                    if (select != null && select.nodeName == 'SELECT') {
+                                        if (select.element != null) {
+                                            select = select.element;
+                                        }
+                                        options = new Object();
+                                        for (let i = 0; i < select.options.length; i++) {
+                                            options[select.options[i].text] = select.options[i].value;
+                                        }
+                                    }    
+                                    return options;                                
+                                }
                                 else {
                                     return options.$trim('[', ']').toMap(',');
                                 }
                             }
                             else if (options == null) {
                                 return { 'EMPTY': 'EMPTY' };                            
-                            }
-                            else {
-                                return options;
-                            }
-                        case 'SWITCH':
-                            if (typeof(options) == 'string') {
-                                if (options.isArrayString()) {
-                                    return Json.eval(options);
-                                }
-                                else {
-                                    return options.$trim('{', '}').toArray(',');
-                                }
-                            }
-                            else if (options == null) {
-                                return ['yes', 'no'];
                             }
                             else {
                                 return options;
@@ -99,21 +96,6 @@ class Editor {
                         case 'CHECKBUTTON':
                             if (typeof(options) == 'string') {
                                 return Json.eval(options);
-                            }
-                            else {
-                                return options;
-                            }
-                        case 'CHECKBOX':
-                            if (typeof(options) == 'string') {
-                                if (options.isArrayString()) {
-                                    return Json.eval(options);
-                                }
-                                else {
-                                    return options.$trim('{', '}').toArray(',');
-                                }
-                            }
-                            else if (options == null) {
-                                return ['yes', 'no'];
                             }
                             else {
                                 return options;
@@ -173,7 +155,6 @@ class Editor {
             .elementify(element => {
                 element.setAttribute('root', 'EDITOR');
                 this.tag = element;
-                element.removeAttribute('action');
             });
     }
 
@@ -273,9 +254,9 @@ Editor.prototype.apply = function(...elements) {
             Editor[this.type](this, binding);
             binding.setAttribute('editor-bound', 'yes');
         }
-    });    
+    }); 
 
-    return this;
+    this.events = new Map();
 }
 
 Editor.prototype.setPlaceHolder = function(element) {
@@ -310,7 +291,7 @@ Editor['TEXT'] = function (editor, element) {
             editor.element = element;
             
             let before = element.querySelector('SPAN[sign=placeholder]') == null ? element.textContent : '';
-            let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
+            let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass, autosize: true });
             if (editor.maxLength > 0) {
                 textBox.maxLength = editor.maxLength;
             }
@@ -368,6 +349,7 @@ Editor['TEXT'] = function (editor, element) {
                                     editor.execute('oncomplete', after, ev);
                                 })
                                 .catch(error => {
+                                    Callout(error).position(this).show();
                                     editor.execute('onerror', error);
                                     textBox.disabled = false;
                                     textBox.focus();
@@ -528,6 +510,7 @@ Editor['TEXTAREA'] = function (editor, element) {
                                     }
                                 })
                                 .catch(error => {
+                                    Callout(error).position(this).show();
                                     editor.execute('onerror', error);
                                     textArea.disabled = false;
                                     textArea.focus();
@@ -675,6 +658,7 @@ Editor['INTEGER'] = function (editor, element) {
                                     }
                                 })
                                 .catch(error => {
+                                    Callout(error).position(this).show();
                                     editor.execute('onerror', error);
                                     textBox.disable = true;
                                     textBox.focus();
@@ -817,6 +801,7 @@ Editor['DECIMAL'] = function (editor, element) {
                                     }
                                 })
                                 .catch(error => {
+                                    Callout(error).position(this).show();
                                     editor.execute('onerror', error);
                                     textBox.disable = true;
                                     textBox.focus();
@@ -1040,6 +1025,7 @@ Editor['PERCENT'] = function (editor, element) {
                                     }
                                 })
                                 .catch(error => {
+                                    Callout(error).position(this).show();
                                     editor.execute('onerror', error);
                                     textBox.disable = true;
                                     textBox.focus();
@@ -1134,7 +1120,7 @@ Editor['SELECT'] = function (editor, element) {
                     if (editor.editing && editor.execute('onupdate', afterValue, element)) {
                         if (editor.action != '') {
                             this.disabled = true;
-                            $cogo(editor.action.concatValue(after), element, after)
+                            $cogo(editor.action.concatValue(afterValue), element, afterValue)
                                 .then(data => {
                                     if (editor.execute('onfinish', data, afterValue, element)) {
                                         element.setAttribute('value', afterValue);
@@ -1149,6 +1135,7 @@ Editor['SELECT'] = function (editor, element) {
                                     }
                                 })
                                 .catch(error => {
+                                    Callout(error).position(this).show();
                                     editor.execute('onerror', status, statusText);
                                     select.disable = true;
                                     select.focus();
@@ -1192,95 +1179,6 @@ Editor['SELECT'] = function (editor, element) {
             }
         }
     });
-}
-
-Editor['SWITCH'] = function (editor, element) {
-
-    let button = element.querySelector('img[sign=switch]');
-    if (button == null) {
-        let value = element.textContent.trim() == editor.options[0] ? editor.options[0] : editor.options[1];
-        button = $create('IMG',
-            { src: `${editor.imagesBaseUrl}${editor.theme}_${value == editor.options[0] ? 'on' : 'off'}_default.${editor.theme != 'checkbox' ? 'png' : 'gif'}`, align: 'absmiddle' },
-            { cursor: 'default' },
-            { 'sign': 'switch', 'value': value });
-        element.innerHTML = '';
-        element.appendChild(button);
-    }
-
-    button.onmouseover = function (ev) {
-        editor.element = element;
-        if (editor.editable) {
-            this.src = this.src.replace('default', 'hover');
-        }
-    }
-
-    button.onmouseout = function (ev) {
-        editor.element = element;
-        if (editor.editable) {
-            this.src = this.src.replace('hover', 'default');
-        }
-    } 
-
-    button.onmousedown = function (ev) {
-        editor.element = element;
-        if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-            this.src = this.src.replace('hover', 'active');
-            editor.editing = true;
-            editor.element = element;
-            this.style.opacity = 0.5;
-        }
-    }
-
-    button.onmouseup = function (ev) {
-        editor.element = element;
-        let before = button.getAttribute('value');
-        let after = before == editor.options[0] ? editor.options[1] : editor.options[0];
-        if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
-            if (editor.action != '') {
-                $cogo(editor.action.concatValue(after), element, after)
-                    .then(data => {
-                        if (editor.execute('onfinish', data, after)) {
-                            button.src = button.src.replace((before == editor.options[0] ? 'on' : 'off') + '_active', (before == editor.options[0] ? 'off' : 'on') + '_hover');
-                            button.setAttribute('value', after);
-
-                            editor.execute('oncomplete', after);
-                        }
-                        else {
-                            button.src = button.src.replace('active', 'hover');
-                        }
-                    })
-                    .catch(error => {
-                        editor.execute('onerror', error);
-                        button.src = button.src.replace('active', 'hover');
-                    })
-                    .finally(() => {
-                        editor.updating = false;
-                        button.style.opacity = 1;
-                        editor.editing = false;
-                        editor.element = null;
-                    });                
-
-                editor.updating = true;
-            }
-            else {
-                //this.src = this.src.replace('active', 'hover'); //don't update
-                this.src = this.src.replace((before == editor.options[0] ? 'on' : 'off') + '_active', (before == editor.options[0] ? 'off' : 'on') + '_hover');
-                this.setAttribute('value', after);
-                this.style.opacity = 1;
-
-                editor.execute('oncomplete', after);
-
-                editor.editing = false;
-                editor.element = null;
-            }
-        }
-        else {
-            this.src = this.src.replace('_active', '_hover');
-            this.style.opacity = 1;
-            editor.editing = false;
-            editor.element = null;
-        }
-    }   
 }
 
 Editor['SWITCHBUTTON'] = function (editor, element) {
@@ -1328,6 +1226,7 @@ Editor['SWITCHBUTTON'] = function (editor, element) {
                         }
                     })
                     .catch(error => {
+                        Callout(error).position(this).show();
                         editor.execute('onerror', error);
                     })
                     .finally(() => {
@@ -1355,74 +1254,6 @@ Editor['SWITCHBUTTON'] = function (editor, element) {
             editor.element = null;
         }
     }  
-}
-
-Editor['CHECKBOX'] = function (editor, element) {
-
-    let checkbox = element.querySelector('input[sign=checkbox]');
-    if (checkbox == null) {
-        checkbox = $create('INPUT',
-                    { id: element.id + '_checkbox', type: 'checkbox', value: element.innerHTML, checked: element.textContent.trim() == editor.options[0] },
-                    { }, 
-                    { 'sign': 'checkbox' });
-        element.innerHTML = '';
-        element.appendChild(checkbox);
-    }
-
-    if (element.nodeName == 'TD') {
-        element.style.textAlign = 'center';
-    }
-
-    checkbox.onclick = function (ev) {
-        if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-            this.disabled = true;
-            let after = this.checked ? editor.options[0] : editor.options[1];
-            if (editor.execute('onupdate', after)) {
-                if (editor.action != '') {   
-                    $cogo(editor.action.concatValue(after), element, after)
-                        .then(data => {
-                            if (!editor.execute('onfinish', data, after)) {
-                                //restore if return false
-                                checkbox.checked = !checkbox.checked;
-                            }
-                            else {
-                                editor.execute('oncomplete', after);
-                            }
-                        })
-                        .catch(error => {
-                            editor.execute('onerror', error);
-                            checkbox.disable = true;
-                            checkbox.focus();
-                        })
-                        .finally(() => {
-                            editor.updating = false;
-                            checkbox.disabled = false;
-                            editor.editing = false;
-                            editor.element = null;
-                        });                     
-
-                    editor.updating = true;
-                }
-                else {
-                    checkbox.disabled = false;
-
-                    editor.execute('oncomplete', after);
-
-                    editor.editing = false;
-                    editor.element = null;
-                }
-            }
-            else {
-                editor.editing = false;
-                editor.element = null;
-                this.disabled = false;
-                return false;
-            }            
-        }
-        else {
-            return false;
-        }
-    }
 }
 
 Editor['CHECKBUTTON'] = function(editor, element) {
@@ -1471,6 +1302,7 @@ Editor['CHECKBUTTON'] = function(editor, element) {
                                 }
                             })
                             .catch(error => {
+                                Callout(error).position(this).show();
                                 editor.execute('onerror', error);
                             })
                             .finally(() => {
@@ -1606,6 +1438,7 @@ Editor['LINKTEXT'] = function (editor, element) {
                                         }
                                     })
                                     .catch(error => {
+                                        Callout(error).position(this).show();
                                         editor.execute('onerror', error);
                                         textBox.disabled = false;
                                         textBox.focus();
@@ -1733,6 +1566,7 @@ Editor['STAR'] = function (editor, element) {
                                         }
                                     })
                                     .catch(error => {
+                                        Callout(error).position(this).show();
                                         editor.execute('onerror', error);
                                     })
                                     .finally(() => {
@@ -1805,6 +1639,7 @@ Editor['STARBUTTON'] = function(editor, element) {
                                 }
                             })
                             .catch(error => {
+                                Callout(error).position(this).show();
                                 editor.execute('onerror', error);
                             })
                             .finally(() => {
@@ -1944,10 +1779,18 @@ Editor.Key = {
     }
 };
 
-Editor.reapplyAll = function() {
+$editor.reapplyAll = function() {
     for (let component of document.components.values()) {
         if (component.tagName == 'EDITOR') {
             component.apply();
+        }
+    }
+
+    for (let table of $a('table[data]')) {
+        for (let col of table.cols) {
+            if (col.editor != null) {
+                col.ediotr.apply();
+            }
         }
     }
 }

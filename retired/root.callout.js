@@ -31,7 +31,6 @@ Callout.Entity = function(content) {
 Callout.Entity.prototype.upside = function(element) {
     this.reference = typeof(element) == 'string' ? $s(element) : element;
     this.location = 1;
-
     return this;
 }
 
@@ -39,7 +38,6 @@ Callout.Entity.prototype.upside = function(element) {
 Callout.Entity.prototype.downside = function(element) {
     this.reference = typeof(element) == 'string' ? $s(element) : element;
     this.location = 3;
-
     return this;
 }
 
@@ -47,7 +45,6 @@ Callout.Entity.prototype.downside = function(element) {
 Callout.Entity.prototype.leftside = function(element) {
     this.reference = typeof(element) == 'string' ? $s(element) : element;
     this.location = 0;
-
     return this;
 }
 
@@ -55,14 +52,12 @@ Callout.Entity.prototype.leftside = function(element) {
 Callout.Entity.prototype.rightside = function(element) {
     this.reference = typeof(element) == 'string' ? $s(element) : element;
     this.location = 2;
-
     return this;
 }
 
 Callout.Entity.prototype.offset = function(x, y) {
     this.offsetX = x;
     this.offsetY = y;
-
     return this;
 }
 
@@ -107,7 +102,6 @@ Callout.Entity.prototype.locate = function() {
 }
 
 Callout.Entity.$timer = null;
-
 Callout.Entity.prototype.show = function(seconds) {
     $x('#Callout').html(this.content).show().style('visibility', 'hidden');
     while (!this.locate()) {

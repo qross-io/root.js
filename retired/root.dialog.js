@@ -22,7 +22,6 @@ $root.alert = function(message, confirmText = 'OK') {
     $popup('AlertPopup').open();
 }
 
-//$root.confirm().on('confirm', function() { }).on('concel', function() { })
 $root.confirm = function(message, confirmText = 'OK', cancelText = 'Cancel', title = 'Confirm', ev = null) {
 
     if ($s('#ConfirmPopup') == null) {

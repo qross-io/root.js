@@ -16,13 +16,14 @@ a:active { color: var(--lighter); text-decoration: none; }
 
 .black { color: #333333; }
 .gray { color: #999999; }
-.disabled { color: #C0C0C0; background-image: linear-gradient(to bottom, #D0D0D0, #E0E0E0); text-shadow: 1px 1px 1px #F0F0F0; }
+.disabled { color: #D0D0D0; background-image: linear-gradient(to bottom, #E8E8E8, #F8F8F8); text-shadow: 1px 1px 1px #FFFFFF; }
 .error { color: #FF6666; text-shadow: 0px 1px 1px #CCCCCC; }
 .correct { color: #009900; }
 .glow { text-shadow: 1px 1px 2px #FFFFFF; }
 .primary { color: var(--primary); }
 .lighter { color: var(--lighter); }
 .darker { color: var(--darker); }
+.comment { color: #CDAB53; }
 
 .left { text-align: left; }
 .center { text-align: center; }
@@ -93,6 +94,10 @@ a.delete:active { color: #990000; text-decoration: underline; }
 .span-hint { color: #A0A0A0; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
 .span-error { color: #CC3333; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
 .span-valid { color: #339933; font-size: 0.875rem; padding-inline-start: 1rem; line-height: 180%; }
+
+.small-tag { font-size: 0.75rem; padding: 1px 7px 1px 6px; border-radius: 2px; }
+.blue-tag { background:#007FFF; background: linear-gradient(-135deg, transparent 3px, #007FFF 0px); color: #FFFFFF; }
+.blue-tag:hover { color: #E8E8E8; }
 
 /* button */
 button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SSm B", Consolas, Helvetica, Arial; }

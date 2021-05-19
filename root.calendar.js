@@ -433,6 +433,32 @@ class Calendar {
         }
         //月历时才可以设置, 格式yyyy-MM
     }
+
+    get hidden() {
+        if (this.element != null) {
+            return this.element.hidden;
+        }
+        else {
+            return this.container.hidden;
+        }
+    }
+
+    set hidden(value) {
+        if (value) {
+            if (this.element != null) {
+                this.element.hidden = true;
+            }
+            this.container.hidden = true;
+        }
+        else {
+            if (this.element != null) {
+                this.element.hidden = false;
+            }
+            else {
+                this.container.hidden = false;
+            }
+        }
+    }
 }
 
 $calendar = function(name) {
@@ -531,7 +557,7 @@ Calendar.prototype.monthSwitchEnabled = function() {
 
 Calendar.prototype.$getTitleText = function(date) {
     if (this.yearSwitchEnabled()) {
-        return '<a href="javascript:void(0)" sign="CALENDAR-OPEN-YEAR-SWITCH">' + this.titleFormat.replace(/yy+/, $0 => + date.get($0)) + ' <i class="iconfont icon-down"></i></a>';
+        return '<a href="javascript:void(0)" sign="CALENDAR-OPEN-YEAR-SWITCH">' + this.titleFormat.replace(/yy+/, $0 => + date.get($0)) + ` <i class="iconfont icon-down"></i></a>`;
     }
     else {
         return this.titleFormat.replace(/yy+/, $0 => + date.get($0));
@@ -781,7 +807,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                 td.appendChild($create('DIV', { innerHTML: '&nbsp;', className: this.dayClass }));
                 td.appendChild($create('DIV', { innerHTML: '&nbsp;' }));
                 if (!this.lunar) {
-                    td.lastChild.style.display = 'none';
+                    td.lastChild.hidden = true;
                 }
             }           
             tr.appendChild(td);
@@ -830,7 +856,7 @@ Calendar.prototype.display = function() {
 
     if (this.element != null && this.element.nodeName == 'INPUT') {
         this.container.style.visibility = 'visible';
-        this.container.style.display = 'none';
+        this.container.hidden = true;
     }
 }
 
@@ -977,7 +1003,7 @@ Calendar.prototype.displayYear = function() {
     }
 
     frame.querySelector('div[year=v' + viewYear + ']').scrollIntoView();
-    frame.style.display = 'none';
+    frame.hidden = true;
 }
 
 Calendar.prototype.$renderYearCalendar = function(parentNode, year) {
@@ -1377,7 +1403,7 @@ Calendar.prototype.displayMonth = function() {
             }
 
             if (calendar.element == null) {
-                button.style.display = 'none';
+                button.hidden = true;
             }
         }
         this.container.lastChild.appendChild(button);

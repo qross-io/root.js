@@ -1,0 +1,23 @@
+table[data] { table-layout: fixed; border-left: 1px solid #CCCCCC; border-right: 1px solid #CCCCCC; border-collapse: collapse; }
+table[data] td { border-bottom: 1px solid #DDDDDD; }
+table[data] td input { width: 100%; outline: none; padding: 1px 1px; }
+td .table-input { background-color: #FFFFFF; border: 1px solid #999999; }
+td .table-input-focus { background-color: #FFFFEE; border: 1px solid #999999; }
+td .table-input-valid { background-color: #EEFFEE; border: 1px solid #999999; }
+td .table-input-error { background-color: #FFEEEE; border: 1px solid #999999; }
+td .td-input { background-color: transparent; border-width: 0px; }
+table[data] tfoot { border-top: 2px solid var(--lighter); }
+table[data] tfoot td { padding-top: 6px; padding-bottom: 6px; }
+.header-row th { background-color: #F0F0F0; color: #333333; color: var(--darker); border-top: 1px solid var(--lighter); border-bottom: 2px solid var(--primary); }
+.header-simple-row th { color: #333333; text-align: left; color: var(--darker); border-top: 1px solid var(--lighter); border-bottom: 2px solid var(--primary); }
+.row td { color: 333333; }
+.row a { text-decoration: none; }
+.alternate-row td { background-color: #EEEEEE; color: #333333; }
+.alternate-row a { text-decoration: none; }
+.row-hover td { background-color: var(--lighter); color: #FFFFFF; }
+.row-hover a { color: #FFFFFF; text-decoration: underline; }
+.row-active td { background-color: var(--darker); color: #FFFFFF; }
+.row-active a { color: #FFFFFF; }
+.row-focus td { background-color: var(--primary); color: #FFFFFF; }
+.row-focus a { color: #FFFFFF; }
+.row-focus a:hover { text-decoration:underline; }

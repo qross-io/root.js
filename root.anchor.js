@@ -12,7 +12,7 @@ $enhance(HTMLAnchorElement.prototype)
         exceptionText: '', //请求发生错误的提醒文字
 
         callout: 'upside',
-        alert: null,
+        alert: null        
     })
     .extend('onclick+')
     .define({
@@ -50,7 +50,7 @@ HTMLAnchorElement.prototype._href = '';
 HTMLAnchorElement.prototype.go = function() {
 
     $FIRE(this, 'onclick+',
-        data => {
+        function(data) {
             this.hintText = this.successText.$p(this, data);            
             
             switch(this.target) {
@@ -72,10 +72,10 @@ HTMLAnchorElement.prototype.go = function() {
                     break;
             }
         }, 
-        data => {
+        function(data) {
             this.hintText = this.failureText.$p(this, data);           
         },
-        error => {
+        function(error) {
             this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
         },
         function() {
@@ -124,13 +124,19 @@ HTMLAnchorElement.prototype.initialize = function() {
             this.go();
         }        
     });
+
+    Event.interact(this, this);
 }
 
-$finish(function () {
-    for (let a of $a('a')) {
+HTMLAnchorElement.initializeAll = function(container) {
+    for (let a of $n(container, 'a')) {
         if (a.getAttribute('onclick+') != null && a.getAttribute('root') == null) {
             a.setAttribute('root', 'A');
             a.initialize();
         }
     }
+}
+
+$finish(function () {
+    HTMLAnchorElement.initializeAll();
 });

@@ -61,15 +61,6 @@ document.models.$length = 0;
 //页面上的所有model是否都已经加载完成
 document.models.$loaded = false;
 
-//只是为了保存onfinish事件
-//所有model加载完成后执行onfinifh事件
-document.components.set('$global', {
-    nodeName: 'GLOBAL',
-    tagName: 'GLOBAL',
-    onfinish: null,
-    onpost: null
-});
-
 Model = function(element) {
     this.name = element.getAttribute('name') || '';
     if (this.name == '') {
@@ -128,6 +119,9 @@ Model = function(element) {
     this.tagName = 'MODEL';
     document.tags.add('MODEL');
     document.components.set(this.name, this);
+
+    this.events = new Map();
+    this.onload = element.getAttribute('onload');
 
     if (this.autoRefresh && this.interval > 0) {
         Model.refresh(this.name, this.interval, this.terminal);        
@@ -493,11 +487,11 @@ Model.initializeForOrIf = function(tagName) {
     }
     else  if (next.nodeName == 'FOR') {
         //for
-        new For(next).on('load', next.getAttribute('onload')).load();
+        new For(next).load();
     }
     else {
         //if
-        new If(next).on('load', next.getAttribute('onload')).load();
+        new If(next).load();
     }
 }
 
@@ -506,11 +500,7 @@ Model.initializeStandaloneTemplates = function() {
     document.templates.$length = templates.length;
     if (templates.length > 0) {        
         for (let template of templates) {
-            new Template(template)
-                .on('load', template.getAttribute('onload'))
-                .on('lazyload', template.getAttribute('onlazyload'))
-                .on('done', template.getAttribute('ondone'))
-                .load();
+            new Template(template).load();
         }
     }
     else {
@@ -524,7 +514,7 @@ Model.initializeAll = function() {
     if (models.length > 0) {
         document.models.$length = models.length;
         for (let model of models) {
-            new Model(model).on('load', model.getAttribute('onload')).load();
+            new Model(model).load();
         }
     }
     else {
@@ -567,6 +557,9 @@ For = function(element) {
         }
         this.position = 'beforeEnd';
     }
+
+    this.onload = element.getAttribute('onload');
+    this.events = new Map();
 }
 
 //第一次加载完成后触发
@@ -863,6 +856,9 @@ If = function(element) {
     this.isTag = element.nodeName == 'IF';
     this.onreturntrue = element.getAttribute('onreturntrue');
     this.onreturnfalse = element.getAttribute('onreturnfalse');
+
+    this.onload = element.getAttribute('onload');
+    this.events = new Map();
 }
 
 If.prototype.onload = null; //function() { }
@@ -1128,7 +1124,7 @@ Template = function(element, container, parentName) {
     this.nodeName = 'TEMPLATE';
     this.tagName = 'TEMPLATE';
     document.tags.add('TEMPLATE');
-    document.components.set(this.name, this);
+    document.components.set(this.name, this);    
 
     if (this.lazyLoad) {
         this.ownerElement.setAttribute('page', this.$page);
@@ -1138,6 +1134,11 @@ Template = function(element, container, parentName) {
     else if (this.autoRefresh && this.interval > 0) {
         this.resetRefresh();      
     }
+
+    this.onload = element.getAttribute('onload');
+    this.onlazyload = element.getAttribute('onlazyload');
+    this.ondown = element.getAttribute('ondone');
+    this.events = new Map();
 
     Event.interact(this, element);
 }
@@ -1158,15 +1159,18 @@ Template.refresh = function(name, interval, terminal) {
             let template = $template(name);
             if (eval(terminal.$p())) {
                 //再尝试3次, 有时会出现结束但仍有数据产生的情况
-                if (template.deferral >= 3) {
+                if (template.deferral < 3) {
+                    if (template.deferral == 0) {
+                        Event.execute(name, 'onterminate');
+                    }
+                    template.deferral ++;
+                }
+                else {
                     //done
                     window.clearInterval(refresher);                  
                     template.done = true;
                     Event.execute(name, 'ondone');
                     template.deferral = 0;
-                }
-                else {
-                    template.deferral ++;
                 }
             }
             else {
@@ -1174,7 +1178,7 @@ Template.refresh = function(name, interval, terminal) {
                     template.deferral = 0;
                 }
 
-                template.refresh();
+                template.reload();
             }        
         }, interval * 1000);
 }
@@ -1185,6 +1189,7 @@ Template.prototype.owner = null;
 Template.prototype.onload = null; //function(data) { };
 //仅每次增量加载完成后触发
 Template.prototype.onlazyload = null; //function(data) { };
+Template.prototype.onterminate = null; //function() { };
 //所有数据加载完成之后触发
 Template.prototype.ondone = null; //function() { };
 
@@ -1511,7 +1516,7 @@ Template.prototype.resetRefresh = function() {
 
 Template.prototype.reload = function() {
     if (this.clearOnRefresh) {
-        this.clear();    
+        this.clear();
     }
     this.load();
 }
@@ -1590,21 +1595,23 @@ Template.prototype.load = function(func) {
 
             this.loading = false;
 
-            Template.reloadComponents();
+            Template.reloadComponents(this.ownerElement);
         });
     }
 }
 
 
 //重载editor和其他组件
-Template.reloadComponents = function() {
+Template.reloadComponents = function(container) {
     [
-        { class: 'Editor', method: 'reapplyAll' },
-        { class: 'Button', method: 'initializeAll' },
+        { class: '$editor', method: 'reapplyAll' },
+        { class: 'HTMLAnchorElement', method: 'initializeAll' },
+        { class: 'HTMLButtonElement', method: 'initializeAll' },
+        { class: 'HTMLInputElement', method: 'initializeAll' },
         { class: '$root', method: 'initialize' }
     ].forEach(component => {
-        if (window[component.class] != null) {
-            window[component.class][component.method]();
+        if (window[component.class] != null && window[component.class][component.method] != null) {
+            window[component.class][component.method](container);
         }
     });
 }
@@ -1618,7 +1625,6 @@ $template = function(name) {
         return null;
     }
 }
-
 
 $ready(function() {
     Model.initializeAll();

@@ -164,41 +164,37 @@ $root.prototype.is = function (name) {
 }
 
 $root.prototype.show = function (display) {
-    this.objects.forEach(element => {
-        if (element.style != undefined) {
-            let visible = 1;
-            if (display != null) {
-                if (typeof(display) != 'boolean') {
-                    visible = -1;
-                }
-                else {
-                    visible = display ? 1 : 0;
-                }
-            }
-
-            if (visible == 1) {
-                if (element.getAttribute('hidden') != 'always' && element.getAttribute('visible') != 'always') {
-                    element.style.display = '';
-                    element.setAttribute('visible', '');
-                    element.removeAttribute('hidden');
-                }
-                
-                if (element.getAttribute('relative') != null) {
-                    $x(element.getAttribute('relative')).show();
-                }
-            }
-            else if (visible == 0) {
-                if (element.getAttribute('visible') != 'always' && element.getAttribute('hidden') != 'always') {
-                    element.style.display = 'none';
-                    element.setAttribute('hidden', '');
-                    element.removeAttribute('visible');
-                }
-                
-                if (element.getAttribute('relative') != null) {
-                    $x(element.getAttribute('relative')).hide();
-                }
+    this.objects.forEach(element => {        
+        let visible = 1;
+        if (display != null) {
+            if (typeof(display) != 'boolean') {
+                visible = -1;
             }
             else {
+                visible = display ? 1 : 0;
+            }
+        }
+
+        if (visible == 1) {
+            if (element.getAttribute('always') == null) {
+                element.hidden = false;
+            }
+            
+            if (element.getAttribute('relative') != null) {
+                $x(element.getAttribute('relative')).show();
+            }
+        }
+        else if (visible == 0) {
+            if (element.getAttribute('always') == null) {
+                element.hidden = true;
+            }
+            
+            if (element.getAttribute('relative') != null) {
+                $x(element.getAttribute('relative')).hide();
+            }
+        }
+        else {
+            if (element.style != undefined) {
                 element.style.display = display;
             }
         }
@@ -207,18 +203,14 @@ $root.prototype.show = function (display) {
 }
 
 $root.prototype.hide = function () {
-    this.objects.forEach(element => {
-        if (element.style != undefined) {
-            if (element.getAttribute('visible') != 'always' && element.getAttribute('hidden') != 'always') {
-                element.style.display = 'none';
-                element.setAttribute('hidden', '');
-                element.removeAttribute('visible');
-            }
-
-            if (element.getAttribute('relative') != null) {
-                $x(element.getAttribute('relative')).hide();
-            }
+    this.objects.forEach(element => {        
+        if (element.getAttribute('always') == null) {
+            element.hidden = true;
         }
+
+        if (element.getAttribute('relative') != null) {
+            $x(element.getAttribute('relative')).hide();
+        }        
     });
     return this;
 }
@@ -304,42 +296,9 @@ $root.prototype.bind = function (eventName, func, useCapture = false, attach = t
     return this;
 }
 
-$root.prototype.unbind = function(eventName, func, attach = true) {
-    eventName = eventName.toLowerCase();
-    for (let e of this.objects) {
-        if (attach) {
-            if (e.addEventListener != undefined) {
-                if (eventName.startsWith('on')) {
-                    eventName = eventName.substring(2);
-                }
-                e.removeEventListener(eventName, func);
-            }
-            else if (e.attachEvent != undefined) {
-                if (!eventName.startsWith('on')) {
-                    eventName = 'on' + eventName;
-                }
-                e.detachEvent(eventName, func);
-            }
-        }
-        else {
-            if (!eventName.startsWith('on')) {
-                eventName = 'on' + eventName;
-            }
-            e['on' + eventName] = null;
-        }
-    }
-}
-
 $root.prototype.on = function (eventName, func, useCapture = false, attach = true) {
     eventName.split(',').forEach(event => {
         this.bind(event, func, useCapture, attach);
-    });
-    return this;
-}
-
-$root.prototype.un = function(eventName, func, attach = true) {
-    eventName.split(',').forEach(event => {
-        this.unbind(event, func, useCapture, attach);
     });
     return this;
 }
@@ -1132,7 +1091,9 @@ $root.home = function () {
     }
 }();
 
-//first
+$root.images = $root.home + 'images/';
+
+//single
 $s = function (o) {
     if (typeof (o) == 'string') {
         if (o.includes('#')) {
@@ -1152,7 +1113,6 @@ $s = function (o) {
         return o;
     }
 }
- 
 
 //all
 $a = function (...o) {
@@ -1200,10 +1160,49 @@ $a = function (...o) {
     return s;
 }
 
+//first visible
+$v = function(o) {
+    if (o.includes(',')) {
+        let s = $a(o);
+        if (s.length == 1) {
+            return s[0];
+        }
+        else if (s.length > 1) {
+            for (let b of s) {
+                if (!b.hidden) {
+                    return b;
+                }
+            }
+            return s[0];
+        }
+        else {
+            null;
+        }
+    }
+    else {
+        return $s(o);
+    }
+}
+
+//native
+$n = function(container, tag) {
+    if (container == null) {
+        return document.querySelectorAll(tag);
+    }
+    else if (typeof (container) == 'string') {
+        return document.querySelectorAll(container + ' ' + tag);
+    }
+    else {
+        return container.querySelectorAll(tag);
+    }
+}
+
+//tag
 $t = function(o) {
     return document.components.get(o.replace(/^#/, ''));
 }
 
+//components
 $c = function(...o) {
 
     let s = new Array();
@@ -1538,22 +1537,22 @@ $FIRE = function (element, event, succeed, fail, except, complete) {
                 }
 
                 if (valid) {
-                    Event.execute(element, event + '+success', data);
-                    succeed.call(element, data);                
+                    succeed.call(element, data);
+                    Event.execute(element, event + 'success', data);                                  
                 }
                 else {
-                    Event.execute(element, event + '+failure', data);
-                    fail.call(element, data);                
+                    fail.call(element, data);
+                    Event.execute(element, event + 'failure', data);                    
                 }
             })
             .catch(error => {
-                Event.execute(element, event + '+exception', error);
-                except.call(element, error);            
+                except.call(element, error);
+                Event.execute(element, event + 'exception', error);                
                 console.error(error);
             })
             .finally(() => {
-                Event.execute(element, event + '+completion');
-                complete.call(element);            
+                complete.call(element);
+                Event.execute(element, event + 'completion');
             });
     }
 };
@@ -1572,15 +1571,7 @@ $ready = function (callback) {
         document.attachEvent('onreadystatechange', callback);
     }
 }
-//on window load
-$post = function(func) {
-    if (document.models != null) {
-        Event.bind('$global', 'onpost', func);
-    }
-    else {
-        $x(window).on('load', func);
-    }
-}
+
 //on model finish
 $finish = function(func) {
     if (document.models != null) {
@@ -1591,13 +1582,27 @@ $finish = function(func) {
     }
 }
 
+//on window load
+$post = function(func) {
+    if (document.models != null) {
+        Event.bind('$global', 'onpost', func);
+    }
+    else {
+        $x(window).on('load', func);
+    }
+}
+
+$complete = function(func) {
+    Event.bind('$global', 'oncomplete', func);
+}
+
 //queryString, query()方法不区分大小写
 $query = function () {
     let q = window.location.search.substring(1);
     if(q != '')	{
         q.split('&').forEach(p => {
             if (p.includes('=')) {
-                $query[p.substring(0, p.indexOf('='))] = decodeURIComponent(p.substring(p.indexOf('=') + 1));
+                $query.s[p.substring(0, p.indexOf('='))] = decodeURIComponent(p.substring(p.indexOf('=') + 1));
             }
             else {
                 $query[p] = '';
@@ -1659,6 +1664,9 @@ $cookie.set = function(name, value, expires, path, domain) {
     document.cookie = cookie;
 }
 $cookie.has = function(n) {
+    if ($cookie.s[n] == null) {
+        $cookie();
+    }
     return $cookie.s[n] != null;
 }
 $cookie();
@@ -1690,7 +1698,7 @@ String.prototype.$trim = function(char = '', char2 = '') {
 //替换10000次
 String.prototype.$replace = function(sub, rep) {
     let str = this.toString();
-    if (rep.includes("$&")) {
+    if (typeof(rep) == 'string' && rep.includes("$&")) {
         rep = rep.replace(/\$&/g, '$ &');
     }
 
@@ -2406,7 +2414,7 @@ String.prototype.$p = function(element, list) {
     let selector = /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/i;
     while(selector.test(str)) {
         let match = selector.exec(str);
-        str = str.replace(match[0], String.$p($s(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));
+        str = str.replace(match[0], String.$p($v(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));
     }
 
     //parse element
@@ -2678,7 +2686,7 @@ $parseBoolean = function(value, defaultValue = false) {
         return value > 0;
     }
     else if (typeof (value) == 'string') {
-        return value.toBoolean(defaultValue);
+        return value === '' ? true : value.toBoolean(defaultValue); //1.5.15
     }
     else if (value instanceof Array) {
         return value.length > 0;
@@ -2794,10 +2802,7 @@ Enum.Entity = function(expression, defaultValue) {
 }
 
 Enum.Entity.prototype.validate = function(value) {
-    if (typeof(value) == 'string') {
-        value = value.trim();
-    }    
-    if (value == null || !this.expression.test(value)) {
+    if (value == null || !this.expression.test(value.trim())) {
         value = this.defaultValue;
     }
     return value.toUpperCase();
@@ -2807,6 +2812,16 @@ Enum.Entity.prototype.validate = function(value) {
 // name -> component
 // name doesn't start with '#'
 document.components = new Map();
+//只是为了保存onfinish事件
+//所有model加载完成后执行onfinifh事件
+document.components.set('$global', {
+    nodeName: 'GLOBAL',
+    tagName: 'GLOBAL',
+    onfinish: null,
+    onpost: null,
+    oncompelete: null,
+    events: new Map()
+});
 //all nodeName
 document.tags = new Set();
 
@@ -2820,25 +2835,25 @@ Event.s = new Map(); //自定义组件事件 $listen
 Event.x = new Map(); //客户端事件监听
 
 Event.bind = function (tag, eventName, func) {
-     
+    
     eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
         eventName = 'on' + eventName;
     }
 
-    let id = '';
+    let id = '';    
+    let extension = false;
+
     if (typeof(tag) == 'string') {
         id = tag;
-        tag = document.components.get(id);
-        if (tag == null) {
-            tag = document.querySelector('#' + id);
+        if (document.components.has(tag)) {
+            tag = document.components.get(tag);
         }
-    }
-    else {
-        tagId = tag.id;
+        else {
+            tag = document.querySelector('#' + id);
+        }        
     }
     
-    let extension = false;
     if (id != '' && document.components.has(id)) {
         extension = true;
     }
@@ -2848,37 +2863,43 @@ Event.bind = function (tag, eventName, func) {
         }
     }
 
-    if (extension || eventName == 'onload') {
-        if (id != '') {
-            //按 id 绑定
-            if (!Event.s.has(id)) {
-                Event.s.set(id, new Map());
+    if (tag != null) {
+        if (extension || eventName == 'onload') {
+            if (!tag.events.has(eventName)) {
+                tag.events.set(eventName, new Array());
             }
-            if (!Event.s.get(id).has(eventName)) {
-                Event.s.get(id).set(eventName, new Array());
-            }
-            Event.s.get(id).get(eventName).push(func);
+            tag.events.get(eventName).push(func);
         }
-        else if (tag != null) {
-            //按 tag 绑定
-            if (!Event.s.has(tag)) {
-                Event.s.set(tag, new Map());
-            }
-            if (!Event.s.get(tag).has(eventName)) {
-                Event.s.get(tag).set(eventName, new Array());
-            }
-            Event.s.get(tag).get(eventName).push(func);
+        else {
+            $x(tag).on(eventName, func);
         }
     }
-    else if (tag != null) {
-        $x(tag).on(eventName, func);
+    else if (id != '') {
+        //按 id 绑定
+        if (!Event.s.has(id)) {
+            Event.s.set(id, new Map());
+        }
+        if (!Event.s.get(id).has(eventName)) {
+            Event.s.get(id).set(eventName, new Array());
+        }
+        Event.s.get(id).get(eventName).push(func);
+    }
+}
+
+Event.dispatch = function(tag, eventName) {
+    
+    if (typeof (tag) == 'string') {
+        tag = $s(tag);
+    }
+    if (tag != null) {
+        let event = document.createEvent('Events');
+        // event, bubbles, cancelable
+        event.initEvent(eventName.replace(/^on/i, ''), true, false);
+        tag.dispatchEvent(event);
     }
 }
 
 Event.execute = function (tag, eventName, ...args) {
-
-    let funcs = [];
-    let id = '';
 
     eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
@@ -2886,34 +2907,23 @@ Event.execute = function (tag, eventName, ...args) {
     }
 
     if (typeof(tag) == 'string') {
-        id = tag;
-        tag = document.components.get(id);
-        if (tag == null) {
-            tag = document.querySelector('#' + id);
+        if (document.components.has(tag)) {
+            tag = document.components.get(tag);
         }
-    }
-    else {
-        id = tag.id;
-    }
-
-    if (id != '') {        
-        if (Event.s.has(id) && Event.s.get(id).has(eventName)) {
-            Event.s.get(id).get(eventName).forEach(func => funcs.push(func));
+        else {
+            tag = document.querySelector('#' + tag);
         }
     }
 
-    if (tag != null) {        
-        if (Event.s.has(tag) && Event.s.get(tag).has(eventName)) {
-            Event.s.get(tag).get(eventName).forEach(func => funcs.push(func));
-        }
-
+    if (tag != null) {
         let final = Event.fire(tag, eventName, ...args);
-        for (let func of funcs) {
-            if (!Event.trigger(tag, func, ...args) && final) {
-                final = false;
-            }
-        }
-    
+        if (tag.events.has(eventName)) {
+            tag.events.get(eventName).forEach(func => {
+                if (!Event.trigger(tag, func, ...args) && final) {
+                    final = false;
+                }
+            });
+        }    
         return final;
     }
     else {
@@ -2973,14 +2983,30 @@ Event.express = function(exp, ...args) {
         }
 
         if (selector == '') {
-            if (item != '' && value != '') {
-                this[method](item, value, ...args);
+            if (this[method] != null) {
+                if (item != '') {
+                    this[method](item, value.$p(this), ...args);
+                }
+                else if (value != '') {
+                    this[method](value.$p(this), ...args);
+                }
+                else {
+                    this[method](...args);
+                }
             }
-            else if (item != '' && value == '') {
-                this[method](item, ...args);
+            else if (window[method] != null) {
+                if (item != '') {
+                    window[method](item, value.$p(this), ...args);
+                }
+                else if (value != '') {
+                    window[method](value.$p(this), ...args);
+                }
+                else {
+                    window[method](...args);
+                }
             }
             else {
-                this[method](...args);
+                throw new Error('Method "' + method + '" is undefined.');
             }
         }
         else {
@@ -2992,24 +3018,34 @@ Event.express = function(exp, ...args) {
                         if (s[method] == null) {
                             s = $x(r);
                         }
-                        if (item != '' && value != '') {
-                            s[method](item, value, ...args);
-                        }
-                        else if (item != '' && value == '') {
-                            s[method](item, ...args);
+                        if (s != null) {
+                            if (s[method] != null) {
+                                if (item != '') {
+                                    s[method](item, value.$p(this), ...args);
+                                }
+                                else if (value != '') {
+                                    s[method](value.$p(this), ...args);
+                                }
+                                else {
+                                    s[method](...args);
+                                }
+                            }
+                            else {
+                                throw new Error('Method "' + method + '" is undefined for "' + r + '".');
+                            }
                         }
                         else {
-                            s[method](...args);
-                        }                        
+                            throw new Error('Element "' + r + '" does not exists.');
+                        }
                     }
                     else {
                         let x = $x(r);
                         if (x[method] != null)  {
-                            if (item != '' && value != '') {
-                                x[method](item, value, ...args);
+                            if (item != '') {
+                                x[method](item, value.$p(this), ...args);
                             }
-                            else if (item != '' && value == '') {
-                                x[method](item, ...args);
+                            else if (value != '') {
+                                x[method](value.$p(this), ...args);
                             }
                             else {
                                 x[method](...args);
@@ -3017,29 +3053,37 @@ Event.express = function(exp, ...args) {
                         }
                         else {
                             x.objects.forEach(s => {
-                                if (item != '' && value != '') {
-                                    s[method](item, value, ...args);
-                                }
-                                else if (item != '' && value == '') {
-                                    s[method](item, ...args);
+                                if (s[method] != null) {
+                                    if (item != '') {
+                                        s[method](item, value.$p(this), ...args);
+                                    }
+                                    else if (value != '') {
+                                        s[method](value.$p(this), ...args);
+                                    }
+                                    else {
+                                        s[method](...args);
+                                    }
                                 }
                                 else {
-                                    s[method](...args);
+                                    throw new Error('Method "' + method + '" is undefined for "' + r + '".');
                                 }
                             });
                         }
                     }
                 });
         }
-    }        
+    }
 }
 
 Event.interact = function(obj, element) {
+    if (obj.events == null) {
+        obj.events = new Map();
+    }    
     element.getAttributeNames().forEach(name => {
         if (/^on/i.test(name) && name.endsWith('-')) {
             //on{event}-
             Event.bind(obj, name.dropRight(1), function(...args) {
-                Event.express.call(obj, element.getAttribute(name), ...args);
+                Event.express.call(this, element.getAttribute(name).$p(this), ...args);
             });
         }
         else if (/-on$/i.test(name)) {
@@ -3053,6 +3097,20 @@ Event.interact = function(obj, element) {
             Event.watch(obj, method, element.getAttribute(name), attr);
         }
     });
+
+    if ((obj.id != null && obj.id != '') || (obj.name != null && obj.name != '')) {
+        let id = obj.id || obj.name;
+        if (Event.s.has(id)) {
+            for (let [eventName, funcs] of Event.s.get(id)) {
+                if (!obj.events.has(eventName)) {
+                    obj.events.set(eventName, new Array());
+                }
+                obj.events.get(eventName).push(...funcs);
+            }
+
+            Event.s.delete(id);
+        }
+    }
 }
 
 Event.watch = function(obj, method, watcher, attr) {
@@ -3061,8 +3119,8 @@ Event.watch = function(obj, method, watcher, attr) {
         value = watcher.takeAfter('->').trim();
         watcher = watcher.takeBefore('->').trim();
     }
-    let func = function(data) {
-        obj[method](attr, value, data);
+    let func = function() {
+        obj[method](attr, value.$p(obj));
     };
     watcher.split(';')
         .map(w => {
@@ -3126,7 +3184,7 @@ $Settings = function(object) {
     this.object['nodeName'] = object.constructor != null ? (object.constructor.name != null ? object.constructor.name.toUpperCase() : 'UNKONWN') : 'UNKONWN';
     this.object['tagName'] = this.object['nodeName'];
     this.object['nodeType'] = 0; // 0 为自定义标签
-    document.tags.add(this.object['tagName']);
+    document.tags.add(this.object['tagName']);    
 }
 
 $Settings.prototype.with = function(elementOrSettings) {
@@ -3371,7 +3429,7 @@ $transfer = function(source, target) {
                 if (target[attr] != null) {
                     target[attr] = value;
                 }
-                else {
+                else if (!attr.includes('+')) {
                     target.setAttribute(attr, value);
                 }
             }
@@ -3384,21 +3442,16 @@ $enhance = function(object) {
 
 NativeElement = function(object) {    
     this.object = object;
-    
     this.object.constructor.getterX = new Map();
     this.object.constructor.setterX = new Map();
+
     this.object.on = function (eventName, func) {
         Event.bind(this, eventName, func);
         return this;
-    }    
+    }
     this.object.execute = function (eventName, ...args) {
         return Event.execute(this, eventName, ...args);
-    }
-    this.object.loadAttributes = function(attributes) {
-        for (let name in attributes) {
-            this[name] = this.getAttribute(name.toHyphen()) || this.getAttribute(name) || attributes[name];
-        }        
-    }
+    }    
 }
 
 NativeElement.executeAopFunction = function(object, func, value) {
@@ -3422,11 +3475,8 @@ NativeElement.prototype.declare = function(variables) {
                 if (value == null) {
                     value = this.getAttribute(name);
                 }
-                if (value == null) {
-                    value = defaultValue;
-                }
                 if (this.constructor.getterX.has(name)) {
-                    value = NativeElement.executeAopFunction(this, this.constructor.getterX.get(name), value);
+                    value = NativeElement.executeAopFunction(this, this.constructor.getterX.get(name), value == null ? defaultValue : value);
                 }
 
                 if (typeof(defaultValue) == 'string') {
@@ -3441,7 +3491,13 @@ NativeElement.prototype.declare = function(variables) {
                     }
                 }
                 else if (typeof(defaultValue) == 'boolean') {
-                    return $parseBoolean(value === '' ? true : value, defaultValue);
+                    return $parseBoolean(value, defaultValue);
+                }
+                else if(defaultValue instanceof Enum.Entity) {
+                    return defaultValue.validate(value);
+                }
+                else if (typeof(defaultValue) == 'function') {
+                    return defaultValue.call(this, value);
                 }
                 else {
                     return value;
@@ -3524,6 +3580,135 @@ NativeElement.prototype.describe = function(variables) {
     return this;
 }
 
+//callout
+Callout = function(content) {
+    return new Callout.Entity(content);
+}
+
+Callout.Entity = function(content) {
+    this.content = content;
+    this.reference = null;
+    this.location = 1;
+    this.offsetX = 0;
+    this.offsetY = 0;
+}
+
+Callout.Entity.prototype.offset = function(x, y) {
+    this.offsetX = x;
+    this.offsetY = y;
+    return this;
+}
+
+Callout.Entity.prototype.position = function(element, pos = 'up') {
+    this.reference = typeof(element) == 'string' ? $s(element) : element;
+    switch (pos.toLowerCase()) {
+        case 'left':
+        case 'leftside':
+            this.location = 0;
+            break;
+        case 'right':
+        case 'rightside':
+            this.location = 2;
+            break;
+        case 'down':
+        case 'downside':
+        case 'under':
+        case 'bottom':
+            this.location = 3;
+            break;
+        default:
+            this.location = 1;
+            break;
+    }
+
+    return this;
+}
+
+Callout.Entity.prototype.locate = function() {
+    switch(this.location) {
+        case 0:  //left
+            return $x('#Callout').css("callout callout-right").leftside(this.reference, this.offsetX - 12, this.offsetY);
+        case 1: //over
+            return $x('#Callout').css("callout callout-bottom").upside(this.reference, this.offsetX, this.offsetY - 12);
+        case 2: //right
+            return $x('#Callout').css("callout callout-left").rightside(this.reference, this.offsetX + 12, this.offsetY);
+        case 3: //under
+            return $x('#Callout').css("callout callout-top").downside(this.reference, this.offsetX, this.offsetY + 12);
+        default:
+            return true;
+    }
+}
+
+Callout.Entity.$timer = null;
+Callout.Entity.prototype.show = function(seconds) {
+    $x('#Callout').html(this.content).show().style('visibility', 'hidden');
+    while (!this.locate()) {
+        this.location = (this.location + 1) % 4;
+    }
+
+    $x('#Callout').style('visibility', 'visible');
+    if (seconds != null) {
+        if (Callout.Entity.$timer != null) {
+            window.clearTimeout(Callout.Entity.$timer);
+        }
+        Callout.Entity.$timer = window.setTimeout(function() {
+            $x('#Callout').hide();
+            window.clearTimeout(Callout.Entity.$timer);
+        }, seconds * 1000);
+    }
+}
+
+Callout.hide = function() {
+    $x('#Callout').hide();
+}
+
+$root.alert = function(message, confirmButtonText = 'OK', title = 'Message') {
+
+    if ($s('#AlertPopup') == null) {
+        let div = $create('DIV', { 'id': 'AlertPopup', className: 'popup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
+        div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
+        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="AlertPopupTitle"></span>' }));
+        div.appendChild($create('DIV', { id: 'AlertContent', className: 'popup-title' }, { textAlign: 'center', color: 'var(--primary)' }));
+        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="AlertPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText + '">' }));
+        document.body.appendChild(div);
+
+        Popup.apply($s('#AlertPopup'));
+    }
+
+    $x('#AlertContent').html(message == null ? 'null' : message);
+    $x('#AlertPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
+    $x('#AlertPopupTitle').html(title);
+    $popup('AlertPopup').clearEvents().open();
+}
+
+$root.confirm = function(message, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Confirm', ev = null) {
+
+    if ($s('#ConfirmPopup') == null) {
+        let div = $create('DIV', { 'id': 'ConfirmPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
+        div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
+        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="ConfirmPopupTitle"></span>' }));
+        div.appendChild($create('DIV', { id: 'ConfirmContent', className: 'popup-title error' }, { textAlign: 'center' }));
+        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="ConfirmPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText +'"> &nbsp; &nbsp; <input id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button" value="' + cancelButtonText + '">' }));
+        document.body.appendChild(div);
+
+        let w= Math.max($x('#ConfirmPopup_ConfirmButton').width(), $x('#ConfirmPopup_CancelButton').width());
+        $x('#ConfirmPopup_ConfirmButton').width(w);
+        $x('#ConfirmPopup_CancelButton').width(w);
+
+        Popup.apply($s('#ConfirmPopup'));
+    }
+
+    $x('#ConfirmContent').html(message == null ? 'null' : message);
+    $x('#ConfirmPopupTitle').html(title);
+    $x('#ConfirmPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
+    $x('#ConfirmPopup_CancelButton').value(' ' + cancelButtonText + ' ');
+    return $popup('ConfirmPopup').clearEvents().open(ev);
+}
+
+$root.prompt = function(message, confirmText = 'OK', concelText = 'Cancel') {
+    //return this.propmpText;
+}
+
 $randomX = function(digit = 10) {
     return Math.round(Math.random() * Math.pow(10, digit)).toString().padStart(digit, '0');
 }
@@ -3549,17 +3734,17 @@ $guid = function() {
     return new Date().valueOf() + '-' + $randomPassword(10);
 }
 
-$ready(function() {
-    //aop of $request
-    if ($cookie.has('oneapi.ajax.settings')) {
-        let ajax = $cookie.get('oneapi.ajax.settings');
-        if (ajax != null) {
-            Json.eval(decodeURIComponent(ajax)).forEach(setting => {
-                $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
-            });
-        }
+//aop of $request
+if ($cookie.has('oneapi.ajax.settings')) {
+    let ajax = $cookie.get('oneapi.ajax.settings');
+    if (ajax != null) {
+        Json.eval(decodeURIComponent(ajax)).forEach(setting => {
+            $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
+        });
     }
+}
 
+$ready(function() {
     if ($x('html').attr('mobile') != null) {
         //<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         $x('head').append('META', { name: 'viewport', content: 'width=device-width, initial-scale=1.0, user-scalable=no' });
@@ -3581,23 +3766,16 @@ $root.initialize = function() {
         }
         bep.removeAttribute('p');
     }
-
-    //link
-    for (let link of $a('[href]')) {
-        if (link.nodeName != 'A' && link.nodeName != 'LINK') {
-            link.setAttribute('link', link.getAttribute('href'));
-            link.removeAttribute('href');
-            $x(link).bind('click', function() {
-                window.location.href = this.getAttribute('link').$p(this);
-                this.style.cursor = 'default';
-            });
-        }
-    }
 }
 
 $finish(function() {
 
     $root.initialize();
+
+    if ($s('#Callout') == null) {
+        $x(document.body).append('DIV', { id: 'Callout', className: 'callout', hidden: true });
+        $x('#Callout').bind('click', function() { this.style.display = 'none'; window.clearTimeout(Callout.Entity.$timer); });
+    }
 
     //attributes to be parse - after model load
     for (let every of $root.PROPERTIES) {
@@ -3680,16 +3858,5 @@ $post(function() {
     }
     Event.x.clear();
 
-    $a('h1,h2,h3,[click-to-copy]').forEach(h => {
-        h.style.cursor = 'pointer';
-        if (h.title == '') {
-            h.title = 'Click to copy';
-        }
-        $x(h).on('click', function() {
-            $x(h).insertBehind('INPUT', { value: $text(h.getAttribute('click-to-copy') == null || h.getAttribute('click-to-copy') == '' ? h : $s(h)) });
-            h.nextElementSibling.select();
-            document.execCommand('Copy');
-            h.nextElementSibling.remove();
-        });
-    });
+    Event.execute('$global', 'oncomplete');
 });
