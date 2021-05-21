@@ -1290,6 +1290,13 @@ $ajax.match = function(url) {
     }
     return null;
 }
+$ajax.set = function(settings) {
+    if (settings != null && settings != '') {
+        Json.eval(decodeURIComponent(settings)).forEach(setting => {
+            $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
+        });
+    }
+}
 
 // p - if to be $p
 $api = function (method, url, params = '', path = '/', element = null, p = true) {
@@ -3736,12 +3743,14 @@ $guid = function() {
 
 //aop of $request
 if ($cookie.has('oneapi.ajax.settings')) {
-    let ajax = $cookie.get('oneapi.ajax.settings');
-    if (ajax != null) {
-        Json.eval(decodeURIComponent(ajax)).forEach(setting => {
-            $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
-        });
-    }
+    $ajax.set($cookie.get("oneapi.ajax.settings"));
+}
+else {
+    $ajax('GET', '/oneapi/settings')
+    .success(data => {
+        $cookie.set("oneapi.ajax.settings", data['oneapi.ajax.settings']);
+        $ajax.set(data['oneapi.ajax.settings']);        
+    }); 
 }
 
 $ready(function() {

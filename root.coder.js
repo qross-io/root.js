@@ -8,7 +8,16 @@ class Coder {
         }
 
         this.textArea = textArea;
-        this.$readOnly = (textArea.getAttribute('readOnly') || textArea.getAttribute('read-only') || 'false');
+        this.$readOnly = textArea.getAttribute('readonly');
+        if (this.$readOnly == null) {
+            this.$readOnly = textArea.getAttribute('read-only');
+        }
+        if (this.$readOnly == null) {
+            this.$readOnly = 'false';
+        }
+        else if (this.$readOnly == '') {
+            this.$readOnly = 'true';
+        }
         if (this.$readOnly != 'nocursor') {
             this.$readOnly = this.$readOnly.toBoolean();
         }
@@ -98,9 +107,12 @@ class Coder {
                 this.frame.style.height = (this.rows * 25 + 10) + 'px';
                 this.limited = true;
             }
+            else {
+                this.frame.style.height = (this.mirror.lineCount() * 25 + 10) + 'px';
+            }
 
             this.mirror.on('keyup', function(cm, e) {
-                if (e.key == 'Backspace' || e.key == 'Delete') {                    
+                if ((!e.ctrlKey && e.key == 'Enter') || e.key == 'Backspace' || e.key == 'Delete' || (e.ctrlKey && (e.key == 'v' || e.key == 'x'))) {
                     let coder = $coder(textArea.id);                   
                     if (cm.lineCount() == coder.rows) {
                         if (!coder.limited) {
@@ -444,7 +456,11 @@ Coder.prototype.set = function(property, value) {
 Coder.initializeAll = function() {
     for (let textArea of document.querySelectorAll('textarea[coder]')) {
 		new Coder(textArea);
-	}
+    }
+    $a('.CodeMirror-sizer').forEach(sizer => {
+        sizer.firstElementChild.style.height = sizer.offsetHeight + 'px';
+        //sizer.firstElementChild.style.height = '';
+    });
 }
 
 $finish(function() {

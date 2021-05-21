@@ -1397,7 +1397,7 @@ Template.prototype.$eachIn = function(key, value) {
         /@[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\(.*?\)/ig,
         /@[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
         /@[a-z_][a-z0-9_]*\!?/ig,
-    ].forEach(place => {
+    ].map(place => {
         let hs = content.match(place);
         return hs != null ? hs : [];        
     })
