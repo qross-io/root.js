@@ -1,7 +1,7 @@
 
 /**
 
-<select type="button/tab/span/div/image/checkbox/radio" data="" text="" value="" cols="">
+<select type="button/image/checkbox/radio" data="" text="" value="" cols="">
     <option value="" icon="url/icon/other" show="" hide=""></option>
     <option>text</option>
     <optgroup data="@[initial]">
@@ -23,7 +23,7 @@ class Select {
         .with(element)
         .declare({
             _name: 'Select_' + document.components.size,
-            type: 'original|beauty|button|tab|span|div|image|checkbox|radio',
+            type: 'original|beauty|button|image|checkbox|radio',
             _value: '',
 
             _className: '',
@@ -62,8 +62,6 @@ class Select {
             _disabled: function(value) {
                 return value == 'disabled' || $parseBoolean(value, false);
             },
-
-            reloadOn: '',
 
             onchange: null, //function(beforeOption, ev) { },
             'onchange+': null, //server side event
@@ -972,7 +970,6 @@ Select['CHECKBOX'] = {
     }
 }
 
-
 Select.initialize = function(button) {
     if (typeof(button) == 'string') {
         button = $s(button);
@@ -989,8 +986,8 @@ Select.initializeAllIn = function(element) {
     if (typeof(element) == 'string') {
         element = $s(element);
     }
-    element.querySelectorAll('select,[select]').forEach(button => {
-        new Select(button).apply();
+    element.querySelectorAll('select').forEach(select => {
+        new Select(select).apply();
     });
 }
 

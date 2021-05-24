@@ -108,7 +108,7 @@ class Coder {
                 this.limited = true;
             }
             else {
-                this.frame.style.height = (this.mirror.lineCount() * 25 + 10) + 'px';
+                this.frame.style.height = 'auto';
             }
 
             this.mirror.on('keyup', function(cm, e) {
@@ -246,7 +246,7 @@ class Coder {
     set rows(rows) {
         this.$rows = rows;
         if (this.mirror.lineCount() < rows) {
-            this.frame.style.height = (rows * 25 + 6) + 'px';
+            this.frame.style.height = (rows * 25 + 10) + 'px';
         }
         else {
             this.frame.style.height = 'auto';
@@ -453,14 +453,14 @@ Coder.prototype.set = function(property, value) {
     this.setAttribute(property, value);
 }
 
+Coder.prototype.update = function(value) {
+    this.value = value;
+}
+
 Coder.initializeAll = function() {
     for (let textArea of document.querySelectorAll('textarea[coder]')) {
 		new Coder(textArea);
     }
-    $a('.CodeMirror-sizer').forEach(sizer => {
-        sizer.firstElementChild.style.height = sizer.offsetHeight + 'px';
-        //sizer.firstElementChild.style.height = '';
-    });
 }
 
 $finish(function() {

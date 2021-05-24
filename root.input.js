@@ -90,7 +90,7 @@ $enhance(HTMLInputElement.prototype)
                         }                    
                     }
                 }
-                else {
+                else if (text != '') {
                     Callout(text).position(this, this.callout == null ? 'upside' : this.callout).show();
                 }
             }
@@ -340,7 +340,15 @@ HTMLInputElement.prototype.set = function(attr, value) {
     }    
 }
 
-   
+HTMLInputElement.prototype.update = function(value) {
+    this.set('value', value);
+}
+
+HTMLInputElement.prototype.copy = function() {
+    this.select();
+    document.execCommand('Copy');
+}
+
 HTMLInputElement.prototype.initialize = function() {
 
     let input = this;
@@ -418,7 +426,7 @@ HTMLInputElement.prototype.initialize = function() {
     //输入时对值进行检查    
     $x(this).on('input', function(ev) {
         if (this.value.trim() != this._recent) {
-            if (this.onmodify != null || (this.id != '' && Event.s.has(this.id) && Event.s.get(this.id).has('onmodify'))) {
+            if (this.onmodify != null || (this.id != '' && this.events.has('onmodify'))) {
                 if (this._timer != null) {
                     window.clearTimeout(this._timer);                
                 }

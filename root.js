@@ -1093,6 +1093,16 @@ $root.home = function () {
 
 $root.images = $root.home + 'images/';
 
+if (window['$configuration'] == null) {
+    var $configuration = window.localStorage.getItem('root.configuration');
+}
+else {
+    window.localStorage.setItem('root.configuration', JSON.stringify($configuration));
+}
+if (window['$configuration'] != null && typeof($configuration) == 'string') {
+    $configuration = JSON.parse($configuration);
+}
+
 //single
 $s = function (o) {
     if (typeof (o) == 'string') {
@@ -1281,21 +1291,15 @@ $ajax = function (method, url, params = '', path = '/', element = null, p = true
     return new $api(method, url, params, path, element, p);
 }
 
-$ajax.settings = new Map();
 $ajax.match = function(url) {
-    for (let [pattern, setting] of $ajax.settings) {
-        if (url.includes(pattern) || new RegExp(pattern, 'i').test(url)) {
-            return setting;
+    if (window['$configuration'] != null) {
+        for (let pattern in $configuration.ajax) {
+            if (url.includes(pattern) || new RegExp(pattern, 'i').test(url)) {
+                return $configuration.ajax[pattern];
+            }
         }
     }
     return null;
-}
-$ajax.set = function(settings) {
-    if (settings != null && settings != '') {
-        Json.eval(decodeURIComponent(settings)).forEach(setting => {
-            $ajax.settings.set(setting.pattern, { "ready": setting.ready, "info": setting.info, "path": setting.path });
-        });
-    }
 }
 
 // p - if to be $p
@@ -1553,12 +1557,16 @@ $FIRE = function (element, event, succeed, fail, except, complete) {
                 }
             })
             .catch(error => {
-                except.call(element, error);
+                if (except != null) {
+                    except.call(element, error);
+                }                
                 Event.execute(element, event + 'exception', error);                
                 console.error(error);
             })
             .finally(() => {
-                complete.call(element);
+                if (complete != null) {
+                    complete.call(element);
+                }                
                 Event.execute(element, event + 'completion');
             });
     }
@@ -1636,7 +1644,7 @@ $query.has = function(n) {
 }
 $query();
 
-$cookie = function (name, value, expires, path, domain) {
+$cookie = function () {
 	//	document.cookie = 'cookieName=cookieData
 	//	[; expires=timeInGMTString]
 	//	[; path=pathName]
@@ -1669,6 +1677,7 @@ $cookie.set = function(name, value, expires, path, domain) {
     }
 
     document.cookie = cookie;
+    $cookie.s[name] = value;
 }
 $cookie.has = function(n) {
     if ($cookie.s[n] == null) {
@@ -2217,100 +2226,100 @@ String.prototype.$length = function (min = 0) {
 $data = function(t, data) {
     if (data != null) {
         if (data.data != null) {
-            return data.data;
+            return data;
         }
         else {
             return data;
         }
     }
-    else if (t != null) {
-        if (t.data != undefined) {
-            return t.data;
-        }
-        else if (t.getAttribute('data') != null) {
-            return t.getAttribute('data');
-        }
-        else if (t.text != null) {
-            return t.text;
-        }
-        else if (t.textContent != null) {
-            return t.textContent;
-        }
-        else if (t.innerHTML != null) {
-            return t.innerHTML;
-        }
-        else {
-            return null;
-        }
+    else if (t.data != undefined) {
+        return t.data;
     }
-    else {
-        return null;
+    else if (t.getAttribute('data') != null) {
+        return t.getAttribute('data');
     }
-}
-
-// private
-$value = function(t, value) {
-    if (value != null) {
-        if (value.value != null) {
-            return value.value;
-        }
-        else {
-            return value;
-        }
+    else if (t.value != null) {
+        return t.value;
     }
-    else if (t != null) {
-        if (t.value != undefined) {
-            return t.value;
-        }
-        else if (t.getAttribute('value') != null) {
-            return t.getAttribute('value');
-        }
-        else if (t.textContent != null) {
-            return t.textContent;
-        }
-        else if (t.innerHTML != null) {
-            return t.innerHTML;
-        }
-        else if (t.text != null) {
-            return t.text;
-        }
-        else {
-            return null;
-        }
+    else if (t.text != null) {
+        return t.text;
+    }
+    else if (t.textContent != null) {
+        return t.textContent;
+    }
+    else if (t.innerHTML != null) {
+        return t.innerHTML;
     }
     else {
         return null;
     }    
 }
 
-$text = function(t, text) {
-    if (text != null) {
-        if (text.text != null) {
-            return text.text;
+// private
+$value = function(t, data) {
+    if (t.value != undefined) {
+        return t.value;
+    }
+    else if (t.getAttribute('value') != null) {
+        return t.getAttribute('value');
+    }
+    else if (data != null) {
+        if (data.value != null) {
+            return data.value;
+        }
+        else if (data.text != null) {
+            return data.text;
+        }
+        else if (data.data != null) {
+            return data.data;
         }
         else {
-            return text;
+            return data;
         }
     }
-    else if (t != null) {
-        if (t.text != undefined) {
-            return t.text;
+    else if (t.text != null) {
+        return t.text;
+    }
+    else if (t.textContent != null) {
+        return t.textContent;
+    }
+    else if (t.innerHTML != null) {
+        return t.innerHTML;
+    }
+    else {
+        return null;
+    }
+}
+
+$text = function(t, data) {
+    if (t.text != undefined) {
+        return t.text;
+    }
+    else if (t.getAttribute('text') != null) {
+        return t.getAttribute('text');
+    }
+    else if (data != null) {
+        if (data.text != null) {
+            return data.text;
         }
-        else if (t.getAttribute('text') != null) {
-            return t.getAttribute('text');
+        else if (data.value != null) {
+            return data.value;
         }
-        else if (t.textContent != null) {
-            return t.textContent;
-        }
-        else if (t.innerHTML != null) {
-            return t.innerHTML;
-        }
-        else if (t.value != null) {
-            return t.value;
+        else if (data.data != null) {
+            return data.data;
         }
         else {
-            return null;
+            return data;
         }
+    }
+    else if (t.textContent != null) {
+        return t.textContent;
+    }
+    else if (t.innerHTML != null) {
+        return t.innerHTML;
+    }
+    else if (t.value != null) {
+        return t.value;
     }
     else {
         return null;
@@ -2390,11 +2399,7 @@ String.$p = function(t, p, a, d = 'null') {
 
 //argument 'element' also supports object { }
 //data -> ajax recall data
-String.prototype.$p = function(element, list) {
-
-    if (list == null) {
-        list = element;
-    }
+String.prototype.$p = function(element, data) {
 
     let str = this.toString();
     if (typeof (element) == 'string') {
@@ -2457,7 +2462,7 @@ String.prototype.$p = function(element, list) {
     let complex = /\~?\{\{([\s\S]+?)\}\}%?/;
     while (complex.test(str)) {
         let match = complex.exec(str);
-        let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $data(element, list), $value(element, list), $text(element, list));
+        let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $data(element, data), $value(element, data), $text(element, data));
         if (typeof(result) != 'string') {
             result = String(result);
         }
@@ -2471,7 +2476,7 @@ String.prototype.$p = function(element, list) {
     let expression = /\~?\{([\s\S]+?)\}%?/;
     while (expression.test(str)) {
         let match = expression.exec(str);
-        let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $data(element, list), $value(element, list), $text(element, list));
+        let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $data(element, data), $value(element, data), $text(element, data));
         if (typeof(result) != 'string') {
             result = String(result);
         }
@@ -3739,18 +3744,6 @@ $randomPassword = function(digit = 7) {
 
 $guid = function() {
     return new Date().valueOf() + '-' + $randomPassword(10);
-}
-
-//aop of $request
-if ($cookie.has('oneapi.ajax.settings')) {
-    $ajax.set($cookie.get("oneapi.ajax.settings"));
-}
-else {
-    $ajax('GET', '/oneapi/settings')
-    .success(data => {
-        $cookie.set("oneapi.ajax.settings", data['oneapi.ajax.settings']);
-        $ajax.set(data['oneapi.ajax.settings']);        
-    }); 
 }
 
 $ready(function() {
