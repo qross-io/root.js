@@ -3,6 +3,7 @@
 
 $enhance(HTMLButtonElement.prototype)
     .declare({
+        type: Enum('NORMAL', 'SWITCH'),
         enabledClass: '', //normal-button blue-button,
         disabledClass: '', //normal-button optional-button,
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
@@ -15,6 +16,7 @@ $enhance(HTMLButtonElement.prototype)
         href: '', //跳转到哪个页面
         clickText: '', //点击按钮后的提示文字
 
+        invalidText: '', //验证不通过的提醒文字 onclick="return false"
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
@@ -27,7 +29,10 @@ $enhance(HTMLButtonElement.prototype)
         alert: null,
 
         scale: 'normal', //little/small/normal/big/large
-        color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
+        color: 'blue', //prime/green/red/maroon/purple/blue/orange/gray/white
+
+        'onclick-enabled': null,
+        'onclick-disabled': null
     })
     .getter({
         'scale': value => value.toLowerCase(),
@@ -73,7 +78,7 @@ $enhance(HTMLButtonElement.prototype)
                 }
 
                 if (text != '' && this.alert != null) {
-                    if ($root.alert != null) {
+                    if (document.tags.has('POPUP')) {
                         $root.alert(text, this.confirmButtonText);
                     }
                     else {
@@ -81,10 +86,41 @@ $enhance(HTMLButtonElement.prototype)
                     }
                 }                
             }
+        },
+        //switch only
+        options: {
+            get () {
+                if (this._options == null) {
+                    let options = this.getAttribute('options');
+                    if (options != null) {
+                        options = options.trim();
+                        if ((options.startsWith('{') && options.endsWith('}')) || (options.startsWith('[') && options.endsWith(']'))) {
+                            options = Json.eval(options);
+                        }
+                        else {
+                            options = options.toMap();
+                        }
+                        if (!(options instanceof Array)) {
+                            this._options = [];
+                            for (let text in options) {
+                                this._options.push({ text: text, value: options[text] });
+                            }
+                        }
+                        else {
+                            this._options = options;
+                        }
+                    }
+                    else {
+                        this._options = [{ text : 'Enabled', value: 'yes' }, { text: 'Disabled', value: 'no' }];
+                    }
+                }
+                return this._options;
+            }
         }
     });
 
-
+HTMLButtonElement.prototype.onclick_ = null;
+HTMLButtonElement.prototype._options = null;
 HTMLButtonElement.prototype.status = 1;
 HTMLButtonElement.prototype.relatived = 0;
 HTMLButtonElement.prototype.satisfied = 0;
@@ -166,6 +202,23 @@ HTMLButtonElement.prototype.go = function() {
     }
 }
 
+HTMLButtonElement.prototype.switch = function() {
+    if (this.value == this.options[0].value) {
+        this.text = this.options[1].text;
+        this.value = this.options[1].value;
+        this.className = this.disabledClass;
+
+        Event.execute(this, 'onclick-disabled');
+    }
+    else {
+        this.text = this.options[0].text;
+        this.value = this.options[0].value;
+        this.className = this.enabledClass;
+
+        Event.execute(this, 'onclick-enabled');
+    }
+}
+
 HTMLButtonElement.relationByInput = new Map();
 
 HTMLButtonElement.prototype.initialize = function() {
@@ -185,20 +238,65 @@ HTMLButtonElement.prototype.initialize = function() {
         this.disabledClass = this.scale + '-button optional-button';
     }
 
-    let todo = [];
-
-    if (this.watch != '') {
-        this.watch.split(',').map(tag => tag.trim()).forEach(tag => todo.push(tag));
+    if (this.onclick != null && this['onclick+'] != null) {
+        this.onclick_ = this.onclick;
+        this.onclick = null;
     }
 
-    if (this['onclick+'] != null) {
+    if (this.type == 'SWITCH') {
+        if (this.value == '' || this.value == this.options[0].value) {
+            this.className = this.enabledClass;
+            this.text = this.options[0].text;
+            this.value = this.options[0].value;            
+        }
+        else {
+            this.className = this.disabledClass;
+            this.text = this.options[1].text;
+            this.value = this.options[1].value;
+        }
+
+        $x(this).on('click', function(ev) {
+            if (Event.fire(this, 'onclick_'), ev) {
+                if (this['onclick+'] != null) {
+                    this.disabled = true;
+                    this.switch();
+                    $FIRE(this, 'onclick+', 
+                        function(data) {                            
+                            this.hintText = this.successText.$p(this, data);                            
+                        }, 
+                        function(data) {                            
+                            this.hintText = this.failureText.$p(this, data);                            
+                            this.switch();
+                        },
+                        function(error) {
+                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                            this.switch();
+                        },
+                        function() {
+                            this.disabled = false;                            
+                        });
+                }
+                else {
+                    this.switch();
+                }
+            }
+            else {
+                this.hintText = this.invalidText.$p(this);
+            }
+        });
+    }
+    else if (this['onclick+'] != null)  {
+        let todo = [];
+
+        if (this.watch != '') {
+            this.watch.split(',').map(tag => tag.trim()).forEach(tag => todo.push(tag));
+        }
+    
         let holders = this['onclick+'].match(/\$\(#[^)]+\)/ig);
         if (holders != null) {
             holders.map(tag => tag.$trim('$(', ')')).forEach(tag => todo.push(tag));
         }
-    }
 
-    if (todo.length > 0) {
         todo.forEach(tag => {
             if (!HTMLButtonElement.relationByInput.has(tag)) {
                 HTMLButtonElement.relationByInput.set(tag, new Set());
@@ -213,20 +311,25 @@ HTMLButtonElement.prototype.initialize = function() {
         }
 
         $x(this).on('click', function(ev) {
-            if (this.confirmText != '') {
-                if ($root.confirm != null) {
-                    let button = this;
-                    $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
-                        .on('confirm', function() {                            
-                            button.go();      
-                        });
+            if (Event.fire(this, 'onclick_'), ev) {
+                if (this.confirmText != '') {
+                    if (document.tags.has('POPUP')) {
+                        let button = this;
+                        $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
+                            .on('confirm', function() {                            
+                                button.go();      
+                            });
+                    }
+                    else if (window.confirm(this.confirmText.$p(this))) {
+                        this.go();         
+                    }
                 }
-                else if (window.confirm(this.confirmText.$p(this))) {
-                    this.go();         
+                else {
+                    this.go();
                 }
             }
             else {
-                this.go();
+                this.hintText = this.invalidText.$p(this);
             }
         });
 
@@ -298,7 +401,7 @@ HTMLButtonElement.observe = function() {
 HTMLButtonElement.initializeAll = function(container) {
     for (let button of $n(container, 'button')) {
         // root 设置为 button 表示组件已初始化
-        if (button.getAttribute('root') == null && (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null || button.getAttribute('href') != null)) {
+        if (button.getAttribute('root') == null && (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null || button.getAttribute('type') != null || button.getAttribute('href') != null)) {
             button.setAttribute('root', 'BUTTON');
             button.initialize();
         }

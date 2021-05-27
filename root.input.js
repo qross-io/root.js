@@ -36,7 +36,11 @@ $enhance(HTMLInputElement.prototype)
         strength: 'WEAK', //password only
         fit: '', //password only
 
-        theme: Enum('SWITCH', 'CHECKBOX', 'WHETHER') //switch only
+        theme: Enum('SWITCH', 'CHECKBOX', 'WHETHER'), //switch only,
+        
+        onmodify: null,
+        'onchange-checked': null,
+        'onchange-unchecked': null
     })
     .getter({
         'strength': value => value.toUpperCase(),
@@ -144,22 +148,10 @@ $enhance(HTMLInputElement.prototype)
                 }
             }
         },
-        onmodify: {
-            //当值被键盘输入修改时触发，但限制用户输入频率，输入停止 500 毫秒后才触发
-            get () {
-                if (this._onmodify == null) {
-                    this._onmodify = this.getAttribute('onmodify');
-                }
-                return this._onmodify;
-            },
-            set (event) {
-                this._onmodify = event;
-            }
-        },
-         //switch/checkbox only
+        //switch/checkbox only
         options: {
             get () {
-                if ($parseEmpty(this._options, true)) {
+                if (this._options == null) {
                     let options = this.getAttribute('options');
                     if (options != null) {
                         options = options.trim();
@@ -175,20 +167,6 @@ $enhance(HTMLInputElement.prototype)
                     }
                 }
                 return this._options;
-            },
-            set (value) {
-                if (typeof(value) == 'string') {
-                    let options = value.trim();
-                    if ((options.startsWith('{') && options.endsWith('}')) || (options.startsWith('[') && options.endsWith(']'))) {
-                        this._options = Json.eval(options);
-                    }
-                    else {
-                        this._options = options.split(',').map(v => v.trim());
-                    }
-                }
-                else {
-                    this._options = value;
-                }
             }
         }
     });
@@ -200,12 +178,11 @@ HTMLInputElement.prototype._status = 2; //无值初始状态
 HTMLInputElement.prototype._blured = false; //是否已失去过一次焦点
 HTMLInputElement.prototype._inputable = true; //是否已失去过一次焦点
 HTMLInputElement.prototype._recent = null;
-HTMLInputElement.prototype._options = [];
+HTMLInputElement.prototype._options = null;
 HTMLInputElement.prototype.relations = new Set(); //关联的按钮
 
 HTMLInputElement.prototype._timer = null; //最后一次修改的计时器
 HTMLInputElement.prototype._timestamp = null;
-HTMLInputElement.prototype._onmodify = null;
    
 HTMLInputElement.prototype.validate = function (toCheck = false) {
     //验证方法 按情况 有正则验证走正则 否则非空验证
@@ -349,7 +326,7 @@ HTMLInputElement.prototype.copy = function() {
     document.execCommand('Copy');
 }
 
-HTMLInputElement.prototype.initialize = function() {
+HTMLInputElement.prototype.initializeInputable = function() {
 
     let input = this;
     this.minSize = this.getAttribute('size') == null ? 0 : this.size;
@@ -551,8 +528,8 @@ HTMLInputElement.prototype.initialize = function() {
 
 HTMLInputElement.prototype.initializeCheckable = function() {
     let input = this;
-
     this._inputable = false;
+
     if (this.type == 'switch') {
         this.status = 1;
         this.hidden = true;
@@ -587,6 +564,12 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                             this.hintText = this.successText.$p(this, data);  
                             button.src = button.src.replace((this.value == this.options[1] ? 'on' : 'off') + '_active', (this.value == this.options[1] ? 'off' : 'on') + '_hover');
                             Event.dispatch(this, 'change');
+                            if (this.value == this.options[0]) {
+                                Event.execute(this, 'onchange-checked');
+                            }
+                            else {
+                                Event.execute(this, 'onchange-unchecked');
+                            }
                         }, 
                         function(data) {
                             this.hintText = this.failureText.$p(this, data);
@@ -603,9 +586,16 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                     );
                 }
                 else {
-                    this.src = this.src.replace('_active', '_hover');
+                    this.src = this.src.replace((input.value == input.options[1] ? 'on' : 'off') + '_active', (input.value == input.options[1] ? 'off' : 'on') + '_hover');
                     this.style.opacity = 1;
-                    input.disabled = false;
+
+                    Event.dispatch(input, 'change');
+                    if (input.value == input.options[0]) {
+                        Event.execute(input, 'onchange-checked');
+                    }
+                    else {
+                        Event.execute(input, 'onchange-unchecked');
+                    }
                 }
             }            
         } 
@@ -621,6 +611,12 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                             this.hintText = this.successText.$p(this, data);                            
                             if (this.$required) {
                                 this.status = this.checked ? 1 : 0;
+                            }
+                            if (this.checked) {
+                                Event.execute(this, 'onchange-checked');
+                            }
+                            else {
+                                Event.execute(this, 'onchange-unchecked');
                             }
                         }, 
                         function(data) {
@@ -641,6 +637,12 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                 if (this.$required) {
                     this.status = this.checked ? 1 : 0;
                 }
+                if (this.checked) {
+                    Event.execute(this, 'onchange-checked');
+                }
+                else {
+                    Event.execute(this, 'onchange-unchecked');
+                }
             }
         });        
     }
@@ -649,6 +651,92 @@ HTMLInputElement.prototype.initializeCheckable = function() {
     $complete(function() {
         Event.execute(input, 'onload');
     });
+}
+
+HTMLInputElement.prototype.initializeSelectable = function() {
+    let input = this;
+    this._inputable = false;
+
+    if (this.type == 'stars') {
+        let init = this.value.toInt(1);
+        this.value = init;
+        if (this.size > 5) {
+            this.size = 5;
+        }
+
+        for (let i = 0; i < this.size; i++) {
+            let star = $create('IMG',
+                            { src: `${editor.imagesBaseUrl}star_${i < init ? 'enabled' : 'disabled'}.png`, width: editor.zoom, height: editor.zoom, align: 'absmiddle' },
+                            { cursor: 'hand', marginLeft: '1px' },
+                            { 'sign': 'star', 'value': i + 1, 'state': i < init ? 1 : 0 });        
+            element.appendChild(star);
+
+            star.onmouseover = function(ev) {
+                this.width = editor.zoom + 1;
+                this.height = editor.zoom + 1;
+            }
+
+            star.onmouseout = function(ev) {
+                this.width = editor.zoom - 1;
+                this.height = editor.zoom - 1;
+            }
+
+            star.onclick = function(ev) {
+                if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
+                    editor.editing = true;
+                    editor.element = element;
+
+                    let last = element.getAttribute("value").toInt();
+                    let after = this.getAttribute("value").toInt();
+
+                    if (after != last) {
+                        if (editor.editing && !editor.updating && editor.execute('onupdate', after)) {
+                            let stars = element.querySelectorAll('img[sign=star]');
+                            if (editor.action != '') {
+                                $cogo(editor.action.concatValue(after), element, after)
+                                    .then(data => {
+                                        if (editor.execute('onfinish', data, after)) {
+                                            for (let j = 0; j < stars.length; j++) {
+                                                stars[j].src = `${editor.imagesBaseUrl}star_${j < after ? 'enabled' : 'disabled' }.png`;                                    
+                                            }
+                                            element.setAttribute("value", after);
+
+                                            editor.execute('oncomplete', after);
+                                        }
+                                    })
+                                    .catch(error => {
+                                        Callout(error).position(this).show();
+                                        editor.execute('onerror', error);
+                                    })
+                                    .finally(() => {
+                                        editor.updating = false;
+                                        editor.editing = false;
+                                        editor.element = null;
+                                    });                                
+    
+                                this.updating = true;
+                            }
+                            else {                                
+                                for (let j = 0; j < stars.length; j++) {
+                                    stars[j].src = `${editor.imagesBaseUrl}star_${j < after ? 'enabled' : 'disabled' }.png`;                                    
+                                }
+                                element.setAttribute("value", after);
+
+                                editor.execute('oncomplete', after);
+
+                                editor.editing = false;
+                                editor.element = null;
+                            }
+                        }
+                    }
+                    else {
+                        editor.editing = false;
+                        editor.element = null;
+                    }                    
+                }
+            }
+        }
+    }
 }
 
 HTMLInputElement.Key = {
@@ -761,11 +849,15 @@ HTMLInputElement.initializeAll = function(container) {
         if (input.getAttribute('root') == null) {
             if (/^(text|password|number|float|integer|mobile|idcard|name|search|calendar|datetime)$/i.test(input.type)) {            
                 input.setAttribute('root', 'INPUT');                
-                input.initialize();
+                input.initializeInputable();
             }
-            else if (/^(switch|checkbox)$/i.test(input.type)) {            
+            else if (/^(switch|checkbox)$/i.test(input.type)) {
                 input.setAttribute('root', 'INPUT');                
-                input.initializeCheckable();            
+                input.initializeCheckable();
+            }
+            else if (/^(stars)$/i.test(input.type)) {
+                input.setAttribute('root', 'INPUT');                
+                input.initializeSelectable();
             }
         }
     });

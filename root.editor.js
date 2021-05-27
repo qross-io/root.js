@@ -30,7 +30,7 @@ class Editor {
                     }
                     return imagesBaseUrl;
                 },
-                type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBUTTON|SWITCHBUTTON|STAR|STARBUTTON',
+                type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBUTTON|STAR|STARBUTTON',
                 /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
                 action: '',
 
@@ -48,7 +48,6 @@ class Editor {
 
                 //switch - [yes,no]
                 //select - { text: value, text: value, text: value }  | #select
-                //switchbutton - [ {text: 'enabled', value: 'yes', class: 'new'}, {text: 'enabled', value: 'yes', class: 'old'} ]
                 //starbutton - [ {text: 'enabled', value: 'yes', enabledClass: 'new1', disabledClass: 'old' }, { text: 'enabled', value: 'yes', class: 'new2' }, ... ]
                 options: function(options) {
                     switch(this.type) {
@@ -79,16 +78,6 @@ class Editor {
                             }
                             else if (options == null) {
                                 return { 'EMPTY': 'EMPTY' };                            
-                            }
-                            else {
-                                return options;
-                            }
-                        case 'SWITCHBUTTON':
-                            if (typeof(options) == 'string') {
-                                return Json.eval(options);
-                            }
-                            else if (options == null) {
-                                return [{ text: 'Enabled', value: 'yes' }, { text: 'Disabled', value: 'no' }];
                             }
                             else {
                                 return options;
@@ -141,11 +130,7 @@ class Editor {
                 theme: function(theme) {
                     return theme == null ? 'switch' : theme.toLowerCase();
                 },
-                //star only
-                pcs: 5,
-                //star & switch only
-                zoom: 16,
-
+                
                 editOn: 'dblclick',
                 selector: '',
 
@@ -164,6 +149,10 @@ class Editor {
 
     set editable (editable) {
         this.editable$ = editable;
+    }
+
+    get value() {
+        return this.tag.textContent;
     }
 }
 
@@ -1179,81 +1168,6 @@ Editor['SELECT'] = function (editor, element) {
             }
         }
     });
-}
-
-Editor['SWITCHBUTTON'] = function (editor, element) {
-
-    if (editor.options[0].class == null) {
-        editor.options[0].class = 'normal-button new';
-    }
-    if (editor.options[1].class == null) {
-        editor.options[1].class = 'normal-button old';
-    }
-
-    let button = element.querySelector('button[sign=switchbutton]');
-    if (button == null) {
-        let index = element.textContent == editor.options[0].value || element.textContent == editor.options[0].text ? 0 : 1;
-        button = $create('BUTTON',
-            { innerHTML: editor.options[index].text, className: editor.options[index].class },
-            { },
-            { 'sign': 'switchbutton', 'value': editor.options[index].value });
-        element.innerHTML = '';
-        element.appendChild(button);
-    }
-
-    button.onmousedown = function (ev) {
-        if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-            editor.editing = true;
-            editor.element = element;
-        }
-    }
-
-    button.onmouseup = function (ev) {
-        let before = button.getAttribute('value');
-        let beforeIndex = before == editor.options[0].value ? 0 : 1;
-        let afterIndex = beforeIndex == 0 ? 1 : 0;
-        let after = editor.options[afterIndex].value;
-        if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
-            button.disabled = true;
-            if (editor.action != '') {
-                $cogo(editor.action.concatValue(after), element, after)
-                    .then(data => {
-                        if (editor.execute('onfinish', data, after)) {
-                            $x(button).html(editor.options[afterIndex].text).css(editor.options[afterIndex].class);
-                            button.setAttribute('value', after);
-
-                            editor.execute('oncomplete', after);
-                        }
-                    })
-                    .catch(error => {
-                        Callout(error).position(this).show();
-                        editor.execute('onerror', error);
-                    })
-                    .finally(() => {
-                        editor.updating = false;
-                        button.disabled = false;
-                        editor.editing = false;
-                        editor.element = null;
-                    });                
-
-                editor.updating = true;
-            }
-            else {
-                $x(button).html(editor.options[afterIndex].text).css(editor.options[afterIndex].class);
-                button.setAttribute('value', after);
-                button.disabled = false;
-
-                editor.execute('oncomplete', after);
-
-                editor.editing = false;
-                editor.element = null;
-            }
-        }
-        else {
-            editor.editing = false;
-            editor.element = null;
-        }
-    }  
 }
 
 Editor['CHECKBUTTON'] = function(editor, element) {

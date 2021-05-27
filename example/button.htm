@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <title>Button</title>
     <script type="text/javascript" src="/root.js"></script>
-    <link href="/root.css" rel="stylesheet" type="text/css" />
+    <script type="text/javascript" src="/root.button.js"></script>
+    <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
         
 <form>
     <input id="I" type="text" required-text="" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
-    <button id="B" watch="" action="" class="normal-button gray-button">ABC</button>
+    <button id="B" type="switch" onclick="return false;" callout="right" value="no" invalid-text="禁止点击。" onclick-disabled="alert(this.value)" onclick-enabled="alert(this.text)">ABC</button>
 </form>
     <script type="text/javascript">
     let getter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get; //HTMLInputElement.prototype.__lookupGetter__('value');

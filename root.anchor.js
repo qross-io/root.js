@@ -56,19 +56,19 @@ HTMLAnchorElement.prototype.go = function() {
             switch(this.target) {
                 case '':
                 case '_self':
-                    window.location.href = this.href.$p(this, data);
+                    window.location.href = this._href.$p(this, data);
                     break;
                 case '_top':
-                    top.location.href = this.href.$p(this, data);
+                    top.location.href = this._href.$p(this, data);
                     break;
                 case '_parent':
-                    parent.location.href = this.href.$p(this, data);
+                    parent.location.href = this._href.$p(this, data);
                     break;
                 case '_blank':
                     window.open(this.href.$p(this, data));
                     break;
                 default:
-                    window.frames[this.target].location.href = this.href.$p(this, data);
+                    window.frames[this.target].location.href = this._href.$p(this, data);
                     break;
             }
         }, 
@@ -99,7 +99,7 @@ HTMLAnchorElement.prototype.initialize = function() {
         }
 
         if (this.confirmText != '') {
-            if ($root.confirm != null) {
+            if (document.tags.has('POPUP')) {
                 let a = this;
                 $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
                     .on('confirm', function() {                            

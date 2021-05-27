@@ -497,7 +497,7 @@ $root.prototype.html = function (code) {
 }
 
 $root.prototype.text = function (text) {
-    if (code == null) {
+    if (text == null) {
         if (this.objects.length == 0) {
             return null;
         }
@@ -2898,6 +2898,7 @@ Event.bind = function (tag, eventName, func) {
     }
 }
 
+//native event
 Event.dispatch = function(tag, eventName) {
     
     if (typeof (tag) == 'string') {
@@ -2946,7 +2947,6 @@ Event.execute = function (tag, eventName, ...args) {
 
 //执行某一个具体对象的事件非bind事件，再比如对象没有name，如for和if标签
 Event.fire = function(tag, eventName, ...args) {
-    let originName = eventName;
     eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
         eventName = 'on' + eventName;
@@ -2956,27 +2956,21 @@ Event.fire = function(tag, eventName, ...args) {
     if (tag[eventName] != null) {
         final = Event.trigger(tag, tag[eventName], ...args);
     }
-    
-    if (originName != eventName) {
-        if (tag[originName] != null) {
-            final = final && Event.trigger(tag, tag[originName], ...args);
-        }
-    }
 
     return final;
 }
 
 Event.trigger = function(tag, func, ...args) {
-    //key code
     let final = true;
-    if (typeof (func) == 'function') {
-        final = func.call(tag, ...args);
+    if (func != null) {
+        if (typeof (func) == 'function') {
+            final = func.call(tag, ...args);
+        }
+        else if (typeof (func) == 'string') {
+            final = eval('final = function() {' + func + '}').call(tag, ...args);
+        }
+        if (typeof (final) != 'boolean') { final = true; };
     }
-    else if (typeof (func) == 'string') {
-        final = eval('final = function() {' + func + '}').call(tag, ...args);
-    }
-    if (typeof (final) != 'boolean') { final = true; };
-
     return final;  
 }
 
@@ -3675,7 +3669,6 @@ Callout.hide = function() {
 }
 
 $root.alert = function(message, confirmButtonText = 'OK', title = 'Message') {
-
     if ($s('#AlertPopup') == null) {
         let div = $create('DIV', { 'id': 'AlertPopup', className: 'popup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
         div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
@@ -3694,7 +3687,6 @@ $root.alert = function(message, confirmButtonText = 'OK', title = 'Message') {
 }
 
 $root.confirm = function(message, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Confirm', ev = null) {
-
     if ($s('#ConfirmPopup') == null) {
         let div = $create('DIV', { 'id': 'ConfirmPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
         div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
