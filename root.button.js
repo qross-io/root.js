@@ -124,7 +124,7 @@ HTMLButtonElement.prototype._options = null;
 HTMLButtonElement.prototype.status = 1;
 HTMLButtonElement.prototype.relatived = 0;
 HTMLButtonElement.prototype.satisfied = 0;
-HTMLButtonElement.prototype.relations = new Set();
+HTMLButtonElement.prototype.relations = null;
 
 HTMLButtonElement.prototype.enable = function() {
     if (this.disabled) {
@@ -286,6 +286,9 @@ HTMLButtonElement.prototype.initialize = function() {
         });
     }
     else if (this['onclick+'] != null)  {
+
+        this.relations = new Set();
+
         let todo = [];
 
         if (this.watch != '') {

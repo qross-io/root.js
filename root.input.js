@@ -179,7 +179,7 @@ HTMLInputElement.prototype._blured = false; //是否已失去过一次焦点
 HTMLInputElement.prototype._inputable = true; //是否已失去过一次焦点
 HTMLInputElement.prototype._recent = null;
 HTMLInputElement.prototype._options = null;
-HTMLInputElement.prototype.relations = new Set(); //关联的按钮
+HTMLInputElement.prototype.relations = null; //关联的按钮
 
 HTMLInputElement.prototype._timer = null; //最后一次修改的计时器
 HTMLInputElement.prototype._timestamp = null;
@@ -327,6 +327,8 @@ HTMLInputElement.prototype.copy = function() {
 }
 
 HTMLInputElement.prototype.initializeInputable = function() {
+
+    this.relations = new Set();
 
     let input = this;
     this.minSize = this.getAttribute('size') == null ? 0 : this.size;
@@ -527,6 +529,9 @@ HTMLInputElement.prototype.initializeInputable = function() {
 }
 
 HTMLInputElement.prototype.initializeCheckable = function() {
+
+    this.relations = new Set();
+
     let input = this;
     this._inputable = false;
 
@@ -654,6 +659,9 @@ HTMLInputElement.prototype.initializeCheckable = function() {
 }
 
 HTMLInputElement.prototype.initializeSelectable = function() {
+
+    this.relations = new Set();
+    
     let input = this;
     this._inputable = false;
 

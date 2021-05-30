@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Button</title>
     <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.button.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
 </head>
@@ -14,6 +15,7 @@
     <button id="B" type="switch" onclick="return false;" callout="right" value="no" invalid-text="禁止点击。" onclick-disabled="alert(this.value)" onclick-enabled="alert(this.text)">ABC</button>
 </form>
     <script type="text/javascript">
+
     let getter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get; //HTMLInputElement.prototype.__lookupGetter__('value');
     let setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; //HTMLInputElement.prototype.__lookupSetter__('value');
     Object.defineProperties(HTMLInputElement.prototype, {

@@ -253,28 +253,20 @@ Animation.Entity.prototype.play = function (ev) {
             css += prefix + 'animation-delay:' + this.settings.delay + ';';
         }
         css += '} ';
-        try {
-            if (style.cssText != null) {
-                style.cssText = css;
-            }
-            else {
-                style.innerHTML = css;
-            }
-        }
-        catch (e) {
 
+        if (this.element.classList.contains('Animation_' + this.element.id)) {
+            this.element.classList.remove('Animation_' + this.element.id);
         }
-        
+
+        if (style.cssText != null) {
+            style.cssText = css;
+        }
+        else {
+            style.innerHTML = css;
+        }
+
         //将样式附加到element
-        try {
-            if (this.element.classList.contains('Animation_' + this.element.id)) {
-                this.element.classList.remove('Animation_' + this.element.id);
-            }
-            this.element.classList.add('Animation_' + this.element.id)
-        }
-        catch (e) {
-
-        }
+        this.element.classList.add('Animation_' + this.element.id)
 
         let a = this;
         Animation.timer[this.element.id] =
@@ -750,8 +742,8 @@ Animation.getBrowser = function () {
 
 $root.prototype.fadeIn = function(opacity = 0) {
     this.objects.forEach(element => {
-        if (element.style.display == 'none') {
-            element.style.display = '';
+        if (element.hidden) {
+            element.hidden = false;
         }        
         Animation('timing-function: ease; duration: 0.6s; from-opacity: ' + (opacity) + '%; to-opacity: 100%; fill-mode: forwards;')
             .apply(element)
@@ -771,7 +763,7 @@ $root.prototype.fadeOut = function(opacity = 0) {
         .on('stop', function() {            
             element.style.opacity = opacity / 100;
             if (opacity == 0 && element.style.position == 'absolute') {
-                element.style.display = 'none';
+                element.hidden = true;
             }
         }).play();
     });
@@ -789,7 +781,7 @@ $root.prototype.slideIn = function(from = 'left') {
         start = 'x(0).y(-100)';
     }
     this.objects.forEach(element => {
-        element.style.display = '';
+        element.hidden = false;
         Animation('timing-function: ease; duration: 0.6s; from: ' + start + ' 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;').apply(element).play();
     });
 }
@@ -809,7 +801,7 @@ $root.prototype.slideOut = function(to) {
         Animation('timing-function: ease; duration: 0.6s; from: x(0).y(0) 100% 100%; to: ' + end + ' 100% 0%; fill-mode: forwards;')
         .apply(element)
         .on('stop', function() {
-            element.style.display = 'none';
+            element.hidden = true;
         }).play();
     });  
 }

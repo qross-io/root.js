@@ -1260,10 +1260,13 @@ $TAKE = function(data, element, owner, func) {
             func.call(owner, Json.parse(data).find());
         }
         else if (/^(\/|[a-z]+(\s|#))/i.test(data) || /^(get|post|delete|put|http|https)\s*:/i.test(data) || data.includes('/') || (data.includes('?') && data.includes('='))) {
-            $cogo(data, element)
+            $cogo(data, element, element)
                 .then(result => {
                     func.call(owner, result);
-                });            
+                })
+                .catch(error => {
+                    console.log(error);
+                });
         }
         else if (data.includes(",") && !data.includes("(") && !data.includes(")")) {
             func.call(owner, Json.parse('["' + data.replace(/,/g, '","') + '"]').find());
@@ -1358,10 +1361,10 @@ $api = function (method, url, params = '', path = '/', element = null, p = true)
         }
     };
     
-    this.onsend = function(url, params) { };
-    this.oncompelete = function() { };
-    this.onerror = function(status, statusText) { };
-    this.onsuccess = function(result) { };
+    this.onsend = null; //function(url, params) { };
+    this.oncompelete = null; //function() { };
+    this.onerror = null; //function(status, statusText) { };
+    this.onsuccess = null; //function(result) { };
 }
 
 $api.prototype.$send = function () {
@@ -2877,6 +2880,9 @@ Event.bind = function (tag, eventName, func) {
 
     if (tag != null) {
         if (extension || eventName == 'onload') {
+            if (tag.events == null) {
+                tag.events = new Map();
+            }
             if (!tag.events.has(eventName)) {
                 tag.events.set(eventName, new Array());
             }
@@ -2930,7 +2936,7 @@ Event.execute = function (tag, eventName, ...args) {
 
     if (tag != null) {
         let final = Event.fire(tag, eventName, ...args);
-        if (tag.events.has(eventName)) {
+        if (tag.events != null && tag.events.has(eventName)) {
             tag.events.get(eventName).forEach(func => {
                 if (!Event.trigger(tag, func, ...args) && final) {
                     final = false;
