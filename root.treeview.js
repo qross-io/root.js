@@ -241,6 +241,7 @@ class TreeView {
      
         /// <value type="Array" elementType="TreeNode">所有根节点的集合</value>
         this.children = new Array();
+        this.events = new Map();
     }
 }
 
@@ -492,8 +493,8 @@ TreeView.prototype.appendChild = function (treeNode, editing) {
         this.children[length].nextSibling = null;
     }
 
-    //启用dragAndDrop 或者 spacing大于0并且lines == 'VISIBLE'时, 创建分隔DIV
-    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.lines == 'VISIBLE')) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.lines == 'visible')) {
         //before
         let divB = $create('DIV', { }, 
                     { height: this.children[length].spacing + 'px' }, 
@@ -508,7 +509,7 @@ TreeView.prototype.appendChild = function (treeNode, editing) {
             this.children[length].childrenDiv.nextSibling.setAttribute('prev', this.children[length].name);
         }
 
-        if (this.lines == 'VISIBLE' && this.children[length].spacing > 0) {
+        if (this.lines == 'visible' && this.children[length].spacing > 0) {
             divB.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
         }
 
@@ -528,7 +529,7 @@ TreeView.prototype.appendChild = function (treeNode, editing) {
                             });
             this.container.appendChild(divA);
 
-            //lines == 'VISIBLE' - no lines at last line
+            //lines == 'visible' - no lines at last line
 
             if (this.dragAndDropEnabled && this.dropSpacingEnabled) {
                 divA.appendChild(TreeView.$populateDropLine(this.children[0]));
@@ -599,8 +600,8 @@ TreeView.prototype.insertBefore = function (treeNode, referenceNode) {
     this.children[index].nextSibling = referenceNode;
     referenceNode.previousSibling = this.children[index];
 
-    //启用dragAndDrop 或者 spacing大于0并且lines == 'VISIBLE'时, 创建分隔DIV
-    if (this.dragAndDropEnabled || (this.children[index].spacing > 0 && this.lines == 'VISIBLE')) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if (this.dragAndDropEnabled || (this.children[index].spacing > 0 && this.lines == 'visible')) {
         //before 在节点之前添加间隔
         let divB = $create('DIV', { }, { height: this.children[length].spacing + 'px' }, 
         {
@@ -613,7 +614,7 @@ TreeView.prototype.insertBefore = function (treeNode, referenceNode) {
         //更新下方spacing的prev
         this.children[index].childrenDiv.nextSibling.setAttribute('prev', this.children[index].name);
 
-        if (this.lines == 'VISIBLE' && this.children[index].spacing > 0) {
+        if (this.lines == 'visible' && this.children[index].spacing > 0) {
             divB.appendChild(TreeView.$populateLinesSpacing(this.children[index]));
         }
 
@@ -641,7 +642,7 @@ TreeView.prototype.removeChild = function (treeNode) {
 
     let index = treeNode.index;
 
-    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.lines == 'VISIBLE')) {
+    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.lines == 'visible')) {
         if (this.children.length == 1) {
             //删除下方的spacing
             this.container.removeChild(this.children[index].childrenDiv.nextSibling);
@@ -895,7 +896,7 @@ TreeView.prototype.loadAllNodeByNode = function () {
 TreeView.prototype.checkAll = function () {
     /// <summary>选中所有</summary>
 
-    if (this.checkBoxes == 'VISIBLE') {
+    if (this.checkBoxes == 'visible') {
         for (let i = 0; i < this.children.length; i++) {
             if (this.children[i].checked != 1) this.children[i].check(false);
         }
@@ -910,7 +911,7 @@ TreeView.prototype.checkAll = function () {
 
 TreeView.prototype.uncheckAll = function () {
     /// <summary>取消选中所有</summary>
-    if (this.checkBoxes == 'VISIBLE') {
+    if (this.checkBoxes == 'visible') {
         for (let i = 0; i < this.children.length; i++) {
             if (this.children[i].checked != 0) { this.children[i].uncheck(false); }
         }
@@ -1678,7 +1679,7 @@ TreeNode.prototype.populate = function() {
     //spacing
     if (this.spacing > 0) {
         //大于0且启用拖放或者显示树线时, 在添加或删除节点时用DIV控制间隔
-        if ((!this.treeView.dragAndDropEnabled && this.treeView.lines == 'HIDDEN') || (this.treeView.dragAndDropEnabled && !this.treeView.dropSpacingEnabled)) {
+        if ((!this.treeView.dragAndDropEnabled && this.treeView.lines == 'hidden') || (this.treeView.dragAndDropEnabled && !this.treeView.dropSpacingEnabled)) {
             div.style.marginTop = this.spacing + 'px';
             div.style.marginBottom = this.spacing + 'px';
         }
@@ -1706,7 +1707,7 @@ TreeNode.prototype.populate = function() {
     }
 
     // burl + -
-    if (this.treeView.burls == 'VISIBLE') {
+    if (this.treeView.burls == 'visible') {
         td = $create('TD', { align: 'center' }, { }, { sign: 'BURL' });
         img = $create('IMG', { align: 'absmiddle' }, { position: 'relative', top: '-2px' });
         this.burlImage = img;
@@ -1760,7 +1761,7 @@ TreeNode.prototype.populate = function() {
     //icon
     //&& this.icon != ''
     // icons="visible"     
-    td = $create('TD', { align: 'center', className: this.iconClass }, { display: this.treeView.icons == 'VISIBLE' && this.icon != '' ? '' : 'none' }, { 'sign': 'ICON' });
+    td = $create('TD', { align: 'center', className: this.iconClass }, { display: this.treeView.icons == 'visible' && this.icon != '' ? '' : 'none' }, { 'sign': 'ICON' });
     if (this.icon.isImage()) {
         td.appendChild($create('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseUrl + this.icon }));
     }
@@ -1777,7 +1778,7 @@ TreeNode.prototype.populate = function() {
     td = $create('TD', { title: this.title, className: this.textClass }, { cursor: 'default', whiteSpace: 'nowrap' }, { 'sign': 'TEXT' });
     
     //节点对象
-    this.majorElement = this.treeView.nodeCellStyle == 'TEXT' ? td : div;
+    this.majorElement = this.treeView.nodeCellStyle == 'text' ? td : div;
     (this.selected ? this.selectedClass : this.className).split(' ').forEach(className => this.majorElement.classList.add(className));
 
     //Edit
@@ -2127,7 +2128,7 @@ TreeNode.prototype.populate = function() {
     div = $create('DIV', { }, { display: 'none' }, { sign: 'CHILDREN', 'for': this.name });
     let childrenPadding = this.childrenPadding; 
     if (childrenPadding > 0) {
-        if (this.treeView.lines == 'VISIBLE') {
+        if (this.treeView.lines == 'visible') {
             div.appendChild(TreeView.$populateChildrenPadding(this, 'top'));
             div.appendChild(TreeView.$populateChildrenPadding(this, 'bottom'));
         }
@@ -2267,13 +2268,13 @@ TreeNode.prototype.expand = function (triggerEvent) {
         this.expanding = true;
 
         //+-
-        if (this.treeView.burls == 'VISIBLE') {            
+        if (this.treeView.burls == 'visible') {            
             this.burlImage.src = this.burlImage.getAttribute('c');
             this.burlImage.setAttribute('current', 'c');
         }
         
         //icon
-        if (this.treeView.icons == 'VISIBLE' && this.expandedIcon != '') {
+        if (this.treeView.icons == 'visible' && this.expandedIcon != '') {
             if (this.icon.isImage()) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseUrl + this.expandedIcon;
             }
@@ -2311,12 +2312,12 @@ TreeNode.prototype.collapse = function (triggerEvent) {
     /// <summary>闭合节点</summary>
     if (this.treeView != null) {
         //+-
-        if (this.treeView.burls == 'VISIBLE') {
+        if (this.treeView.burls == 'visible') {
             this.burlImage.src = this.burlImage.getAttribute('e');
             this.burlImage.setAttribute('current', 'e');
         }
         //icon
-        if (this.treeView.icons == 'VISIBLE' && this.expandedIcon != '' && this.icon != '') {
+        if (this.treeView.icons == 'visible' && this.expandedIcon != '' && this.icon != '') {
             if (this.icon.isImage()) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseUrl + this.icon;
             }
@@ -2362,7 +2363,7 @@ TreeNode.prototype.select = function (triggerEvent) {
             //triggerEvent为用户点击事件 或 键盘事件
             if (typeof (triggerEvent) == 'object') {
                 //由burl节点触发的节点切换不再触发 expandOnSelect && collapseOnSelect
-                if (this.treeView.nodeCellStyle != 'TEXT' && triggerEvent.type == 'click') {
+                if (this.treeView.nodeCellStyle != 'text' && triggerEvent.type == 'click') {
                     let target = triggerEvent.target || triggerEvent.srcElement;
                     if (target == this.burlImage) { doToggle = false; }
                 }
@@ -2477,14 +2478,14 @@ TreeNode.prototype.unburl = function () {
     /// <summary>去掉节点的+-</summary>
 
     // 去掉当前节点的burl
-    if (this.treeView.burls == 'VISIBLE') {
+    if (this.treeView.burls == 'visible') {
         this.burlImage.src = this.treeView.imagesBaseUrl + 'blank.gif';
         this.burlImage.onmouseover = null;
         this.burlImage.onmouseout = null;
         this.burlImage.onclick = null;
     }
     // 恢复节点图标
-    if (this.treeView.icons == 'VISIBLE' && this.expandedIcon != '' && this.icon != '') {
+    if (this.treeView.icons == 'visible' && this.expandedIcon != '' && this.icon != '') {
         this.iconCell.src = this.treeView.imagesBaseUrl + this.icon;
     }
 
@@ -2500,7 +2501,7 @@ TreeNode.prototype.check = function (triggerEvent) {
 
     this.$toggleCheckBox(1);
 
-    if (this.treeView.checkBoxes == 'VISIBLE') {
+    if (this.treeView.checkBoxes == 'visible') {
         //检查子项
         this.$traverseChildren();
 
@@ -2518,7 +2519,7 @@ TreeNode.prototype.uncheck = function (triggerEvent) {
     /// <summary>取消选中当前节点</summary>
     this.$toggleCheckBox(0);
 
-    if (this.treeView.checkBoxes == 'VISIBLE') {
+    if (this.treeView.checkBoxes == 'visible') {
         //检查子项数
         this.$traverseChildren();
 
@@ -2678,8 +2679,8 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
         this.children[length - 1].nextSibling = this.children[length];
     }
 
-    //启用dragAndDrop 或者 spacing大于0并且lines == 'VISIBLE'时, 创建分隔DIV
-    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.treeView.lines == 'VISIBLE')) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.treeView.lines == 'visible')) {
         
         //ahead spacing        
         //创建新的，只在节点羰有间隔
@@ -2692,7 +2693,7 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
         divB.setAttribute('next', this.children[length].name);
         this.childrenDiv.insertBefore(divB, this.children[length].primeDiv);
 
-        if (this.treeView.lines == 'VISIBLE' && this.children[length].spacing > 0) {
+        if (this.treeView.lines == 'visible' && this.children[length].spacing > 0) {
             divB.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
         }
 
@@ -2717,7 +2718,7 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
         //     this.childrenDiv.appendChild(divA);
         // }
 
-        // if (this.treeView.lines == 'VISIBLE' && this.children[length].spacing > 0) {
+        // if (this.treeView.lines == 'visible' && this.children[length].spacing > 0) {
         //     divA.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
         // }
 
@@ -2742,7 +2743,7 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
 
     // 如果添加的节点是第一个节点, 处理burl为+-, 并展开节点
     if (length == 0) {
-        if (this.treeView.burls == 'VISIBLE') {
+        if (this.treeView.burls == 'visible') {
             this.burl();
         }
     }
@@ -2840,8 +2841,8 @@ TreeNode.prototype.insertBefore = function (treeNode, referenceNode) {
     this.children[index].nextElementSibling = referenceNode;
     referenceNode.previousElementSibling = this.children[index];
 
-    //启用dragAndDrop 或者 spacing大于0并且lines == 'VISIBLE'时, 创建分隔DIV
-    if (this.treeView.dragAndDropEnabled || (this.children[index].spacing > 0 && this.treeView.lines == 'VISIBLE')) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if (this.treeView.dragAndDropEnabled || (this.children[index].spacing > 0 && this.treeView.lines == 'visible')) {
         //before 在节点之前添加间隔
         let divB = $create('DIV');
         divB.style.height = this.children[0].spacing + 'px';
@@ -2855,7 +2856,7 @@ TreeNode.prototype.insertBefore = function (treeNode, referenceNode) {
         //更新下方spacing的prev
         this.children[index].childrenDiv.nextElementSibling.setAttribute('prev', this.children[index].name);
 
-        if (this.treeView.lines == 'VISIBLE' && this.children[index].spacing > 0) {
+        if (this.treeView.lines == 'visible' && this.children[index].spacing > 0) {
             divB.appendChild(TreeView.$populateLinesSpacing(this.children[index]));
         }
 
@@ -2905,7 +2906,7 @@ TreeNode.prototype.removeChild = function (treeNode) {
     
     let index = treeNode.index;
 
-    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.treeView.lines == 'VISIBLE')) {
+    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.treeView.lines == 'visible')) {
         if (this.children.length == 1) {
             //删除下方的spacing
             this.childrenDiv.removeChild(this.children[index].childrenDiv.nextSibling);
@@ -2947,7 +2948,7 @@ TreeNode.prototype.removeChild = function (treeNode) {
     //checked
     //删除前, 如果当前节点checked为2, 子节点数量肯定大于等于2
     //删除之后, 根据第一个子节点的选中状态向上递归
-    if (this.treeView.checkBoxes == 'VISIBLE') {
+    if (this.treeView.checkBoxes == 'visible') {
         if (this.checked == 2) { this.children[0].$traverseParents(); }
     }
 
@@ -3003,7 +3004,7 @@ TreeNode.prototype.removeAll = function () {
     this.lastChild = null;
 
     //checkbox
-    if (this.treeView.checkBoxes == 'VISIBLE') {
+    if (this.treeView.checkBoxes == 'visible') {
         if (this.checked == 2) { this.uncheck(false); }
     }
 };
@@ -3417,7 +3418,7 @@ TreeNode.prototype.$toggleCheckBox = function (checkedState) {
     /// <summary>切换checkbox状态和checked</summary>
     /// <param name="checkedState" valueType="Integer">要切换到的状态</param>
 
-    if (this.treeView.checkBoxes == 'VISIBLE') {
+    if (this.treeView.checkBoxes == 'visible') {
         switch (checkedState) {
             case 0:
                 this.checkBoxElement.src = this.checkBoxElement.src.replace(/checkbox_(1|2)/i, 'checkbox_0');
@@ -3842,7 +3843,7 @@ TreeNode.prototype.$uncheckAll = function () {
 TreeNode.prototype.$setLines = function () {
     /// <summary>设置分支线, 100毫秒后执行</summary>
 
-    if (this.treeView.lines == 'VISIBLE') {
+    if (this.treeView.lines == 'visible') {
         let node = this;
         if (node.parentNode != null && !node.parentNode.expanding && !node.parentNode.expanded) {
             //未展开的节点不能设置lines, 在展开后才设置
@@ -4070,7 +4071,7 @@ TreeView.$populateDropLine = function (refNode, isLast) {
 
     dropLine.appendChild(line);
 
-    if (refNode.treeView.nodeCellStyle != 'ROW') {
+    if (refNode.treeView.nodeCellStyle != 'row') {
         //if (refNode.depth == 2) {
         //  dropLine.style.marginLeft = refNode.indent + 'px';
         //}
@@ -4280,7 +4281,7 @@ TreeView.$populateLinesSpacing = function (refNode) {
 }
 
 TreeView.$populateChildrenPadding = function (node, l) {
-    /// <summary>当lines == 'VISIBLE'为true时, 装配显示ChildNodesPadding Lines的DIV</summary>
+    /// <summary>当lines == 'visible'为true时, 装配显示ChildNodesPadding Lines的DIV</summary>
     /// <value name="node" type="TreeNode">父级节点</value>
     /// <value name="l" type="String">位置 top 或 bottom</value>
 

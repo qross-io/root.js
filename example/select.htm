@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <title>Select</title>
     <script type="text/javascript" src="/root.js"></script>
-    <script type="text/javascript" src="/root.animation.js"></script>    
+    <script type="text/javascript" src="/root.animation.js"></script>
+    <script type="text/javascript" src="/root.model.js"></script>
     <script type="text/javascript" src="/root.datetimepicker.js"></script>
     <script type="text/javascript" src="/root.input.js"></script>
     <script type="text/javascript" src="/root.select.js"></script>
@@ -23,14 +24,28 @@
     </style>
 </head>
 <body style="padding: 50px;">
-    <select type="button" id="Radio1" for="abc" value="oracle">
+
+    <select type="button" data="1 to 10">
+        <option>@item</option>
+    </select>
+
+    <select1 data='[{"lang": "Java", "id": "1"}, {"lang": "Scala", "id": "2"}, {"lang": "Python", "id": "3"}]'>
+        <option value="@[id]">@[lang]</option>
+    </select1>
+
+    <select1 data='{"Java": "1", "Scala": "2", "Python": "3"}'>
+        <option value="@value">@key</option>
+    </select1>
+    
+    <hr/>
+    <select1 type="button" id="Radio1" for="abc" value="oracle">
         <option value="mysql">MySQL</option>
         <option selected value="mariadb">MariaDB</option>
         <option value="sqlserver">SQL Server</option>
         <option value="postgresql">PostgreSQL</option>
         <option value="oracle">Oracle</option>
         <option value="hive">Hive</option>
-    </select>
+    </select1>
 
 <hr/>
 
@@ -77,6 +92,7 @@ Object.defineProperty(Test.prototype, 'or', {
     }
 });
 
+/*
 let t1 = new Test();
 t1.os.a = 1;
 t1.ot = new Object();
@@ -96,6 +112,7 @@ let a2 = $s('#A1');
 map.set(a2, "456");
 console.log(a1 == a2);
 console.log(map);
+*/
 </script>
 </body>
 </html>

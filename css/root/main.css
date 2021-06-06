@@ -79,6 +79,7 @@ a.delete:active { color: #990000; text-decoration: underline; }
 @keyframes fade-in-out { 0%{opacity:0.2;} 50%{opacity:1;} 100%{opacity:0.2;} }
 .blink { animation-name: fade-in-out; animation-duration: 1s; animation-timing-function: ease; animation-iteration-count: infinite; }
 
+input[type=switch] { display: none }
 .input-required { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: var(--darker); background-color: #FFFF99; border: 1px solid var(--primary); border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }
 .input-required:hover { background-color: #FFFF88; border: 1px solid var(--lighter); }
 .input-optional { font-size: 0.875rem; padding: 0.3rem 0.5rem; font-family: Consolas; color: #333333; border: 1px solid #666666; border-radius: 0.2rem; box-shadow: 1px 1px 1px #CCCCCC inset !important; }

@@ -71,11 +71,11 @@ class Select {
             'onchange+completion': null,
         })
         .elementify(element => {
-            if (this.type == 'BEAUTY') {
+            if (this.type == 'beauty') {
                 //this.box = 
                 //this.container =                 
             }
-            else if (this.type != 'ORIGINAL') {
+            else if (this.type != 'original') {
                 this.container = $create(Select[this.type].container, { id: this.id, className: this._frameClass }, { }, { name: this._name, value: this._value || '' });
                 if (element.getAttribute('style') != null) {
                     this.container.setAttribute('style', element.getAttribute('style'));
@@ -88,7 +88,7 @@ class Select {
                 this.container = element;
             }
 
-            if (this.type == 'CHECKBOX' && !this.multiple) {
+            if (this.type == 'checkbox' && !this.multiple) {
                 this.multiple = true;
             }
             
@@ -96,12 +96,12 @@ class Select {
             this.element = element;
         });        
 
-        if (this.type != 'ORIGINAL') {
+        if (this.type != 'original') {
             let select = this;
             this.container.onclick = function(ev) {
                 let target = ev.target;
                 let allowed = true;
-                if (select.type == 'RADIO' || select.type == 'CHECKBOX') {
+                if (select.type == 'radio' || select.type == 'checkbox') {
                     allowed = target.nodeName == 'INPUT' || target.nodeName == 'LABEL';
                 }
                 while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
@@ -178,8 +178,16 @@ class Select {
         return this.container.getAttribute('text') || '';
     }
 
+    set text(text) {
+        this.container.setAttribute('text', text);
+    }
+
     get value() {        
         return this.container.getAttribute('value') || '';
+    }
+
+    set value(value) {
+        this.container.setAttribute('value', value);
     }
 
     get className() {
@@ -285,13 +293,15 @@ $select = function(name) {
 // Select.prototype.onerror = function(status, statusText) { };
 // Select.prototype.onsuccess = function(result) { };
 
+Select.prototype.$value = null; //初始值
 Select.prototype.element = null; //保存配置的元素
 Select.prototype.container = null; //容器元素
+Select.prototype.$for = null; //as a for loop
 Select.prototype._initialized = false;
 
 Select.prototype.apply = function() {
 
-    if (this.type != 'ORIGINAL') {
+    if (this.type != 'original') {
         for (let option of this.element.querySelectorAll('option')) {
             this.add(option);
         }
@@ -306,32 +316,62 @@ Select.prototype.apply = function() {
     
     if (this.selectedIndex > -1) {
         if (this.text == '') {
-            this.setText(this.options.filter(option => option.selected).map(option => option.text).join(','));
+            this.text = this.options.filter(option => option.selected).map(option => option.text).join(',');
         }
         if (this.value == '') {
-            this.setValue(this.options.filter(option => option.selected).map(option => option.value).join(','));
+            this.value = this.options.filter(option => option.selected).map(option => option.value).join(',');
         }
     }
+}
+
+Select.prototype.initialize = function() {
+
+    this.element.hidden = true;
     
+    if (this.data != '') {        
+        this.$for = new For(this.element);
+        this.$for.owner = this;
+        this.$for.onload = function(data) {
+            this.owner.apply();            
+            if (this.owner._initialized) {
+                Event.execute(this.owner, 'onreload', data);
+            }
+            else {
+                this.owner._initialized = true;
+                Event.execute(this.owner, 'onload', data);                
+            }            
+        }
+        this.$for.load();
+    }
+
     Event.interact(this, this.element);
+
+    if (this.data == '') {
+        this.apply();
+        this._initialized = true;
+        Event.execute(this, 'onload');
+    }
     
-    if (this.type != 'ORIGINAL') {
-        this.element.remove();
+    if (this.type == 'original') {
+        this.element.hidden = false;
     }
 
     if (this._disabled) {
         this.disabled = true;
     }
-
-    this._initialized = true;
 }
 
 Select.prototype.load = function() {
-
+    if (this.$for != null) {
+        this.$for.load();
+    }    
 }
 
 Select.prototype.reload = function() {
-
+    if (this.data != '') {
+        this.clear();
+        this.load();
+    }    
 }
 
 Select.prototype.add = function(settingsOrOptionElement) {
@@ -403,6 +443,10 @@ Select.prototype.insertAfter = function(index, text, value, className) { };
 
 Select.prototype.clear = function() {
     this.container.innerHTML = '';
+    this.element.innerHTML = '';
+    this._selectedIndex = -1;
+    this.text = '';
+    this.value = '';
     this.options.length = 0;
 };
 
@@ -418,13 +462,13 @@ Select.prototype._rollback = function(before, after) {
 
         let options = this.options.filter(option => option.selected);
         if (options.length == 0) {
-            this.setText('');
-            this.setValue('');
+            this.text = '';
+            this.value = '';
             this._selectedIndex = -1;
         }
         else {
-            this.setText(options.map(option => option.text).join(','));
-            this.setValue(options.map(option => option.value).join(','));
+            this.text = options.map(option => option.text).join(',');
+            this.value = options.map(option => option.value).join(',');
             this._selectedIndex = options[0].index;
 
             options.forEach(option => option.hideAndShow());
@@ -441,8 +485,8 @@ Select.prototype._rollback = function(before, after) {
         }
 
         this._selectedIndex = before;
-        this.setText(before != -1 ? this.options[before].text : '');
-        this.setValue(before != -1 ? this.options[before].value : '');
+        this.text = before != -1 ? this.options[before].text : '';
+        this.value = before != -1 ? this.options[before].value : '';
 
         if (this.options[before].hide != '') {
             $x(this.options[before].hide).hide();
@@ -768,7 +812,7 @@ SelectOption.prototype._updateAppearance = function(terminal) {
 }
 
 
-Select['ORIGINAL'] = {
+Select['original'] = {
     container: '',
     optionClass: '', 
     selectedOptionClass: '',
@@ -787,7 +831,7 @@ Select['ORIGINAL'] = {
     }
 }
 
-Select['BUTTON'] = {
+Select['button'] = {
     container: 'SPAN',
     optionClass: 'optional-button', 
     selectedOptionClass: 'green-button',
@@ -863,7 +907,7 @@ Select['BUTTON'] = {
     }
 }
 
-Select['IMAGE'] = {
+Select['image'] = {
     container: 'SPAN',
     optionClass: 'image-option', 
     selectedOptionClass: 'image-selected-option',
@@ -898,7 +942,7 @@ Select['IMAGE'] = {
     }
 }
 
-Select['RADIO'] = {
+Select['radio'] = {
     container: 'DIV',
     optionClass: 'item-option',
     selectedOptionClass: 'item-selected-option',
@@ -934,7 +978,7 @@ Select['RADIO'] = {
     }
 }
 
-Select['CHECKBOX'] = {
+Select['checkbox'] = {
     container: 'DIV',
     optionClass: 'item-option',
     selectedOptionClass: 'item-selected-option',
@@ -975,7 +1019,7 @@ Select.initialize = function(button) {
         button = $s(button);
     }
     if (button != null) {
-        new Select(button).apply();
+        new Select(button).initialize();
     }
     else {
         throw new Error('Must specify a SELECT element.');
@@ -987,7 +1031,7 @@ Select.initializeAllIn = function(element) {
         element = $s(element);
     }
     element.querySelectorAll('select').forEach(select => {
-        new Select(select).apply();
+        new Select(select).initialize();
     });
 }
 

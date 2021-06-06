@@ -79,9 +79,9 @@ HTMLAnchorElement.prototype.go = function() {
             this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
         },
         function() {
-            if (this._href != '') {
-                this.href = this._href;
-            }
+            // if (this._href != '') {
+            //     this.href = this._href;
+            // }
         }
     );
 }
@@ -89,15 +89,9 @@ HTMLAnchorElement.prototype.go = function() {
 HTMLAnchorElement.prototype.initialize = function() {
 
     this._href = this.href;
-    if (this._href == '') {        
-        this.href = 'javascript:void(0)';
-    }
+    this.href = 'javascript:void(0)';
 
     $x(this).on('click', function(ev) {
-        if (this._href != '') {
-            this.href = 'javascript:void(0)';
-        }
-
         if (this.confirmText != '') {
             if (document.tags.has('POPUP')) {
                 let a = this;
@@ -106,24 +100,25 @@ HTMLAnchorElement.prototype.initialize = function() {
                         a.go();      
                     })
                     .on('cancel', function() {
-                        if (a._href != '') {
-                            a.href = a._href;
-                        }
+                        // if (a._href != '') {
+                        //     a.href = a._href;
+                        // }
                     });
             }
             else if (window.confirm(this.confirmText.$p(this))) {
                 this.go();         
             }
             else {
-                if (this._href != '') {
-                    this.href = this._href;
-                }
+                // if (this._href != '') {
+                //     this.href = this._href;
+                // }
             }
         }
         else {
             this.go();
         }        
     });
+    
 
     Event.interact(this, this);
 }

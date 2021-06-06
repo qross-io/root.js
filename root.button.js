@@ -3,7 +3,7 @@
 
 $enhance(HTMLButtonElement.prototype)
     .declare({
-        type: Enum('NORMAL', 'SWITCH'),
+        type: 'normal|switch',
         enabledClass: '', //normal-button blue-button,
         disabledClass: '', //normal-button optional-button,
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
@@ -17,10 +17,12 @@ $enhance(HTMLButtonElement.prototype)
         clickText: '', //点击按钮后的提示文字
 
         invalidText: '', //验证不通过的提醒文字 onclick="return false"
+        actionText: '', //当开始执行服务器端事件时的提示这也
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
 
+        textClass: '',
         errorTextClass: 'error',
         validTextClass: 'correct',
 
@@ -69,26 +71,36 @@ $enhance(HTMLButtonElement.prototype)
             set (text) {                
                 if (this.hintSpan != null) {
                     this.hintSpan.innerHTML = text;
-                    this.hintSpan.className = (this.status != 1 ? this.errorTextClass : this.validTextClass);
+                    if (this.status == 1) {
+                        this.hintSpan.className = this.validTextClass;
+                    }
+                    else if (this.status == 2) {
+                        this.hintSpan.className = this.textClass;
+                    }
+                    else {
+                        this.hintSpan.className = this.errorTextClass;
+                    }                    
                     this.hintSpan.hidden = text == '';
                 }
                 
-                if (text != '' && this.callout != null) {
-                    Callout(text).position(this, this.callout).show();
-                }
+                if (this.status < 2) {
+                    if (text != '' && this.callout != null) {
+                        Callout(text).position(this, this.callout).show();
+                    }
 
-                if (text != '' && this.alert != null) {
-                    if (document.tags.has('POPUP')) {
-                        $root.alert(text, this.confirmButtonText);
+                    if (text != '' && this.alert != null) {
+                        if (document.tags.has('POPUP')) {
+                            $root.alert(text, this.confirmButtonText);
+                        }
+                        else {
+                            window.alert(text);
+                        }
                     }
-                    else {
-                        window.alert(text);
-                    }
-                }                
+                }
             }
         },
         //switch only
-        options: {
+        'options': {
             get () {
                 if (this._options == null) {
                     let options = this.getAttribute('options');
@@ -121,6 +133,7 @@ $enhance(HTMLButtonElement.prototype)
 
 HTMLButtonElement.prototype.onclick_ = null;
 HTMLButtonElement.prototype._options = null;
+//1 success 0 failure -1 exception 2 action
 HTMLButtonElement.prototype.status = 1;
 HTMLButtonElement.prototype.relatived = 0;
 HTMLButtonElement.prototype.satisfied = 0;
@@ -170,6 +183,8 @@ HTMLButtonElement.prototype.go = function() {
     this.text = this.clickText.$p(this);
 
     if (this['onclick+'] != null) {
+        this.status = 2;
+        this.hintText = this.actionText.$p(this);
         $FIRE(this, 'onclick+',
             function(data) {
                 this.status = 1;
@@ -243,7 +258,7 @@ HTMLButtonElement.prototype.initialize = function() {
         this.onclick = null;
     }
 
-    if (this.type == 'SWITCH') {
+    if (this.type == 'switch') {
         if (this.value == '' || this.value == this.options[0].value) {
             this.className = this.enabledClass;
             this.text = this.options[0].text;

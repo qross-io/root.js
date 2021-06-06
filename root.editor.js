@@ -30,7 +30,7 @@ class Editor {
                     }
                     return imagesBaseUrl;
                 },
-                type: 'TEXT|TEXTAREA|LINKTEXT|INTEGER|DECIMAL|PERCENT|SELECT|CHECKBUTTON|STAR|STARBUTTON',
+                type: 'text|textarea|linktext|integer|decimal|percent|select|checkbutton|star|starbutton',
                 /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
                 action: '',
 
@@ -51,7 +51,7 @@ class Editor {
                 //starbutton - [ {text: 'enabled', value: 'yes', enabledClass: 'new1', disabledClass: 'old' }, { text: 'enabled', value: 'yes', class: 'new2' }, ... ]
                 options: function(options) {
                     switch(this.type) {
-                        case 'SELECT':
+                        case 'select':
                             if (typeof(options) == 'string') {
                                 if (options.includes('&')) {
                                     return options.toMap('&', '=');
@@ -82,14 +82,14 @@ class Editor {
                             else {
                                 return options;
                             }
-                        case 'CHECKBUTTON':
+                        case 'checkbutton':
                             if (typeof(options) == 'string') {
                                 return Json.eval(options);
                             }
                             else {
                                 return options;
                             }
-                        case 'STARBUTTON':
+                        case 'starbutton':
                             if (typeof(options) == 'string') {
                                 return Json.eval(options);
                             }
@@ -169,7 +169,7 @@ $editor = function(name) {
 String.prototype.concatValue = function(value) {
     let str = this.toString();
     if (str.endsWith('=')) {
-        return str + this.encodeURIComponent(value)
+        return str + encodeURIComponent(value)
     }
     else {
         return str;
@@ -264,7 +264,7 @@ Editor.prototype.setPlaceHolder = function(element) {
     }
 }
 
-Editor['TEXT'] = function (editor, element) {
+Editor['text'] = function (editor, element) {
     //trim
     element.innerHTML = element.textContent.trim();
     if (element.innerHTML == '') { 
@@ -399,7 +399,7 @@ Editor['TEXT'] = function (editor, element) {
     });
 }
 
-Editor['TEXTAREA'] = function (editor, element) {
+Editor['textarea'] = function (editor, element) {
 
     function textToHtml(text) {
         return text.replace(/\n/g, '<br>').replace(/\t/g, '&nbsp; &nbsp; ').replace(/  /g, '&nbsp; ')
@@ -554,7 +554,7 @@ Editor['TEXTAREA'] = function (editor, element) {
     });
 }
 
-Editor['INTEGER'] = function (editor, element) {
+Editor['integer'] = function (editor, element) {
 
     let value = element.textContent.trim().toInt(editor.minValue);
     if (editor.minValue != '') {
@@ -702,7 +702,7 @@ Editor['INTEGER'] = function (editor, element) {
     }); 
 }
 
-Editor['DECIMAL'] = function (editor, element) {
+Editor['decimal'] = function (editor, element) {
 
     let value = element.textContent.trim().toFloat(editor.minValue);
     if (editor.minValue != '') {
@@ -845,7 +845,7 @@ Editor['DECIMAL'] = function (editor, element) {
     });
 }
 
-Editor['PERCENT'] = function (editor, element) {
+Editor['percent'] = function (editor, element) {
 
      //will lost precision if use /100
     function percent(value) {
@@ -1064,7 +1064,7 @@ Editor['PERCENT'] = function (editor, element) {
     });
 }
 
-Editor['SELECT'] = function (editor, element) {
+Editor['select'] = function (editor, element) {
 
     //auto convert value to text
     let value = element.textContent.trim();
@@ -1170,7 +1170,7 @@ Editor['SELECT'] = function (editor, element) {
     });
 }
 
-Editor['CHECKBUTTON'] = function(editor, element) {
+Editor['checkbutton'] = function(editor, element) {
 
     if (element.querySelectorAll('button[sign=checkbutton]').length == 0) {
         element.setAttribute('value', element.textContent.trim());
@@ -1277,7 +1277,7 @@ Editor['CHECKBUTTON'] = function(editor, element) {
     }
 }
 
-Editor['LINKTEXT'] = function (editor, element) {
+Editor['linktext'] = function (editor, element) {
 
     if (element.nodeName != 'A') {
         element = element.querySelector('A');
@@ -1432,7 +1432,7 @@ Editor['LINKTEXT'] = function (editor, element) {
     }
 }
 
-Editor['STAR'] = function (editor, element) {
+Editor['star'] = function (editor, element) {
     //pcs(1,3,5,10)
     let stars = element.querySelectorAll('img[sign=star]');
     if (stars.length == 0) {
@@ -1514,7 +1514,7 @@ Editor['STAR'] = function (editor, element) {
     }
 }
 
-Editor['STARBUTTON'] = function(editor, element) {
+Editor['starbutton'] = function(editor, element) {
     
     if (element.querySelectorAll('button[sign=starbutton]').length == 0) {
         element.setAttribute('value', element.textContent.trim());
@@ -1547,7 +1547,7 @@ Editor['STARBUTTON'] = function(editor, element) {
                             .then(data => {
                                 if (editor.execute('onfinish', data, after)) {
                                     element.setAttribute('value', after);
-                                    Editor['STARBUTTON'].change(element, button);
+                                    Editor['starbutton'].change(element, button);
     
                                     editor.execute('oncomplete', after);
                                 }
@@ -1568,7 +1568,7 @@ Editor['STARBUTTON'] = function(editor, element) {
                     else {
 
                         element.setAttribute('value', after);
-                        Editor['STARBUTTON'].change(element, button);                        
+                        Editor['starbutton'].change(element, button);                        
                         $x(element).children().enable();
     
                         editor.execute('oncomplete', after);
@@ -1586,11 +1586,11 @@ Editor['STARBUTTON'] = function(editor, element) {
             element.appendChild(button);    
         }
 
-        Editor['STARBUTTON'].change(element);        
+        Editor['starbutton'].change(element);        
     }   
 }
 
-Editor['STARBUTTON'].change = function(element, button) {
+Editor['starbutton'].change = function(element, button) {
     let found = false;
     for (let i = 0; i < element.children.length; i++) {
         let enabledClass = element.children[i].getAttribute('enabledClass');

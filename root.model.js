@@ -544,12 +544,13 @@ For = function(element) {
     if (this.var.includes(',')) {
         this.var = this.var.split(',');
     }
-    this.in = element.getAttribute('in') || '';
+    this.in = element.getAttribute('in') || element.getAttribute('data') || '';
 
     this.element = element;
     this.content = element.innerHTML;
     this.container = element.getAttribute('container') || element;
-    this.position = 'beforeBegin';
+    this.isFor = element.nodeName == 'FOR'; //把其他元素作为 For 元素使用
+    this.position = this.isFor ? 'beforeBegin' : 'beforeEnd';
     if (typeof(this.container) == 'string') {
         this.container = $s(this.container);
         if (this.container == null) {
@@ -558,10 +559,16 @@ For = function(element) {
         this.position = 'beforeEnd';
     }
 
+    if (!this.isFor) {
+        this.element.innerHTML = '';
+    }
+
     this.onload = element.getAttribute('onload');
     this.events = new Map();
 }
 
+//所属的对象, 如 select 可以当作 for 使用
+For.prototype.owner = null;
 //第一次加载完成后触发
 For.prototype.onload = null; //function(data) { }
 
@@ -647,13 +654,14 @@ For.prototype.load = function(data) {
 
         this.container.insertAdjacentHTML(this.position, content.join('').$eval());
         
-        this.element.remove();
-
         if (this.onload != null) {
             Event.fire(this, 'onload', data);
-        }        
-        
-        Model.initializeForOrIf('FOR');
+        }  
+
+        if (this.isFor) {
+            this.element.remove();        
+            Model.initializeForOrIf('FOR');
+        }      
     });
 
     return this;
@@ -1608,6 +1616,7 @@ Template.reloadComponents = function(container) {
         { class: 'HTMLAnchorElement', method: 'initializeAll' },
         { class: 'HTMLButtonElement', method: 'initializeAll' },
         { class: 'HTMLInputElement', method: 'initializeAll' },
+        { class: 'Select', method: 'initializeAll' },
         { class: '$root', method: 'initialize' }
     ].forEach(component => {
         if (window[component.class] != null && window[component.class][component.method] != null) {

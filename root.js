@@ -178,6 +178,9 @@ $root.prototype.show = function (display) {
         if (visible == 1) {
             if (element.getAttribute('always') == null) {
                 element.hidden = false;
+                if (element.style != null && element.style.display == 'none') {
+                    element.style.display = '';
+                }
             }
             
             if (element.getAttribute('relative') != null) {
@@ -187,6 +190,9 @@ $root.prototype.show = function (display) {
         else if (visible == 0) {
             if (element.getAttribute('always') == null) {
                 element.hidden = true;
+                if (element.style != null && element.style.display == '') {
+                    element.style.display = 'none';
+                }
             }
             
             if (element.getAttribute('relative') != null) {
@@ -206,6 +212,9 @@ $root.prototype.hide = function () {
     this.objects.forEach(element => {        
         if (element.getAttribute('always') == null) {
             element.hidden = true;
+            if (element.style != null && element.style.display == '') {
+                element.style.display = 'none';
+            }
         }
 
         if (element.getAttribute('relative') != null) {
@@ -1096,7 +1105,7 @@ $root.images = $root.home + 'images/';
 if (window['$configuration'] == null) {
     var $configuration = window.localStorage.getItem('root.configuration');
 }
-else {
+else if (window.localStorage.getItem('root.configuration') == null) {
     window.localStorage.setItem('root.configuration', JSON.stringify($configuration));
 }
 if (window['$configuration'] != null && typeof($configuration) == 'string') {
@@ -1548,6 +1557,11 @@ $FIRE = function (element, event, succeed, fail, except, complete) {
                 }
                 else if ((element.successText != null && element.successText != '') || (element.failureText != null && element.failureText != '')) {
                     valid = $parseBoolean(data, true);
+                }
+
+                if (window['$configuration'] != null && $configuration.debug) {
+                    console.log(data);
+                    console.log('status: ' + (valid ? 'success' : 'failure'));
                 }
 
                 if (valid) {
@@ -2405,6 +2419,10 @@ String.$p = function(t, p, a, d = 'null') {
 String.prototype.$p = function(element, data) {
 
     let str = this.toString();
+    if (str == '') {
+        return str;
+    }
+    
     if (typeof (element) == 'string') {
         element = document.querySelector(element);
     }
@@ -2808,7 +2826,7 @@ $parseZero = function(value, defaultValue = 1) {
 }
 
 Enum = function() {
-    return new Enum.Entity(new RegExp('^(' + Array.from(arguments).join('|') + ')$', 'i'), arguments[0]);
+    return new Enum.Entity(new RegExp('^(' + Array.from(arguments).join('|') + ')$', 'i'), arguments[0].takeBefore('|'));
 }
 
 Enum.Entity = function(expression, defaultValue) {
@@ -2816,11 +2834,12 @@ Enum.Entity = function(expression, defaultValue) {
     this.defaultValue = defaultValue;
 }
 
-Enum.Entity.prototype.validate = function(value) {
+Enum.Entity.prototype.validate = function(value, toUpper = false) {
     if (value == null || !this.expression.test(value.trim())) {
         value = this.defaultValue;
     }
-    return value.toUpperCase();
+    //return value.toUpperCase();
+    return toUpper ? value.toUpperCase() : value.toLowerCase();
 }
 
 //all components
@@ -2828,7 +2847,7 @@ Enum.Entity.prototype.validate = function(value) {
 // name doesn't start with '#'
 document.components = new Map();
 //只是为了保存onfinish事件
-//所有model加载完成后执行onfinifh事件
+//所有 model 加载完成后执行 onfinish 事件
 document.components.set('$global', {
     nodeName: 'GLOBAL',
     tagName: 'GLOBAL',
@@ -2851,34 +2870,57 @@ Event.x = new Map(); //客户端事件监听
 
 Event.bind = function (tag, eventName, func) {
     
+    //tag 标签或对象
+    //tag 自定义标签名
+    //tag 原生标签 id
+    //tagName#id 自定义标签名，当不能正确识别自定义标签时
+
     eventName = eventName.toLowerCase();
     if (!eventName.startsWith('on')) {
         eventName = 'on' + eventName;
     }
 
-    let id = '';    
     let extension = false;
 
     if (typeof(tag) == 'string') {
-        id = tag;
-        if (document.components.has(tag)) {
-            tag = document.components.get(tag);
+        if (tag.includes('#')) {
+            tagName = tag.takeBefore('#').trim();
+            tag = tag.takeAfter('#').trim();
+            extension = true;
+
+            if (document.components.has(tag)) {
+                tag = document.components.get(tag);
+            }
         }
-        else {
-            tag = document.querySelector('#' + id);
-        }        
-    }
-    
-    if (id != '' && document.components.has(id)) {
-        extension = true;
-    }
-    else {
-        if (tag != null && Object.getOwnPropertyNames(tag.constructor.prototype).filter(n => n.startsWith('on')).map(n => n.toLowerCase()).includes(eventName)) {
+        else if (document.components.has(tag)) {
+            tag = document.components.get(tag);
             extension = true;
         }
+        else {
+            let id = tag;
+            tag = document.querySelector('#' + id);
+            if (tag == null) {
+                tag = id;
+                extension = true;
+            }
+        }        
+    }   
+    
+    if (typeof(tag) == 'string') {
+        //未加载完的自定义标签
+        if (!Event.s.has(tag)) {
+            Event.s.set(tag, new Map());
+        }
+        if (!Event.s.get(tag).has(eventName)) {
+            Event.s.get(tag).set(eventName, new Array());
+        }
+        Event.s.get(tag).get(eventName).push(func);
     }
+    else {
+        if (Object.getOwnPropertyNames(tag.constructor.prototype).filter(n => n.startsWith('on')).map(n => n.toLowerCase()).includes(eventName)) {
+            extension = true;
+        }
 
-    if (tag != null) {
         if (extension || eventName == 'onload') {
             if (tag.events == null) {
                 tag.events = new Map();
@@ -2891,16 +2933,6 @@ Event.bind = function (tag, eventName, func) {
         else {
             $x(tag).on(eventName, func);
         }
-    }
-    else if (id != '') {
-        //按 id 绑定
-        if (!Event.s.has(id)) {
-            Event.s.set(id, new Map());
-        }
-        if (!Event.s.get(id).has(eventName)) {
-            Event.s.get(id).set(eventName, new Array());
-        }
-        Event.s.get(id).get(eventName).push(func);
     }
 }
 
@@ -3319,7 +3351,7 @@ $Settings.prototype.declare = function(variables) {
             }
             //enum 枚举, 默认值为第1项
             else if (value.includes('|')) {
-                this.object[name] = Enum(...value.split('|').map(v => v.trim())).validate(this.get(property));                
+                this.object[name] = Enum(value).validate(this.get(property), false);
             }
             else {
                 this.object[name] = $parseString(this.get(property), value);                
@@ -3433,7 +3465,7 @@ $Settings.prototype.objectify = function(func) {
 }
 
 $transfer = function(source, target) {
-    let excludings = new Set(['id', 'type']);
+    let excludings = new Set(['id', 'type', 'data']);
     source.getAttributeNames()
         .forEach(attr => {
             if (!excludings.has(attr)) {
@@ -3492,7 +3524,12 @@ NativeElement.prototype.declare = function(variables) {
                 }
 
                 if (typeof(defaultValue) == 'string') {
-                    return $parseString(value, defaultValue);
+                    if (defaultValue.includes('|')) {
+                        return Enum(defaultValue).validate(value);
+                    }
+                    else {
+                        return $parseString(value, defaultValue);
+                    }                    
                 }
                 else if (typeof(defaultValue) == 'number') {
                     if (String(defaultValue).includes('.')) {
@@ -3504,7 +3541,7 @@ NativeElement.prototype.declare = function(variables) {
                 }
                 else if (typeof(defaultValue) == 'boolean') {
                     return $parseBoolean(value, defaultValue);
-                }
+                }                
                 else if(defaultValue instanceof Enum.Entity) {
                     return defaultValue.validate(value);
                 }
@@ -3775,23 +3812,6 @@ $finish(function() {
     if ($s('#Callout') == null) {
         $x(document.body).append('DIV', { id: 'Callout', className: 'callout', hidden: true });
         $x('#Callout').bind('click', function() { this.style.display = 'none'; window.clearTimeout(Callout.Entity.$timer); });
-    }
-
-    //attributes to be parse - after model load
-    for (let every of $root.PROPERTIES) {
-        if (every.ownProperty != null) {
-            for (let tag of document.querySelectorAll(every.selector)) {
-                let before = every.attribute != null ? tag.getAttribute(every.attribute) : tag[every.property];
-                let after = before.$p(tag);
-
-                if (every.property != null) {
-                    tag[every.property] = after;
-                }
-                else {
-                    tag.setAttribute(every.attribute.substring(1), after);
-                }
-            }
-        }
     }
 
     if (document.body.getAttribute('self-adaption') != null) {        

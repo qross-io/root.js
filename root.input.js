@@ -33,10 +33,10 @@ $enhance(HTMLInputElement.prototype)
         precision: -1,
         pad: false, //是否在小数时自动补 0
 
-        strength: 'WEAK', //password only
+        strength: 'weak|strong|complex', //password only
         fit: '', //password only
 
-        theme: Enum('SWITCH', 'CHECKBOX', 'WHETHER'), //switch only,
+        theme: 'switch|checkbox|whether', //switch only,
         
         onmodify: null,
         'onchange-checked': null,
@@ -186,7 +186,7 @@ HTMLInputElement.prototype._timestamp = null;
    
 HTMLInputElement.prototype.validate = function (toCheck = false) {
     //验证方法 按情况 有正则验证走正则 否则非空验证
-    // 0 空 -1 不正确 1 验证通过
+    // 0 empty -1 incorrectd 1 valid -2 不符合预期
     if ((this.required || this.requiredText != '') && this.value.$trim() == '') {
         this.status = 0; //无值空状态       
     }
@@ -210,7 +210,7 @@ HTMLInputElement.prototype.validate = function (toCheck = false) {
     }
     else if (this.type == 'password') {
         if (this.fit == '') {
-            if (this.strength == 'COMPLEX') {
+            if (this.strength == 'complex') {
                 if (this.value.length >= 8 && /[a-z]/.test(this.value) && /[A-Z]/.test(this.value) && /\d/.test(this.value) && /[\~\`\!\@\#\$\%\^\&\*\(\)\_\+\-\=\{\}\[\]\|\\\:\;\"\'\<\>\,\.\?\/]/.test(this.value)) {
                     this.status = 1;
                 }
@@ -218,7 +218,7 @@ HTMLInputElement.prototype.validate = function (toCheck = false) {
                     this.status = -1;
                 }
             }
-            else if (this.strength == 'STRONG') {
+            else if (this.strength == 'strong') {
                 if (this.value.length >= 6 && /[a-z]/i.test(this.value) && /\d/.test(this.value)) {
                     this.status = 1;
                 }
@@ -539,7 +539,7 @@ HTMLInputElement.prototype.initializeCheckable = function() {
         this.status = 1;
         this.hidden = true;
         let button = $create('IMG',
-                                { src: `${$root.images}${this.theme.toLowerCase()}_${this.value == this.options[0] ? 'on' : 'off'}_default.${this.theme != 'CHECKBOX' ? 'png' : 'gif'}`, align: 'absmiddle' },
+                                { src: `${$root.images}${this.theme}_${this.value == this.options[0] ? 'on' : 'off'}_default.${this.theme != 'checkbox' ? 'png' : 'gif'}`, align: 'absmiddle' },
                                 { cursor: 'default' },
                                 { 'sign': 'switch' });
         this.parentNode.insertBefore(button, this);
