@@ -855,16 +855,18 @@ HTMLInputElement.Key = {
 HTMLInputElement.initializeAll = function(container) {
     $n(container, 'INPUT').forEach(input => {
         if (input.getAttribute('root') == null) {
+            input.setAttribute('root', 'INPUT');
+            if (document.models != null) {
+                Model.boostPropertyValue(input);
+            }
+
             if (/^(text|password|number|float|integer|mobile|idcard|name|search|calendar|datetime)$/i.test(input.type)) {            
-                input.setAttribute('root', 'INPUT');                
                 input.initializeInputable();
             }
             else if (/^(switch|checkbox)$/i.test(input.type)) {
-                input.setAttribute('root', 'INPUT');                
                 input.initializeCheckable();
             }
             else if (/^(stars)$/i.test(input.type)) {
-                input.setAttribute('root', 'INPUT');                
                 input.initializeSelectable();
             }
         }

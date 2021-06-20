@@ -744,7 +744,10 @@ $root.prototype.fadeIn = function(opacity = 0) {
     this.objects.forEach(element => {
         if (element.hidden) {
             element.hidden = false;
-        }        
+        }
+        if (element.style.display == 'none') {
+            element.style.display = '';
+        }
         Animation('timing-function: ease; duration: 0.6s; from-opacity: ' + (opacity) + '%; to-opacity: 100%; fill-mode: forwards;')
             .apply(element)
             .resetOnStop()

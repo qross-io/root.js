@@ -177,8 +177,8 @@ class Calendar {
                 this.element = element;
             }
             else {
-                element.remove();
-                this.element = null;
+                element.id = '';
+                this.element = element;
                 this.container.id = this.name;
             }
         });
@@ -858,6 +858,8 @@ Calendar.prototype.display = function() {
         this.container.style.visibility = 'visible';
         this.container.hidden = true;
     }
+
+    Event.interact(this, this.element);
 }
 
 Calendar.prototype.displayYear = function() {
@@ -1461,8 +1463,8 @@ Calendar.prototype.loadExtraInfo = function() {
         if (this.extensionApi != '') {
             let calendar = this;
             //自定义节假日, 接收一或多个年份
-            $GET(this.extensionApi + years.join(','))
-                .success(function(data) {
+            $cogo(this.extensionApi + years.join(','))
+                .then(function(data) {
                     for (let day in data) {
                         Calendar.LUNAR[day] = data[day];
                     }
@@ -1485,6 +1487,9 @@ Calendar.prototype.loadExtraInfo = function() {
                                 td.removeAttribute('extra'); 
                             }
                         })
+                })
+                .catch(function(error){
+                    console.error(error);
                 });
         }
     }

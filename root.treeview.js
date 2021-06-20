@@ -543,6 +543,10 @@ TreeView.prototype.appendChild = function (treeNode, editing) {
     if (editing != null) {
         treeNode.edit();
     }
+
+    if (treeNode.$expanded) {
+        treeNode.expand();
+    }
 };
 
 //在最前面插入节点
@@ -625,6 +629,10 @@ TreeView.prototype.insertBefore = function (treeNode, referenceNode) {
     }
 
     this.children[index].$setLines();
+
+    if (treeNode.$expanded) {
+        treeNode.expand();
+    }
 };
 
 TreeView.prototype.insertAfter = function (treeNode, referenceNode) {
@@ -1283,7 +1291,7 @@ class TreeNode {
             editable: true, //节点是否可编辑, TreeView.nodeEditingEnabled启用时生效
             $visible: true, //节点是否可见
 
-            expandOnRender: false, //是否在呈现时展开
+            $expanded: false, //是否在呈现时展开
 
             $selected: false, //是否默认选择
             $checked: 0 //是否默认选中, 当显示复选框时生效, 0 未选中 1 选中 2 部分子节点被选中
@@ -2434,7 +2442,9 @@ TreeNode.prototype.burl = function () {
         this.burlImage.src = this.burlImage.getAttribute('c');
         this.burlImage.setAttribute('current', 'c');
 
-        this.childrenDiv.style.display = '';
+        if (this.childrenDiv != null) {
+            this.childrenDiv.style.display = '';
+        }        
     }
     else {
         this.burlImage.src = this.burlImage.getAttribute('e');
@@ -2756,7 +2766,7 @@ TreeNode.prototype.appendChild = function (treeNode, editing) {
         treeNode.edit();
     }
 
-    if (treeNode.expandOnRender) {
+    if (treeNode.$expanded) {
         treeNode.expand();
     }    
 };
@@ -2878,7 +2888,7 @@ TreeNode.prototype.insertBefore = function (treeNode, referenceNode) {
 
     //this.execute('onInserted', treeNode);
     
-    if (treeNode.expandOnRender) {
+    if (treeNode.$expanded) {
         treeNode.expand();
     }
 };

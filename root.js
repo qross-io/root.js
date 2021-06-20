@@ -238,7 +238,7 @@ $root.prototype.toggle = function(display) {
 
 $root.prototype.visible = function() {
     if (this.objects.length > 0) {
-        return this.objects[0].style == null || this.objects[0].style.display != 'none';
+        return (this.objects[0].hidden !== undefined && !this.objects[0].hidden) || (this.objects[0].style == null || this.objects[0].style.display != 'none');
     }
     else {
         return true;
@@ -247,7 +247,7 @@ $root.prototype.visible = function() {
 
 $root.prototype.hidden = function() {
     if (this.objects.length > 0) {
-        return this.objects[0].style != null && this.objects[0].style.display == 'none';
+        return (this.objects[0].hidden !== undefined && this.objects[0].hidden) || (this.objects[0].style != null && this.objects[0].style.display == 'none');
     }
     else {
         return false;
@@ -1051,44 +1051,6 @@ $root.prototype.tocheck = function() {
     return this;
 }
 
-$root.PROPERTIES = [
-    {
-        selector: '[-html]',        
-        property: 'innerHTML',
-        ownProperty: 'innerHTML'
-    },
-    {
-        selector: '[-title]',
-        attribute: '-title',
-        ownProperty: 'title'
-    },
-    {
-        selector: 'input[-value]',
-        attribute: '-value',
-        ownProperty: 'value'
-    },
-    {
-        selector: 'a[-href]',
-        attribute: '-href',
-        ownProperty: 'href'
-    },
-    {
-        selector: 'for[in]',
-        attribute: 'in',
-        customAttribute: 'in'
-    },
-    {
-        selector: '[test]',
-        attribute: 'test',
-        customAttribute: 'test'
-    },
-    {
-        selector: 'template[data]',
-        attribute: 'data',
-        customAttribute: 'data'
-    }
-];
-
 $root.home = function () {
     let scripts = document.getElementsByTagName('SCRIPT');
     let src = scripts[scripts.length - 1].src;
@@ -1728,22 +1690,6 @@ String.prototype.$trim = function(char = '', char2 = '') {
     }
 }
 
-//替换10000次
-String.prototype.$replace = function(sub, rep) {
-    let str = this.toString();
-    if (typeof(rep) == 'string' && rep.includes("$&")) {
-        rep = rep.replace(/\$&/g, '$ &');
-    }
-
-    //return str.replace(new RegExp(sub.replace('[', '\\['), 'g'), rep); //会死循环
-    let i = 0; 
-    while (str.includes(sub) && i < 10000) {
-        str = str.replace(sub, rep);
-        i++;
-    }
-    return str;
-}
-
 String.prototype.$includes = function(str, delimiter = ',') {
     return (delimiter + this.toString().trim() + delimiter).includes(delimiter + str + delimiter);
 }
@@ -2370,7 +2316,7 @@ $attr = function(t, a) {
 //p = <>+-\dn pointer
 //a = [attr]
 //d = default value
-String.$p = function(t, p, a, d = 'null') {
+String.$parse = function(t, p, a, d = 'null') {
     let v = null;
     if (t != null) {
         if (p != null && p != '') {
@@ -2447,7 +2393,7 @@ String.prototype.$p = function(element, data) {
     let selector = /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/i;
     while(selector.test(str)) {
         let match = selector.exec(str);
-        str = str.replace(match[0], String.$p($v(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));
+        str = str.replace(match[0], String.$parse($v(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));
     }
 
     //parse element
@@ -2473,7 +2419,7 @@ String.prototype.$p = function(element, data) {
                 if (s.startsWith('$:')) {
                     p = s.substring(2);
                 }
-                str = str.replace(holder, String.$p(element, p, a, d).encodeURIComponent(holder.endsWith('%')));
+                str = str.replace(holder, String.$parse(element, p, a, d).encodeURIComponent(holder.endsWith('%')));
             }
         }
     }
@@ -3473,7 +3419,7 @@ $transfer = function(source, target) {
                 if (target[attr] != null) {
                     target[attr] = value;
                 }
-                else if (!attr.includes('+')) {
+                else if (!attr.includes('+') && !attr.includes('-')) {
                     target.setAttribute(attr, value);
                 }
             }
@@ -3711,51 +3657,6 @@ Callout.hide = function() {
     $x('#Callout').hide();
 }
 
-$root.alert = function(message, confirmButtonText = 'OK', title = 'Message') {
-    if ($s('#AlertPopup') == null) {
-        let div = $create('DIV', { 'id': 'AlertPopup', className: 'popup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="AlertPopupTitle"></span>' }));
-        div.appendChild($create('DIV', { id: 'AlertContent', className: 'popup-title' }, { textAlign: 'center', color: 'var(--primary)' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="AlertPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText + '">' }));
-        document.body.appendChild(div);
-
-        Popup.apply($s('#AlertPopup'));
-    }
-
-    $x('#AlertContent').html(message == null ? 'null' : message);
-    $x('#AlertPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
-    $x('#AlertPopupTitle').html(title);
-    $popup('AlertPopup').clearEvents().open();
-}
-
-$root.confirm = function(message, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Confirm', ev = null) {
-    if ($s('#ConfirmPopup') == null) {
-        let div = $create('DIV', { 'id': 'ConfirmPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="ConfirmPopupTitle"></span>' }));
-        div.appendChild($create('DIV', { id: 'ConfirmContent', className: 'popup-title error' }, { textAlign: 'center' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="ConfirmPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText +'"> &nbsp; &nbsp; <input id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button" value="' + cancelButtonText + '">' }));
-        document.body.appendChild(div);
-
-        let w= Math.max($x('#ConfirmPopup_ConfirmButton').width(), $x('#ConfirmPopup_CancelButton').width());
-        $x('#ConfirmPopup_ConfirmButton').width(w);
-        $x('#ConfirmPopup_CancelButton').width(w);
-
-        Popup.apply($s('#ConfirmPopup'));
-    }
-
-    $x('#ConfirmContent').html(message == null ? 'null' : message);
-    $x('#ConfirmPopupTitle').html(title);
-    $x('#ConfirmPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
-    $x('#ConfirmPopup_CancelButton').value(' ' + cancelButtonText + ' ');
-    return $popup('ConfirmPopup').clearEvents().open(ev);
-}
-
-$root.prompt = function(message, confirmText = 'OK', concelText = 'Cancel') {
-    //return this.propmpText;
-}
-
 $randomX = function(digit = 10) {
     return Math.round(Math.random() * Math.pow(10, digit)).toString().padStart(digit, '0');
 }
@@ -3786,6 +3687,27 @@ $ready(function() {
         //<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         $x('head').append('META', { name: 'viewport', content: 'width=device-width, initial-scale=1.0, user-scalable=no' });
         $x('html').style('font-size', $root.visibleWidth() / 15 + 'px');
+    }
+
+    //fixed
+    let fixed = $a('div[fixed=yes],table[fixed=yes]');
+    let fix = function() {
+        fixed.forEach(tag => {            
+            tag.style.position = 'fixed';
+            tag.style.zIndex = '100';
+            tag.style.width = tag.nextElementSibling.offsetWidth + 'px';
+        });
+    }
+    let ajust = function() {
+        fixed.forEach(tag => {
+            if (tag.offsetWidth != tag.nextElementSibling.offsetWidth) {
+                tag.style.width = tag.nextElementSibling.offsetWidth + 'px';
+            }
+        });
+    }
+    if (fixed.length > 0) {
+        $x(window).bind('load', function() {fix(); ajust();}).bind('resize', ajust);
+        window.setTimeout(ajust, 1000);
     }
 });
 
@@ -3829,27 +3751,6 @@ $finish(function() {
         document.body.style.overflowY = 'hidden';
         layout();        
         $x(window).bind('resize', layout);
-    }
-
-    //fixed
-    let fixed = $a('div[fixed=yes],table[fixed=yes]');
-    let fix = function() {
-        fixed.forEach(tag => {
-            tag.style.position = 'fixed';
-            tag.style.zIndex = '100';
-            tag.style.width = tag.nextElementSibling.offsetWidth + 'px';
-        });
-    }
-    let ajust = function() {
-        fixed.forEach(tag => {
-            if (tag.offsetWidth != tag.nextElementSibling.offsetWidth) {
-                tag.style.width = tag.nextElementSibling.offsetWidth + 'px';
-            }
-        });
-    }
-    if (fixed.length > 0) {
-        $x(window).bind('load', function() {fix(); ajust();}).bind('resize', ajust);
-        window.setTimeout(ajust, 1000);
     }
 
     //iframe

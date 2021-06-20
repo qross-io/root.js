@@ -93,7 +93,7 @@ HTMLAnchorElement.prototype.initialize = function() {
 
     $x(this).on('click', function(ev) {
         if (this.confirmText != '') {
-            if (document.tags.has('POPUP')) {
+            if ($root.confirm != null) {
                 let a = this;
                 $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
                     .on('confirm', function() {                            
@@ -118,16 +118,20 @@ HTMLAnchorElement.prototype.initialize = function() {
             this.go();
         }        
     });
-    
 
     Event.interact(this, this);
 }
 
 HTMLAnchorElement.initializeAll = function(container) {
     for (let a of $n(container, 'a')) {
-        if (a.getAttribute('onclick+') != null && a.getAttribute('root') == null) {
+        if (a.getAttribute('root') == null) {
             a.setAttribute('root', 'A');
-            a.initialize();
+            if (document.models != null) {
+                Model.boostPropertyValue(a);
+            }
+            if (a.getAttribute('onclick+') != null) {
+                a.initialize();
+            }
         }
     }
 }

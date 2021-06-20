@@ -30,6 +30,8 @@ $enhance(HTMLButtonElement.prototype)
         callout: null,
         alert: null,
 
+        disableOnClick: true,
+
         scale: 'normal', //little/small/normal/big/large
         color: 'blue', //prime/green/red/maroon/purple/blue/orange/gray/white
 
@@ -89,7 +91,7 @@ $enhance(HTMLButtonElement.prototype)
                     }
 
                     if (text != '' && this.alert != null) {
-                        if (document.tags.has('POPUP')) {
+                        if ($root.alert != null) {
                             $root.alert(text, this.confirmButtonText);
                         }
                         else {
@@ -179,7 +181,9 @@ HTMLButtonElement.prototype.response = function(correct) {
 
 HTMLButtonElement.prototype.go = function() {
 
-    this.disable();
+    if (this.disableOnClick) {
+        this.disable();
+    }    
     this.text = this.clickText.$p(this);
 
     if (this['onclick+'] != null) {
@@ -273,7 +277,9 @@ HTMLButtonElement.prototype.initialize = function() {
         $x(this).on('click', function(ev) {
             if (Event.fire(this, 'onclick_'), ev) {
                 if (this['onclick+'] != null) {
-                    this.disabled = true;
+                    if (this.disableOnClick) {
+                        this.disable();
+                    }                    
                     this.switch();
                     $FIRE(this, 'onclick+', 
                         function(data) {                            
@@ -288,7 +294,7 @@ HTMLButtonElement.prototype.initialize = function() {
                             this.switch();
                         },
                         function() {
-                            this.disabled = false;                            
+                            this.enable();
                         });
                 }
                 else {
@@ -331,7 +337,7 @@ HTMLButtonElement.prototype.initialize = function() {
         $x(this).on('click', function(ev) {
             if (Event.fire(this, 'onclick_'), ev) {
                 if (this.confirmText != '') {
-                    if (document.tags.has('POPUP')) {
+                    if ($root.confirm != null) {
                         let button = this;
                         $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
                             .on('confirm', function() {                            
@@ -354,7 +360,7 @@ HTMLButtonElement.prototype.initialize = function() {
         if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
             if (this.hint != null || this.callout == null) {
                 if (this.hintSpan == null) {
-                    if (this.hint != null && this.hint != '') {
+                    if (this.hint != '') {
                         this.hintSpan = $s(this.hint);
                     }
                     else {
@@ -419,9 +425,15 @@ HTMLButtonElement.observe = function() {
 HTMLButtonElement.initializeAll = function(container) {
     for (let button of $n(container, 'button')) {
         // root 设置为 button 表示组件已初始化
-        if (button.getAttribute('root') == null && (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null || button.getAttribute('type') != null || button.getAttribute('href') != null)) {
+        if (button.getAttribute('root') == null) {
             button.setAttribute('root', 'BUTTON');
-            button.initialize();
+            if (document.models != null) {
+                Model.boostPropertyValue(button);
+            }
+
+            if (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null || button.getAttribute('type') != null || button.getAttribute('href') != null) {
+                button.initialize();
+            }
         }
     }
 
@@ -431,15 +443,3 @@ HTMLButtonElement.initializeAll = function(container) {
 $finish(function () {
     HTMLButtonElement.initializeAll();
 });
-
-/*
-观察者算法逻辑
-1. 在 Input 元素上添加监控逻辑，新建 status 属性，并赋值为`origin`
-2. Button 初始化时先生成 Input -> [Button1, Button2] 表
-3. 构建 Button - [Input1, Input2] 列表，用于统计 Button 的 relation 值
-3. Input 值更新时，更新 status 状态
-4. 当 status 状态更新时，修改 每个 button 的 satisfied 属性
-5. 当 satisfied == relatived 时，启用按钮
-6. 当 satisfied < relatived 时，停用按钮
-7. Button必须在所有表单元素的下方
-*/

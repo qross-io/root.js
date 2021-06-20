@@ -69,6 +69,11 @@ class Select {
             'onchange+failure': null,
             'onchange+exception': null,
             'onchange+completion': null,
+
+            status: 'none',
+            hint: null,
+            callout: null,
+            alter: null
         })
         .elementify(element => {
             if (this.type == 'beauty') {
@@ -268,6 +273,32 @@ class Select {
     set hidden(value) {
         this.container.hidden = value;
     }
+
+    set hintText(text) {
+        if (this.hintSpan != null) {
+            this.hintSpan.innerHTML = text;
+            if (this.status == 'success') {
+                this.hintSpan.className = this.validTextClass;
+            }
+            else {
+                this.hintSpan.className = this.errorTextClass;
+            }                    
+            this.hintSpan.hidden = text == '';
+        }
+        
+        if (text != '' && this.callout != null) {
+            Callout(text).position(this, this.callout).show();
+        }
+
+        if (text != '' && this.alert != null) {
+            if ($root.alert != null) {
+                $root.alert(text, this.confirmButtonText);
+            }
+            else {
+                window.alert(text);
+            }
+        }
+    }
 }
 
 SelectButtonScale = {
@@ -358,6 +389,20 @@ Select.prototype.initialize = function() {
 
     if (this._disabled) {
         this.disabled = true;
+    }
+
+    if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+        if (this.hint != null) {
+            if (this.hintSpan == null) {
+                if (this.hint != '') {
+                    this.hintSpan = $s(this.hint);
+                }
+                else {
+                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
+                    $x(this).insertBehind(this.hintSpan);
+                }
+            }
+        }
     }
 }
 
@@ -717,13 +762,16 @@ class SelectOption {
                         if (this.select['onchange+'] != null) {
                             $FIRE(this.select, 'onchange+',
                                     function(data) {
+                                        this.status = 'success';
                                         this.hintText = this.successText.$p(this, data);
                                     }, 
                                     function(data) {
+                                        this.status = 'failure';
                                         this.hintText = this.failureText.$p(this, data);
                                         this._rollback(before, this.selectedIndex);
                                     },
                                     function(error) {
+                                        this.status = 'exception';
                                         this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
                                         this._rollback(before, this.selectedIndex);
                                     },
@@ -752,10 +800,6 @@ class SelectOption {
             }
             Select[this.select.type].disableAop.call(this, disabled);
         }        
-    }
-
-    set hintText(text) {
-        
     }
 }
 
@@ -1031,6 +1075,9 @@ Select.initializeAllIn = function(element) {
         element = $s(element);
     }
     element.querySelectorAll('select').forEach(select => {
+        if (document.models != null) {
+            Model.boostPropertyValue(select, 'value');
+        }
         new Select(select).initialize();
     });
 }

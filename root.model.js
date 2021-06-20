@@ -179,47 +179,8 @@ Model.prototype.load = function(data) {
     this.loading = true;
     
     $TAKE(this.data, this.element, this, function(data) {
-        
+        //save data
         window[this.name + '$'] = data;
-
-        for (let every of $root.PROPERTIES) {
-            for (let tag of document.querySelectorAll(every.selector)) {
-                if (every.ownProperty != null || tag.getAttribute('load') == null) {
-                    let before = every.attribute != null ? tag.getAttribute(every.attribute) : tag[every.property];
-                    if (before.includes('@' + this.name)) {
-                        //get data                  
-                        let after = this.$represent(before);
-                        if (before != after) {
-                            //所有占位符已经被替换完成
-                            if (!/([^@]|^)@[a-z_][a-z0-9_]*/i.test(after)) {
-                                after = after.$p(tag);
-
-                                if (after.includes('@@')) {
-                                    after = after.replace(/@@/g, '@');
-                                }
-
-                                if (every.ownProperty != null) {
-                                    tag[every.ownProperty] = after;
-                                    tag.removeAttribute(every.attribute);
-                                }
-                                else {
-                                    tag.setAttribute(every.customAttribute, after);
-                                    tag.setAttribute('load', 'ed');
-                                }
-                            }
-                            else {
-                                if (every.property != null) {
-                                    tag[every.property] = after;
-                                }
-                                else {
-                                    tag.setAttribute(every.attribute, after);    
-                                }                        
-                            }
-                        }
-                    }     
-                }            
-            }
-        }
 
         this.$set(data);
 
@@ -252,22 +213,25 @@ Model.prototype.refresh = function() {
     }    
 }
 
-// 替换特定属性的值
-Model.prototype.$represent = function(content) {
-    
+Array.prototype.findAllMatchIn = function(content) {
+    return this.map(place => content.match(place) || [])
+               .reduce((r1, r2) => r1.concat(r2))
+               .distinct()
+}
+
+// 从 model 中加载数据，替换特定占位符的值
+String.prototype.placeModelData = function() {
+   
+    let content = this.toString();
     // @modelname!
     // @modelname.key?(defaultValue)
     // @modelname.key[0]?(defaultValue)
     // @modelname[0]
     [
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig
-    ].map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
+        /(?<!@)@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+        /(?<!@)@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig
+    ]
+    .findAllMatchIn(content)
     .forEach(holder => {
         let d = null; //defaultValue
         let p = holder; //path
@@ -287,9 +251,77 @@ Model.prototype.$represent = function(content) {
             p = p.substring(p.indexOf('.'));
         }
 
-        let n = ps[0]; //name
-        if (this.name == n) {
-            let v = window[n + '$']; //Json.find(window[n + '$'], n);
+        let n = ps[0]; //name      
+        let v = window[n + '$'];
+
+        for (let i = 1; i < ps.length; i++) {
+            if (v != null) {
+                v = v[ps[i]];
+            }            
+            else {
+                break;
+            }
+        }
+
+        if (v == null) {
+            if (d != null) {
+                v = d;
+            }
+            else {
+                v = 'null';
+            }
+        }
+
+        if (v != null) {
+            if (content == holder) {
+                content = v;
+            }
+            else {
+                //处理数据中的双引号, Json 解析时对自动转换
+                content = content.replaceAll(holder, v).replace(/"/g, '&quot;');                
+            }       
+        }
+        
+    });
+
+    return content;
+}
+
+//从 data 中加载数据
+String.prototype.placeData = function(data) {
+    let content = this.toString();
+
+    //占位符规则与 TEMPLATE 相同
+    //@: 表示整个数据
+    //@:/ 表示根数据
+    //@:key!
+    //@:[0].key
+    //@:key?(default)
+    //@:key[0].name!
+
+    [
+        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
+        /@:\//g
+    ]
+    .findAllMatchIn(content)
+    .forEach(holder => {
+        let d = null; //defaultValue
+        let p = holder; //path
+        if (p.includes('?(')) {
+            d = p.takeAfter('?(').replace(/\)$/, '');
+            p = p.takeBefore('?(');
+        }
+
+        p = p.replace(/^\@|\!$/g, '')
+                .replace(/\[/g, '.')
+                .replace(/\]/g, '')
+                .replace(/\/$/, '')
+                .replace(/^:/, '.');
+                
+        let v = data;
+        if (p != '.') {
+            let ps = p.split('.');        
             for (let i = 1; i < ps.length; i++) {
                 if (v != null) {
                     v = v[ps[i]];
@@ -298,30 +330,23 @@ Model.prototype.$represent = function(content) {
                     break;
                 }
             }
+        }
 
-            if (v == null) {
-                if (d != null) {
-                    v = d;
-                }
-                else {
-                    v = 'null';
-                }
+        if (v == null) {
+            if (d != null) {
+                v = d;
             }
+        }
 
-            if (v != null) {   
-                if (v instanceof Array || v instanceof Object) {
-                    this.vars[p] = v;
-                    content = content.$replace(holder, '$model.' + this.name + p);                
-                }
-                else {
-                    content = content.$replace(holder, v);
-                }            
+        if (v != null) {
+            if (typeof(v) != 'string') {
+                v = Json.toString(v);
             }
+            content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));            
         }
     });
 
-    //处理数据中的双引号
-    return content.replace(/"/g, '&quot;');
+    return content.evalJsExpression();
 }
 
 // set 标签的值
@@ -348,12 +373,8 @@ Model.prototype.$set = function(data) {
             if (eval(set.if)) {
                 let content = set.format;
                 if (content != null) {
-                    places.map(place => {
-                        let hs = content.match(place);
-                        return hs != null ? hs : []; 
-                    })
-                    .reduce((r1, r2) => r1.concat(r2))
-                    .distinct()
+                    places
+                    .findAllMatchIn(content)
                     .forEach(holder => {
                         let d = null; //defaultValue
                         let p = holder; //path
@@ -398,15 +419,15 @@ Model.prototype.$set = function(data) {
                                 if (p.startsWith(this.name + '.')) {
                                     this.vars[p.takeAfter('.')] = v;
                                 }                                
-                                content = content.$replace(holder, '$model.' + p);  
+                                content = content.replaceAll(holder, '$model.' + p);  
                             }
                             else {
-                                content = content.$replace(holder, v.replace(/"/g, '&quot;'));
+                                content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));
                             }                            
                         }
                     });
 
-                    content = content.$eval();
+                    content = content.evalJsExpression();
                     if (set.target[set.attr] != null) {
                         set.target[set.attr] = content;
                     }
@@ -446,6 +467,58 @@ Model.$ForOrIf = function(tag) {
     return null;
 }
 
+Model.boostPropertyValue = function(element, properties = '') {
+    element.getAttributeNames().forEach(name => {
+        if (name.startsWith('-')) {
+            let before = name != '-html' ? element.getAttribute(name) : element.innerHTML;
+            let after;
+            if (before.includes('@')) {
+                after = before.placeModelData().$p(element);
+            }
+            else {
+                after = before.$p(element);
+            }
+            let origin = name.drop(1);
+            if (origin == 'html') {
+                origin = 'innerHTML';
+            }
+
+            if (element[origin] !== undefined && !properties.includes(origin)) {
+                element[origin] = after;
+            }
+            else {
+                element.setAttribute(origin, after);
+            }
+            element.removeAttribute(name);
+        }
+    });
+}
+
+Model.output = function(o) {
+    if (o.getAttribute('data') == null) {
+        if (o.innerHTML.startsWith('@')){
+            //从model加载
+            o.parentNode.insertBefore(document.createTextNode(o.innerHTML.placeModelData().$p()), o);
+            o.remove();
+        }
+        else {
+            $cogo(o.innerHTML, o)
+            .then(data => {                           
+                o.parentNode.insertBefore(document.createTextNode(data), o);
+                o.remove();
+            });
+        }        
+    }
+    else {
+        //同 span 规则
+        $cogo(o.getAttribute('data'), o)
+            .then(data => {
+                o.parentNode.insertBefore(document.createTextNode(o.innerHTML.placeModelData().placeData(data).$p()), o);
+                o.remove();
+            });
+    }
+}
+
 Model.initializeForOrIf = function(tagName) {
     //find first for/if
     let next = Model.$ForOrIf('FOR,IF,TR[IF],OPTION[IF]');    
@@ -466,16 +539,17 @@ Model.initializeForOrIf = function(tagName) {
 
                 //<o> 标签 = output
                 for (let o of $a('o')) {
-                    $cogo(o.innerHTML, o)
-                        .then(data => {                           
-                            o.parentNode.insertBefore(document.createTextNode(data), o);
-                            o.remove();
-                        });
+                    Model.output(o);                    
                 }
 
-                //<span data=""> 标签
                 for (let span of $a('span[data]')) {
-                    new Span(span).load();   
+                    if (span.getAttribute('root') == null) {
+                        span.setAttribute('root', 'SPAN');
+                        Model.boostPropertyValue(span);
+                        if (span.getAttribute('data') != null) {
+                            span.initialize();
+                        }
+                    }
                 }
             }            
         }
@@ -549,7 +623,7 @@ For = function(element) {
     this.element = element;
     this.content = element.innerHTML;
     this.container = element.getAttribute('container') || element;
-    this.isFor = element.nodeName == 'FOR'; //把其他元素作为 For 元素使用
+    this.isFor = element.nodeName == 'FOR'; //可以把其他元素作为 For 元素使用
     this.position = this.isFor ? 'beforeBegin' : 'beforeEnd';
     if (typeof(this.container) == 'string') {
         this.container = $s(this.container);
@@ -587,8 +661,10 @@ For.prototype.load = function(data) {
         this.in = data;
     }
 
-    //in
     //in="url" in="[a, b, c]" in="{result/data}" in="0 to 9"
+    if (typeof(this.in) == 'string' && this.in.includes('@')) {
+        this.in = this.in.placeModelData();
+    }
 
     if (typeof(this.in) == 'string') {
         if (/^(\d+)\s+to\s+(\d+)$/i.test(this.in)) {
@@ -613,9 +689,6 @@ For.prototype.load = function(data) {
         else if (this.in.startsWith('$template.')) {
             this.in = $template(this.in.takeAfter('.').takeBefore('.')).vars['.' + this.in.takeAfterLast('.')];
         }
-        else if (this.in.startsWith('$model.')) {
-            this.in = $model(this.in.takeAfter('.').takeBefore('.')).vars['.' + this.in.takeAfterLast('.')];
-        }
     }
 
     $TAKE(this.in, this.element, this, function(data) {
@@ -623,36 +696,15 @@ For.prototype.load = function(data) {
             this.in = data;
         } 
 
-        let content = [];
         if (this.in instanceof Array) {
-            for (let v of this.in) {
-                content.push(this.$eachOf(this.var, v));
-            }
+            this.container.insertAdjacentHTML(this.position, this.$eachOf());
         }
         else if (typeof (this.in) == 'object') {
-            if (this.var instanceof Array) {
-                if (this.var.length == 1) {
-                    this.var.push('value');
-                }                
-            }
-            else {
-                if (this.var == '') {
-                    this.var = ['key', 'value'];
-                }
-                else {
-                    this.var = [this.var, 'value'];
-                }
-            }
-
-            for (let k in this.in) {
-                content.push(this.$eachIn(this.var[0], this.var[1], k, this.in[k]));
-            }
+            this.container.insertAdjacentHTML(this.position, this.$eachIn());
         }
         else {
-            throw new Error('Wrong collection data in <for>: ' + this.in);
-        }
-
-        this.container.insertAdjacentHTML(this.position, content.join('').$eval());
+            throw new Error('Wrong collection data in FOR loop: ' + this.in);
+        }       
         
         if (this.onload != null) {
             Event.fire(this, 'onload', data);
@@ -668,9 +720,9 @@ For.prototype.load = function(data) {
 }
 
 
-For.prototype.$eachOf = function(name, item) {
+For.prototype.$eachOf = function() {
     
-    let content = this.content;
+    let html = [];    
 
     // @item
     // @item.key!
@@ -680,71 +732,67 @@ For.prototype.$eachOf = function(name, item) {
     // @[key]
     // @[0]
 
-    [
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
-        /@\[[a-z0-9_][a-z0-9_\/\.]*\]\?\([^\(\)]*?\)/ig,
-        /@\[[a-z0-9_][a-z0-9_\/\.]*\]/ig
-    ].map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];        
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
-    .forEach(holder => {
-        let d = null; //defaultValue
-        let p = holder; //path
-        if (p.includes('?(')) {
-            d = p.takeAfter('?(').replace(/\)$/, '');
-            p = p.takeBefore('?(');
-        }
-        let ps = p.replace(/^\@|\!$/g, '')
-                  .replace(/\[/g, '.')
-                  .replace(/\]/g, '')
-                  .replace(/\.$/g, '')
-                  .split('.');
+    let holders = [
+                    /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+                    /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
+                    /@\[[a-z0-9_][a-z0-9_\/\.]*\]\?\([^\(\)]*?\)/ig,
+                    /@\[[a-z0-9_][a-z0-9_\/\.]*\]/ig
+                ].findAllMatchIn(this.content);
 
-        let n = ps[0]; //name
-        if (name == '' ? n.toLowerCase() == 'item' || n == '' : name == n) {
-            let v = item;
-            for (let i = 1; i < ps.length; i++) {
-                if (v != null) {
-                    v = v[ps[i]];
-                }            
+    for (let item of this.in) {
+        let content = this.content;
+        holders.forEach(holder => {
+            let d = null; //defaultValue
+            let p = holder; //path
+            if (p.includes('?(')) {
+                d = p.takeAfter('?(').replace(/\)$/, '');
+                p = p.takeBefore('?(');
+            }
+            let ps = p.replace(/^\@|\!$/g, '')
+                      .replace(/\[/g, '.')
+                      .replace(/\]/g, '')
+                      .replace(/\.$/g, '')
+                      .split('.');
+    
+            let n = ps[0]; //name
+            if (this.var == '' ? (n.toLowerCase() == 'item' || n == '') : (this.var == n)) {
+                let v = item;
+                for (let i = 1; i < ps.length; i++) {
+                    if (v != null) {
+                        v = v[ps[i]];
+                    }            
+                    else {
+                        break;
+                    }
+                }
+    
+                if (v == null) {
+                    if (d != null) {
+                        v = d;
+                    }
+                }
                 else {
-                    break;
+                    v = Json.toString(v);
                 }
-            }
-
-            if (v == null) {
-                if (d != null) {
-                    v = d;
-                }
-            }
-            else {
-                v = Json.toString(v);
-            }
-
-            //null值不输出
-            if (v != null) {
-                content = content.$replace(holder, v);
+    
+                //null值不输出
+                if (v != null) {
+                    content = content.replaceAll(holder, v);
+                } 
             } 
-        } 
-    });   
+        });
 
-    //最后解析内容中的js表达式
-    return content.$eval();
+        html.push(content.evalJsExpression());
+    }
+
+    return html.join('');
 }
 
 // { a:1, b:2 }  @key, @(key), @value?(defaultValue), @value[path]?(defaultValue)
 // 'key' and 'value' is reserved keyword
 //name = var/let
-For.prototype.$eachIn = function($key, $value, key, value) {
+For.prototype.$eachIn = function() {
 
-    //$key, $value - 键和值的变量名称
-    //key, value - 键和值对应的值
-
-    let content = this.content;
 
     // 'key' and 'value' is reserved keyword
     // @key!
@@ -752,96 +800,78 @@ For.prototype.$eachIn = function($key, $value, key, value) {
     // @value[0]
     // @value.property?(default)
 
-    [
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig
-    ].map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
-    .forEach(holder => {
-        let d = null; //defaultValue
-        let p = holder; //path
-        if (p.includes('?(')) {
-            d = p.takeAfter('?(').replace(/\)$/, '');
-            p = p.takeBefore('?(');
-        }
-        let ps = p.replace(/^\@|\!$/g, '')
-                  .replace(/\[/g, '.')
-                  .replace(/\]/g, '')
-                  .replace(/\.$/g, '')
-                  .split('.');
+    let holders = [
+                    /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+                    /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig
+                ].findAllMatchIn(content);
 
-        let n = ps[0]; //name
-        if ($key == 'key' ? n.toLowerCase() == 'key' || n.toLowerCase() == 'name' : n == $key) {
-            content = content.replace(holder, key);            
+    //$key, $value - 键和值的变量名称
+    //key, value - 键和值对应的值
+    let $key = 'key';
+    let $value = 'value';
+    if (this.var instanceof Array) {
+        if (this.var.length > 0) {
+            $key = this.var[0];
         }
-        else if ($value == 'value' ? n.toLowerCase() == 'value' : n == $value) {
-            let v = value;
-            for (let i = 1; i < ps.length; i++) {
-                if (v != null) {
-                    v = v[ps[i]];
-                }            
-                else {
-                    break;
-                }
-            }
+        if (this.var.length > 1) {
+            $value = this.var[1];
+        }
+    }
+    else if (typeof(this.var) == 'string') {
+        if (this.var != '') {
+            $key = this.var;
+        }
+    }
 
-            if (v == null) {
-                if (d != null) {
-                    v = d;
-                }                    
+    for (let key in this.in) {
+        let content = this.content;
+        let value = this.in[key];
+
+        holders.forEach(holder => {
+            let d = null; //defaultValue
+            let p = holder; //path
+            if (p.includes('?(')) {
+                d = p.takeAfter('?(').replace(/\)$/, '');
+                p = p.takeBefore('?(');
             }
-            else {
-                v = Json.toString(v);
-            }
-            //null值也输出
-            content = content.$replace(holder, v);
-        }
-    });
+            let ps = p.replace(/^\@|\!$/g, '')
+                      .replace(/\[/g, '.')
+                      .replace(/\]/g, '')
+                      .replace(/\.$/g, '')
+                      .split('.');
     
-    //最后解析内容中的js表达式
-    return content.$eval();
-}
-
-//在替换完占位符之后执行js表达式
-String.prototype.$eval = function() {
-
-    let data = this.toString();
-
-    let hasForHolders = function (expression) {
-        // @hello, @[hello]
-        return /@[a-z_][a-z0-9_]*/i.test(expression) || /@\[[^\[\]]+?\]/i.test(expression);
-    }
-
-    //~{{complex expression}}
-    //must return a value 
-    let complex = data.match(/\~\{\{([\s\S]+?)\}\}/g);
-    if (complex != null) {
-        complex.forEach(holder => {
-            if (!hasForHolders(holder)) {
-                let exp = holder.substring(3);
-                exp = exp.substring(0, exp.length - 2);
-                data = data.replace(holder, eval('_ = function() { ' + exp.decode() + ' }();'));
+            let n = ps[0]; //name
+            if ($key == 'key' ? (n.toLowerCase() == 'key' || n.toLowerCase() == 'name') : (n == $key)) {
+                content = content.replace(holder, key);            
+            }
+            else if ($value == 'value' ? n.toLowerCase() == 'value' : n == $value) {
+                let v = value;
+                for (let i = 1; i < ps.length; i++) {
+                    if (v != null) {
+                        v = v[ps[i]];
+                    }            
+                    else {
+                        break;
+                    }
+                }
+    
+                if (v == null) {
+                    if (d != null) {
+                        v = d;
+                    }                    
+                }
+                else {
+                    v = Json.toString(v);
+                }
+                //null值也输出
+                content = content.replaceAll(holder, v);
             }
         });
+        
+        html.push(content.evalJsExpression());
     }
-
-    //~{simple expression}
-    let simple = data.match(/\~\{([\s\S]+?)\}/g);
-    if (simple != null) {
-        simple.forEach(holder => {
-            if (!hasForHolders(holder)) {
-                let exp = holder.substring(2);
-                exp = exp.substring(0, exp.length - 1);
-                data = data.replace(holder, eval('_ = function() { return ' + exp.decode() + '; }();'));
-            }
-        });
-    }
-
-    return data.replace(/~u0040/g, '@');
+    
+    return html.join('');    
 }
 
 // <if test="boolean expression">
@@ -880,31 +910,42 @@ If.prototype.on = function(eventName, func) {
     return this;
 }
 
-If.prototype.eval = function(test) {
-    try {
-        return eval(test);
+If.prototype.eval = function(test, ref) {
+    if (typeof(test) == 'string') {
+        try {
+            return eval(test.$p(ref));
+        }
+        catch(e) {
+            throw new Error('Wrong test expression: ' + test);
+        }
     }
-    catch(e) {
-        throw new Error('Wrong test expression: ' + test);
-    }
+    else {
+        return test;
+    }    
 }
 
 If.prototype.load = function() {
 
     let content = '';
     let test = this.if.getAttribute('test') || this.if.getAttribute('if') || 'false';
+    if (test.includes('@')) {
+        test = test.placeModelData();
+    }
 
     if (this.isTag) {
-        if (this.eval(test.$p(this.if))) {
-            content = this.if.innerHTML.$eval();
+        if (this.eval(test, this.if)) {
+            content = this.if.innerHTML.evalJsExpression();
             this.result = true;
         }
         else {
             if (this.elsif.length > 0) {
                 for (let i = 0; i < this.elsif.length; i++) {
                     test = this.elsif[i].getAttribute('test') || 'false';
-                    if (this.eval(test.$p(this.elsif[i]))) {
-                        content = this.elsif[i].innerHTML.$eval();
+                    if (test.includes('@')) {
+                        test = test.placeModelData();
+                    }
+                    if (this.eval(test, this.elsif[i])) {
+                        content = this.elsif[i].innerHTML.evalJsExpression();
                         this.result = true;
                         break;
                     }
@@ -912,7 +953,7 @@ If.prototype.load = function() {
             }
 
             if (!this.result && this.else != null) {
-                content = this.else.innerHTML.$eval();
+                content = this.else.innerHTML.evalJsExpression();
                 this.result = true;
             }
         }
@@ -925,7 +966,7 @@ If.prototype.load = function() {
         this.if.insertAdjacentHTML('beforeBegin', content);
     }
     else {
-        if (this.eval(test.$p(this.if))) {
+        if (this.eval(test, this.if)) {
             this.result = true;
         }
         else {
@@ -951,103 +992,90 @@ If.prototype.load = function() {
     Model.initializeForOrIf('IF');
 }
 
-// 扩展的 Span 标签，带 data 属性
-Span = function(span) {
-    //this.name = span.getAttribute('name') || span.getAttribute('id') || '';
-    this.data = span.getAttribute('data');
-    this.content = span.innerHTML;
-    this.element = span;
+//在替换完占位符之后执行js表达式
+String.prototype.evalJsExpression = function() {
 
-    this.loaded = false;
-    this.onload = span.getAttribute('onload');
-    this.onrelad = span.getAttribute('onreload');
+    let data = this.toString();
 
-    Event.interact(this, span); //reload-on    
+    let hasForHolders = function (expression) {
+        // @hello, @[hello]
+        return /@[a-z_][a-z0-9_]*/i.test(expression) || /@\[[^\[\]]+?\]/i.test(expression);
+    }
+
+    //~{{complex expression}}
+    //must return a value 
+    let complex = data.match(/\~\{\{([\s\S]+?)\}\}/g);
+    if (complex != null) {
+        complex.forEach(holder => {
+            if (!hasForHolders(holder)) {
+                let exp = holder.substring(3);
+                exp = exp.substring(0, exp.length - 2);
+                data = data.replace(holder, eval('_ = function() { ' + exp.decode() + ' }();'));
+            }
+        });
+    }
+
+    //~{simple expression}
+    let simple = data.match(/\~\{([\s\S]+?)\}/g);
+    if (simple != null) {
+        simple.forEach(holder => {
+            if (!hasForHolders(holder)) {
+                let exp = holder.substring(2);
+                exp = exp.substring(0, exp.length - 1);
+                data = data.replace(holder, eval('_ = function() { return ' + exp.decode() + '; }();'));
+            }
+        });
+    }
+
+    return data.replace(/~u0040/g, '@');
 }
 
-Span.prototype.$represent = function(data) {
 
-    let content = this.content;
 
-    //占位符规则与 TEMPLATE 相同
-    //@: 表示整个数据
-    //@:/ 表示根数据
-    //@:key!
-    //@:[0].key
-    //@:key?(default)
-    //@:key[0].name!
-
-    [
-        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
-        /@:\//g
-    ].map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];        
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
-    .forEach(holder => {
-        let d = null; //defaultValue
-        let p = holder; //path
-        if (p.includes('?(')) {
-            d = p.takeAfter('?(').replace(/\)$/, '');
-            p = p.takeBefore('?(');
-        }
-
-        p = p.replace(/^\@|\!$/g, '')
-                .replace(/\[/g, '.')
-                .replace(/\]/g, '')
-                .replace(/\/$/, '')
-                .replace(/^:/, '.');
-                
-        let v = data;
-        if (p != '.') {
-            let ps = p.split('.');        
-            for (let i = 1; i < ps.length; i++) {
-                if (v != null) {
-                    v = v[ps[i]];
-                }            
-                else {
-                    break;
-                }
-            }
-        }
-
-        if (v == null) {
-            if (d != null) {
-                v = d;
-            }
-        }
-
-        if (v != null) {
-            if (typeof(v) != 'string') {
-                v = Json.toString(v);
-            }
-            content = content.$replace(holder, v.replace(/"/g, '&quot;'));            
-        }
+$enhance(HTMLSpanElement.prototype)
+    .declare({
+        data: '',
+        onload: '',
+        onreload: ''
     });
 
-    return content.$eval();
-}
+HTMLSpanElement.prototype.loaded = false;
+HTMLSpanElement.prototype.content = null;
 
-Span.prototype.load = function() {
+HTMLSpanElement.prototype.load = function() {
     let span = this;  
-    $cogo(this.data, this.element)
+    $cogo(this.data, this)
         .then(data => {            
-            span.element.innerHTML = this.$represent(data);            
+            span.innerHTML = this.content.placeModelData().placeData(data).$p(this);
             span.loaded = true;
             Event.fire(span, 'onload', data);
         });
 }
 
-Span.prototype.reload = function() {
+
+HTMLSpanElement.prototype.reload = function() {
     let span = this;  
-    $cogo(this.data, this.element)
+    $cogo(this.data, this)
         .then(data => {
-            span.element.innerHTML = this.$represent(data);
+            span.innerHTML = this.content.placeModelData().placeData(data).$p(this);
             Event.fire(span, 'onreload', data);
         });
+}
+
+HTMLSpanElement.prototype.initialize = function() {
+
+    if (this.data != '') {
+        this.content = this.innerHTML;
+        this.load();
+    }
+    else if (this.innerHTML.includes('@')) {
+        this.innerHTML = this.innerHTML.placeModelData().$p(this);
+    }
+    else {
+        this.innerHTML = this.innerHTML.$p(this);
+    }
+
+    Event.interact(this, this);
 }
 
 //new Template(element)
@@ -1269,12 +1297,8 @@ Template.prototype.$represent = function(data) {
         /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
         /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
         /@:\//g
-    ].map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];        
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
+    ]
+    .findAllMatchIn(content)
     .forEach(holder => {
         let d = null; //defaultValue
         let p = holder; //path
@@ -1312,140 +1336,143 @@ Template.prototype.$represent = function(data) {
             //array也是对象, 但基本数据类型数字、字符串、布尔不是对象
             if (v instanceof Array || v instanceof Object) {
                 this.vars[p] = v;
-                content = content.$replace(holder, '$template.' + this.name + p);
+                content = content.replaceAll(holder, '$template.' + this.name + p);
             }
             else {
-                content = content.$replace(holder, v.replace(/"/g, '&quot;'));
+                content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));
             }
         }
     });
 
-    return content.$eval();
+    return content.evalJsExpression();
 }
 
 Template.prototype.$eachOf = function(data) {
-    //for object and eachOf
-    let content = this.content;
 
+    let html = [];
     // @[name]
     // @[name/0/score]
     // @[0]?(default)    
+    let holders = [
+            /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+            /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*/ig,
+            /@\[[a-z0-9_\/\.]+\]\?\([^\(\)]*?\)/ig,
+            /@\[[a-z0-9_\/\.]+\]/ig
+        ].findAllMatchIn(this.content);
 
-    [
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*/ig,
-        /@\[[a-z0-9_\/\.]+\]\?\([^\(\)]*?\)/ig,
-        /@\[[a-z0-9_\/\.]+\]/ig
-    ]
-    .map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];        
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
-    .forEach(holder => {
-        let d = null; //defaultValue
-        let p = holder; //path
-        if (p.includes('?(')) {
-            d = p.takeAfter('?(').replace(/\)$/, '');
-            p = p.takeBefore('?(');
-        }
-
-        p = p.replace(/^\@/g, '')
-            .replace(/\[/g, '/')
-            .replace(/\]/g, '')
-            .replace(/\.$/, '')
-            .replace(/\./g, '/');
-
-        if (p.includes('/')) {
-
-        }
-
-        let n = p.includes('/') ? p.takeBefore('/') : p;
-        if (n != '') {
-            if (p.includes('/')) {
-                p = p.takeAfter('/');
-            }
-            else {
-                p = '';
-            }
-        }
-
-        if ((n != '' && n == this.var.item) || n == '') {
-            let v = p != '' ? Json.find(data, p) : data;
-            if (v == null) {
-                if (d != null) {
-                    v = d;
-                }
-            }
-            else {
-                v = Json.toString(v);
+    for (let item of data) {
+        let content = this.content;
+        holders.forEach(holder => {
+            let d = null; //defaultValue
+            let p = holder; //path
+            if (p.includes('?(')) {
+                d = p.takeAfter('?(').replace(/\)$/, '');
+                p = p.takeBefore('?(');
             }
     
-            if (v != null) {
-                content = content.$replace(holder, v.replace(/"/g, '&quot;'));
+            p = p.replace(/^\@/g, '')
+                .replace(/\[/g, '/')
+                .replace(/\]/g, '')
+                .replace(/\.$/, '')
+                .replace(/\./g, '/');
+    
+            if (p.includes('/')) {
+    
             }
-        }        
-    });
+    
+            let n = p.includes('/') ? p.takeBefore('/') : p;
+            if (n != '') {
+                if (p.includes('/')) {
+                    p = p.takeAfter('/');
+                }
+                else {
+                    p = '';
+                }
+            }
+    
+            if ((n != '' && n == this.var.item) || n == '') {
+                let v = p != '' ? Json.find(item, p) : item;
+                if (v == null) {
+                    if (d != null) {
+                        v = d;
+                    }
+                }
+                else {
+                    v = Json.toString(v);
+                }
+        
+                if (v != null) {
+                    content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));
+                }
+            }        
+        });
+    
+        html.push(content.evalJsExpression());
 
-    return content.$eval();
+        if (this.increment != '') {
+            this.offset = Math.max(this.offset, $parseInt(Json.find(item, this.increment), 0));
+            this.ownerElement.setAttribute('offset', this.offset);
+        }
+    }
+   
+    return html.join('');
 }
 
 //each in
-Template.prototype.$eachIn = function(key, value) {
+Template.prototype.$eachIn = function(data) {
 
-    
-    let content = this.content;
-
-    // @key!
+    let html = [];
+        // @key!
     // @value[0]
     // @value.name
+    let holders = [
+                    /@[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\(.*?\)/ig,
+                    /@[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
+                    /@[a-z_][a-z0-9_]*\!?/ig,
+                ].findAllMatchIn(this.content);
 
-    [
-        /@[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\(.*?\)/ig,
-        /@[a-z_][a-z0-9_]*(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
-        /@[a-z_][a-z0-9_]*\!?/ig,
-    ].map(place => {
-        let hs = content.match(place);
-        return hs != null ? hs : [];        
-    })
-    .reduce((r1, r2) => r1.concat(r2))
-    .distinct()
-    .forEach(holder => {
-        let d = null; //defaultValue
-        let p = holder; //path
-        if (p.includes('?(')) {
-            d = p.takeAfter('?(').replace(/\)$/, '');
-            p = p.takeBefore('?(');
-        }
+    for (let key in data) {
+        let value = data[key];
+        let content = this.content;
 
-        p = p.replace(/^\@/g, '')
-            .replace(/\[/g, '/')
-            .replace(/\]/g, '')
-            .replace(/\.$/, '')
-            .replace(/\./g, '/');
-
-        let n = p.includes('/') ? p.takeBefore('/') : p;
-
-        if (n.toLowerCase() == this.var.key) {
-            content = content.$replace(holder, key);
-        }
-        else if (n.toLowerCase() == this.var.value) {
-            let v = (p == '' ? value : Json.find(value, p));
-            if (v == null) {
-                if (d != null) {
-                    v = d;
-                }
+        holders.forEach(holder => {
+            let d = null; //defaultValue
+            let p = holder; //path
+            if (p.includes('?(')) {
+                d = p.takeAfter('?(').replace(/\)$/, '');
+                p = p.takeBefore('?(');
             }
-            else {
-                v = Json.toString(v);
-            }
-            //null值也展示
-            content = content.$replace(holder, v.replace(/"/g, '&quot;'));
-        }
-    });
     
-    return content.$eval();
+            p = p.replace(/^\@/g, '')
+                .replace(/\[/g, '/')
+                .replace(/\]/g, '')
+                .replace(/\.$/, '')
+                .replace(/\./g, '/');
+    
+            let n = p.includes('/') ? p.takeBefore('/') : p;
+    
+            if (n.toLowerCase() == this.var.key) {
+                content = content.replaceAll(holder, key);
+            }
+            else if (n.toLowerCase() == this.var.value) {
+                let v = (p == '' ? value : Json.find(value, p));
+                if (v == null) {
+                    if (d != null) {
+                        v = d;
+                    }
+                }
+                else {
+                    v = Json.toString(v);
+                }
+                //null值也展示
+                content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));
+            }
+        });
+        
+        html.push(content.evalJsExpression());
+    }
+
+    return html.join('');
 }
 
 Template.prototype.setData = function(data) {
@@ -1530,6 +1557,10 @@ Template.prototype.reload = function() {
 }
 
 Template.prototype.load = function(func) {
+    //检查是否包含 model 的数据
+    if (this.data.includes('@')) {
+        this.data = this.data.placeModelData();
+    }
 
     if (!this.loading) {
         this.loading = true;
@@ -1543,13 +1574,7 @@ Template.prototype.load = function(func) {
             //显示内容
             if (this.$as == 'array') {
                 if (data instanceof Array) {
-                    for (let item of data) {
-                        this.container.insertAdjacentHTML(this.position, this.$eachOf(item));
-                        if (this.increment != '') {
-                            this.offset = Math.max(this.offset, $parseInt(Json.find(item, this.increment), 0));
-                            this.ownerElement.setAttribute('offset', this.offset);
-                        }
-                    }
+                    this.container.insertAdjacentHTML(this.position, this.$eachOf(data));
 
                     if (this.lazyLoad) {
                         if (data.length == 0) {
@@ -1562,10 +1587,8 @@ Template.prototype.load = function(func) {
                     this.page++;
                     this.ownerElement.setAttribute('page', this.page);
                 }
-                else if (typeof(data) == 'object') {
-                    for (let key in data) {
-                        this.container.insertAdjacentHTML(this.position, this.$eachIn(key, data[key]));
-                    }
+                else if (typeof(data) == 'object') {                    
+                    this.container.insertAdjacentHTML(this.position, this.$eachIn(data));
                 }
                 else {
                     console.warn('no data to list or wrong type: ' + this.data);
@@ -1619,9 +1642,10 @@ Template.reloadComponents = function(container) {
         { class: 'Select', method: 'initializeAll' },
         { class: '$root', method: 'initialize' }
     ].forEach(component => {
-        if (window[component.class] != null && window[component.class][component.method] != null) {
-            window[component.class][component.method](container);
-        }
+        // if (window[component.class] != null && window[component.class][component.method] != null) {
+        //     window[component.class][component.method](container);
+        // }
+        window?.[component.class]?.[component.method]?.(container);
     });
 }
 

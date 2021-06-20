@@ -30,7 +30,7 @@ class Editor {
                     }
                     return imagesBaseUrl;
                 },
-                type: 'text|textarea|linktext|integer|decimal|percent|select|checkbutton|star|starbutton',
+                type: 'text|textarea|linktext|integer|decimal|percent|selectstar|starbutton',
                 /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
                 action: '',
 
@@ -81,14 +81,7 @@ class Editor {
                             }
                             else {
                                 return options;
-                            }
-                        case 'checkbutton':
-                            if (typeof(options) == 'string') {
-                                return Json.eval(options);
-                            }
-                            else {
-                                return options;
-                            }
+                            }                        
                         case 'starbutton':
                             if (typeof(options) == 'string') {
                                 return Json.eval(options);
@@ -1168,113 +1161,6 @@ Editor['select'] = function (editor, element) {
             }
         }
     });
-}
-
-Editor['checkbutton'] = function(editor, element) {
-
-    if (element.querySelectorAll('button[sign=checkbutton]').length == 0) {
-        element.setAttribute('value', element.textContent.trim());
-        element.innerHTML = '';
-        for (let option of editor.options) {
-
-            let button = $create('BUTTON',
-                { innerHTML: option.text },
-                { },
-                {
-                    value: option.value,
-                    enabledClass: option.enabledClass || 'new',
-                    disabledClass: option.disabledClass || 'old',
-                    enabled: element.getAttribute('value').$includes(option.value) ? 'yes' : 'no',
-                    sign: 'checkbutton'
-                });
-
-            button.onmousedown = function (ev) {
-                if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-                    editor.editing = true;
-                    editor.element = element;
-                }
-            }
-
-            button.onmouseup = function (ev) {
-
-                $x(button).swap('[enabledClass]', '[disabledClass]').switch('enabled', 'yes', 'no');
-
-                let after = $x(element).select('button[enabled=yes]').objects.map(e => e.getAttribute('value')).join(',');
-
-                if (editor.editable && editor.editing && editor.execute('onupdate', after)) {
-                    $x(element).children().disable();
-                    if (editor.action != '') {
-                        $cogo(editor.action.concatValue(after), element, after)
-                            .then(data => {
-                                if (editor.execute('onfinish', data, after)) {
-                                    element.setAttribute('value', after);
-
-                                    editor.execute('oncomplete', after);
-                                }
-                                else {
-                                    $x(button).swap('[enabledClass]', '[disabledClass]').switch('enabled', 'yes', 'no');
-                                }
-                            })
-                            .catch(error => {
-                                Callout(error).position(this).show();
-                                editor.execute('onerror', error);
-                            })
-                            .finally(() => {
-                                editor.updating = false;
-                                $x(element).children().enable();
-                                editor.editing = false;
-                                editor.element = null;
-                            });                       
-
-                        editor.updating = true;
-                    }
-                    else {
-                        $x(element).attr('value', after).children().enable();
-
-                        editor.execute('oncomplete', after);
-
-                        editor.editing = false;
-                        editor.element = null;
-                    }
-                }
-                else {
-                    $x(button).swap('[enabledClass]', '[disabledClass]').switch('enabled', 'yes', 'no');
-                    editor.editing = false;
-                    editor.element = null;
-                }
-            }
-
-            element.appendChild(button);
-        }
-
-        //initialize button css
-        for (let i = 0; i < element.children.length; i++) {
-            let enabledClass = element.children[i].getAttribute('enabledClass');
-            let disabledClass = element.children[i].getAttribute('disabledClass');
-            if (element.getAttribute('value').$includes(element.children[i].getAttribute('value'))) {
-                if (i == 0) {
-                    element.children[i].className = 'button-left ' + enabledClass;
-                }
-                else if (i == element.children.length - 1) {
-                    element.children[i].className = 'button-right ' + enabledClass;
-                }
-                else {
-                    element.children[i].className = 'button-center ' + enabledClass;
-                }
-            }
-            else {
-                if (i == 0) {
-                    element.children[i].className = 'button-left ' + disabledClass;
-                }
-                else if (i == element.children.length - 1) {
-                    element.children[i].className = 'button-right ' + disabledClass;
-                }
-                else {
-                    element.children[i].className = 'button-center ' + disabledClass;
-                }
-            }
-        }
-    }
 }
 
 Editor['linktext'] = function (editor, element) {
