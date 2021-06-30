@@ -542,11 +542,11 @@ Model.initializeForOrIf = function(tagName) {
                     Model.output(o);                    
                 }
 
-                for (let span of $a('span[data]')) {
+                for (let span of $a('span[data],span[editable]')) {
                     if (span.getAttribute('root') == null) {
                         span.setAttribute('root', 'SPAN');
                         Model.boostPropertyValue(span);
-                        if (span.getAttribute('data') != null) {
+                        if (span.getAttribute('data') != null || span.getAttribute('editable') != null) {
                             span.initialize();
                         }
                     }
@@ -1041,6 +1041,7 @@ $enhance(HTMLSpanElement.prototype)
 
 HTMLSpanElement.prototype.loaded = false;
 HTMLSpanElement.prototype.content = null;
+HTMLSpanElement.prototype.input = null;
 
 HTMLSpanElement.prototype.load = function() {
     let span = this;  
@@ -1645,7 +1646,7 @@ Template.reloadComponents = function(container) {
         // if (window[component.class] != null && window[component.class][component.method] != null) {
         //     window[component.class][component.method](container);
         // }
-        window?.[component.class]?.[component.method]?.(container);
+        window[component.class]?.[component.method]?.(container);
     });
 }
 

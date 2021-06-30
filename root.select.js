@@ -878,7 +878,7 @@ Select['original'] = {
 Select['button'] = {
     container: 'SPAN',
     optionClass: 'optional-button', 
-    selectedOptionClass: 'green-button',
+    selectedOptionClass: 'blue-button',
     disabledOptionClass: 'disabled',
     setText: function(text) {
         this.container.innerHTML = text;

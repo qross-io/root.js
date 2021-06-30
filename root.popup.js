@@ -214,7 +214,7 @@ Popup.prototype.locate = function(ev) {
 	/// <param name="ev" type="EventArgs"></param>
     
     //自动调整边栏的宽高
-    if (this.display == 'SIDEBAR') {
+    if (this.display == 'sidebar') {
         if (this.position.x == 'center') {
             //上中下边栏全宽
             let width = window.innerWidth;
@@ -258,7 +258,7 @@ Popup.prototype.locate = function(ev) {
 }
 
 Popup.prototype.$getOpeningAnimation = function(ev) {
-    if (this.display == 'SIDEBAR') {
+    if (this.display == 'sidebar') {
         //sidebar的自定义动画无效
         if (this.position.x == 'center') {
             if (this.position.y == 'top') {
@@ -293,7 +293,7 @@ Popup.prototype.$getOpeningAnimation = function(ev) {
 }
 
 Popup.prototype.$getClosingAnimation = function(ev) {
-    if (this.display == 'SIDEBAR') {
+    if (this.display == 'sidebar') {
         //sidebar的自定义动画无效
         if (this.position.x == 'center') {
             if (this.position.y == 'top') {
@@ -464,7 +464,7 @@ Popup.prototype.getPositionX = function (x, ev) {
         return x;
     }
     else if (typeof (x) == 'string') {
-        if (this.display != 'MENU') {
+        if (this.display != 'menu') {
             switch(x) {
                 case 'event':
                     x = this.getEventX(ev);
@@ -509,7 +509,7 @@ Popup.prototype.getPositionY = function (y, ev) {
         return y;
     }
     else if (typeof (y) == 'string') {
-        if (this.display != 'MENU') {
+        if (this.display != 'menu') {
             switch(y) {
                 case 'event':
                     y = this.getEventY(ev);
@@ -651,10 +651,10 @@ PopupMask.resize = function() {
         .style('height', sy - 1 + 'px');
 }
 
-$root.alert = function(message, confirmButtonText = 'OK', title = 'Message') {
+$root.alert = function(message, confirmButtonText = 'OK', title = 'Message', ev = null) {
     if ($s('#AlertPopup') == null) {
         let div = $create('DIV', { 'id': 'AlertPopup', className: 'popup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
+        div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
         div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="AlertPopupTitle"></span>' }));
         div.appendChild($create('DIV', { id: 'AlertContent', className: 'popup-title' }, { textAlign: 'center', color: 'var(--primary)' }));
         div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="AlertPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText + '">' }));
@@ -666,19 +666,19 @@ $root.alert = function(message, confirmButtonText = 'OK', title = 'Message') {
     $x('#AlertContent').html(message == null ? 'null' : message);
     $x('#AlertPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
     $x('#AlertPopupTitle').html(title);
-    $popup('AlertPopup').clearEvents().open();
+    $popup('AlertPopup').clearEvents().open(ev);
 }
 
 $root.confirm = function(message, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Confirm', ev = null) {
     if ($s('#ConfirmPopup') == null) {
         let div = $create('DIV', { 'id': 'ConfirmPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-quxiao"></i>' }));
+        div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
         div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="ConfirmPopupTitle"></span>' }));
-        div.appendChild($create('DIV', { id: 'ConfirmContent', className: 'popup-title error' }, { textAlign: 'center' }));
+        div.appendChild($create('DIV', { id: 'ConfirmContent', className: 'popup-title' }, { textAlign: 'center' }));
         div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="ConfirmPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText +'"> &nbsp; &nbsp; <input id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button" value="' + cancelButtonText + '">' }));
         document.body.appendChild(div);
 
-        let w= Math.max($x('#ConfirmPopup_ConfirmButton').width(), $x('#ConfirmPopup_CancelButton').width());
+        let w = Math.max($x('#ConfirmPopup_ConfirmButton').width(), $x('#ConfirmPopup_CancelButton').width());
         $x('#ConfirmPopup_ConfirmButton').width(w);
         $x('#ConfirmPopup_CancelButton').width(w);
 
@@ -692,8 +692,52 @@ $root.confirm = function(message, confirmButtonText = 'OK', cancelButtonText = '
     return $popup('ConfirmPopup').clearEvents().open(ev);
 }
 
-$root.prompt = function(message, confirmText = 'OK', concelText = 'Cancel') {
-    //return this.propmpText;
+$root.prompt = function(message, inputType = 'text', inputOptions = null, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Prompt', ev = null) {
+    if ($s('#PromptPopup') == null) {
+        let div = $create('DIV', { 'id': 'PromptPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
+        div.appendChild($create('DIV', { id: 'PromptPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
+        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="PromptPopupTitle"></span>' }));
+        div.appendChild($create('DIV', { id: 'PromptContent', className: 'popup-title' }));
+        div.appendChild($create('DIV', { id: 'PromptInput', className: 'popup-content' }));
+        div.appendChild($create('DIV', { id: 'PromptMessaage', className: 'popup-content', innerHTML: '<span id="PromptMessage" class="error"></span>' }));
+        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="PromptPopup_ConfirmButton" watch="#PromptTextBox" class="normal-button prime-button">' + confirmButtonText +'</button> &nbsp; &nbsp; <input id="PromptPopup_CancelButton" type="button" class="normal-button gray-button" value="' + cancelButtonText + '">' }));
+        document.body.appendChild(div);
+
+        let w = Math.max($x('#PromptPopup_ConfirmButton').width(), $x('#PromptPopup_CancelButton').width());
+        $x('#PromptPopup_ConfirmButton').width(w);
+        $x('#PromptPopup_CancelButton').width(w);
+
+        Popup.apply($s('#PromptPopup'));
+    }
+
+    $x('#PromptContent').html(message == null ? 'null' : message);
+    $x('#PromptPopupTitle').html(title);
+    $x('#PromptPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
+    $x('#PromptPopup_CancelButton').value(' ' + cancelButtonText + ' ');
+
+    let input = $create('INPUT', { id: 'PromptTextBox', type: inputType, size: 50, hint: '#PromptMessage' });
+    if (inputOptions != null) {
+        for (let name in this.inputOptions) {
+            if (input[name] !== undefined) {
+                input[name] = inputOptions[name];
+            }
+            else {
+                input.setAttribute(name, inputOptions[name]);
+            }
+        }
+    }
+    input.initializeInputable?.();
+    $x('#PromptInput').html('').append(input);
+
+    return $popup('PromptPopup').clearEvents().open(ev);
+}
+
+$root.prompt.getInputValue = function() {
+    return $s('#PromptTextBox').value;
+}
+
+$root.prompt.setInputValue = function(value) {
+    $s('#PromptTextBox').value = value;
 }
 
 Popup.apply = function (element) {

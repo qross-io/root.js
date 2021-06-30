@@ -1454,6 +1454,11 @@ $cogo = function(todo, element, data) {
                             reject(statusText);
                         })
                         .success(result => {
+
+                            if (window['$configuration'] != null && $configuration.debug) {
+                                console.log(result);
+                            }
+
                             if (setting == null) {
                                 resolve(result);
                             }
@@ -2924,7 +2929,7 @@ Event.execute = function (tag, eventName, ...args) {
         return final;
     }
     else {
-        console.warn('Event carrier does not exists.');
+        console.error('Event carrier does not exists.');
         return false;
     }
 }
@@ -3085,6 +3090,7 @@ Event.interact = function(obj, element) {
                 method = method.takeBefore('-');                
             }
             Event.watch(obj, method, element.getAttribute(name), attr);
+            element.removeAttribute(name); //防止重复监听
         }
     });
 
@@ -3340,7 +3346,8 @@ $Settings.prototype.declare = function(variables) {
     }
     
     this.object.constructor.prototype.execute = function (eventName, ...args) {
-        return Event.execute(this.name, eventName, ...args);
+        //return Event.execute(this.name, eventName, ...args);
+        return Event.execute(this, eventName, ...args);
     }
     
     if (this.object['name'] != null && this.object['name'] != '') {
@@ -3764,6 +3771,7 @@ $finish(function() {
 });
 
 $post(function() {
+
     //watch and interact
     for (let [selector, watches] of Event.x) {
         if (selector.startsWith('#')) {

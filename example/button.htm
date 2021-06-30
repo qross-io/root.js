@@ -6,36 +6,54 @@
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.button.js"></script>
+    <script type="text/javascript" src="/root.input.js"></script>
+    <script type="text/javascript" src="/root.popup.js"></script>
+    <script type="text/javascript" src="/root.editor.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/iconfont.css" rel="stylesheet" type="text/css" />
+    <style type="text/css">
+    .input-f18 { font-size: 18px; }
+    .input-f24 { font-size: 24px; }
+    </style>
 </head>
 <body>
 
-<h1>HELLO WORLD</h1>
+<input type="number" maxlength="3" max="199" />
+
+<span editable show-buttons="yes" edit-on="click" underline="dashed">HELLO WORLD</span>
 
 <form>
     <input id="I" type="text" required-text="" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
     <button id="B" type="switch" onclick="return false;" callout="right" value="no" invalid-text="禁止点击。" onclick-disabled="alert(this.value)" onclick-enabled="alert(this.text)">ABC</button>
+    <button id="P">Prompt</button>
 </form>
  <script type="text/javascript">
+$s('#P').onclick = function() {
 
+    $root.prompt('HELLO WORLD');
+    let a = window.prompt('Please input something.');
+    console.log(a);
+    return false;
+}
+    //input.initializeInputable();
 
-    let getter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get; //HTMLInputElement.prototype.__lookupGetter__('value');
-    let setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; //HTMLInputElement.prototype.__lookupSetter__('value');
-    Object.defineProperties(HTMLInputElement.prototype, {
-        'value': {
-            get() {
-                return getter.call(this).toLowerCase();
-            },
-            set(value) {
-                setter.call(this, String(value).toUpperCase());
-            }
-        },
-        required: {
-            get() {
-                return false;
-            }
-        }
-    });
+    // let getter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').get; //HTMLInputElement.prototype.__lookupGetter__('value');
+    // let setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; //HTMLInputElement.prototype.__lookupSetter__('value');
+    // Object.defineProperties(HTMLInputElement.prototype, {
+    //     'value': {
+    //         get() {
+    //             return getter.call(this).toLowerCase();
+    //         },
+    //         set(value) {
+    //             setter.call(this, String(value).toUpperCase());
+    //         }
+    //     },
+    //     required: {
+    //         get() {
+    //             return false;
+    //         }
+    //     }
+    // });
     </script>
 </body>
 </html>

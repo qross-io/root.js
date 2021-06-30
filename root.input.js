@@ -11,6 +11,8 @@ $enhance(HTMLInputElement.prototype)
         invalidText: '', //当格式不正确时的提醒文字
         validText: '',
 
+        ifEmpty: '',
+
         successText: '',        
         failureText: '', 
         exceptionText: '',
@@ -391,6 +393,10 @@ HTMLInputElement.prototype.initializeInputable = function() {
             if (value != this.value) {
                 this.value = value;
             }
+        }
+
+        if (this.ifEmpty != '' &&this.value == '') {
+            this.value = this.ifEmpty;
         }
 
         if (this.$required) {

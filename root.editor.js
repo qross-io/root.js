@@ -5,52 +5,56 @@
 // Realtime text editing on page. 
 
 
+HTMLElement.prototype.editor = null;
+HTMLElement.prototype.edit = function(ev) {
+    if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6'.$includes(this.nodeName)) {
+        if (this.editor.editable && !this.editor.editing && this.editor.execute('onedit', this.editor, ev)) {
+            this.editor.editing = true;
+            Editor[this.editor.typeName].edit(this.editor, this);
+        }
+    }
+}
+
 class Editor {
 
     constructor(elementOrSettings) {
 
+        this.controllerAttributes = new Object();
+
         $initialize(this)
             .with(elementOrSettings)
             .declare({
-                //显示TreeView的元素ID
-                name: 'Editor_' + document.components.size,
-                editable$: true,
-                imagesBaseUrl: function(imagesBaseUrl) {
-                    if (imagesBaseUrl == null) {
-                        imagesBaseUrl = '';
-                    }
-                    if (imagesBaseUrl == '') {
-                        if (this.tag != null && this.tag.nodeName == 'COL') {
-                            imagesBaseUrl = this.tag.parentNode.parentNode.getAttribute('imagesBaseUrl') || '';
-                        }
-                
-                        if (imagesBaseUrl == '') {
-                            imagesBaseUrl = $root.home + "images/";
-                        }
-                    }
-                    return imagesBaseUrl;
-                },
-                type: 'text|textarea|linktext|integer|decimal|percent|selectstar|starbutton',
-                /// 处理用户输入字符串的url地址(如 handle?id=1&text= 或 handle?id={0}&text=), 支持占位符{attr}(元素的属性名, 取到元素的属性值)、{n}(如果绑定元素是td, 数字序号代码同行中的单元格式序号, 可取到对应单元格内的元素)占位符
-                action: '',
 
-                allowEmpty: true,
-                validator: function(validator) {
-                    if (typeof (validator) == 'string' && validator != '') {
-                        return new RegExp(validator);
-                    }
-                    else {
-                        return '';
-                    }
-                },
+                editable$: true,
+                inputType: 'text|textarea|integer|decimal|percent|select', //linktext|star|starbutton
+                allowEmpty: false,
+
                 kilo: false,
                 placeHolder: '',
 
-                //switch - [yes,no]
+                showEditIcon: true,
+                editIcon: 'icon-edit',
+                showButtons: false, //button, link, icon, button-link,  button-icon
+                confirmButtonText: 'OK',
+                cancelButtonText: 'Cancel',
+                confirmButtonClass: 'small-compact-button blue-button',
+                cancelButtonClass: 'editor-link-button',
+
+                promptText: '',
+                promptTitle: '',            
+
+                onedit: null, //function(element, ev) { }; //开始编辑之前触发, 支持return
+                oncancel: null, //function(ev) { } 取消之前触发，支持return
+                onchange: null, //更新之前，支持 return false
+                'onchange+': null, //function(value) { };
+                'onchange+success': null,
+                'onchange+failure': null,
+                'onchange+exception': null,
+                'onchange+completion': null,
+
                 //select - { text: value, text: value, text: value }  | #select
-                //starbutton - [ {text: 'enabled', value: 'yes', enabledClass: 'new1', disabledClass: 'old' }, { text: 'enabled', value: 'yes', class: 'new2' }, ... ]
                 options: function(options) {
-                    switch(this.type) {
+                    switch(this.editorType) {
                         case 'select':
                             if (typeof(options) == 'string') {
                                 if (options.includes('&')) {
@@ -62,9 +66,6 @@ class Editor {
                                 else if (options.startsWith('#')) {
                                     let select = $s(options);
                                     if (select != null && select.nodeName == 'SELECT') {
-                                        if (select.element != null) {
-                                            select = select.element;
-                                        }
                                         options = new Object();
                                         for (let i = 0; i < select.options.length; i++) {
                                             options[select.options[i].text] = select.options[i].value;
@@ -82,58 +83,26 @@ class Editor {
                             else {
                                 return options;
                             }                        
-                        case 'starbutton':
-                            if (typeof(options) == 'string') {
-                                return Json.eval(options);
-                            }
-                            else {
-                                return options;
-                            }
                         default:
                             return null;
                     }                
-                },
-
-                maxValue: function(maxValue) {
-                    return maxValue == null ? '' : $parseInt(maxValue, 0);
-                },
-                minValue: function(minValue) {
-                    if (minValue == null) {
-                        return this.allowEmpty ? '' : 0;
-                    }
-                    else {
-                        return $parseInt(minValue, 0);
-                    }
-                },
-                maxLength: function(maxLength) {
-                    maxLength = $parseInt(maxLength, 0);
-                    if (this.maxValue != '' && maxLength == 0) {
-                        maxLength = this.maxValue.toString().length;
-                    }
-                    return maxLength;
-                },
-                minLength: function(minLength) {
-                    minLength = $parseInt(minLength, this.allowEmpty ? 0 : 1);
-                    if (this.minValue != '' && this.minLength == 0) {
-                        minLength = this.minValue.toString().length;
-                    }
-                    return minLength;
-                },
-                //switch only
-                theme: function(theme) {
-                    return theme == null ? 'switch' : theme.toLowerCase();
-                },
-                
-                editOn: 'dblclick',
-                selector: '',
-
-                inputClass: '', //文本框样式
-                selectClass: '' //选择框样式
+                }
             })
             .elementify(element => {
-                element.setAttribute('root', 'EDITOR');
-                this.tag = element;
-            });
+                this.element = element;
+                element.getAttributeNames().forEach(attr => {
+                    if (/^(input|select|textarea)-/i.test(attr)) {
+                        attr = attr.substring(5);
+                        if (attr.startsWith('-')) {
+                            attr = attr.substring(1);
+                        }
+                        if (attr == 'class') {
+                            attr = 'className';
+                        }
+                        this.controllerAttributes[attr.toCamel()] = element.getAttribute('attr');
+                    }
+                })
+            });        
     }
 
     get editable () {
@@ -144,18 +113,26 @@ class Editor {
         this.editable$ = editable;
     }
 
-    get value() {
-        return this.tag.textContent;
+    get editing () {
+        return this.$editing;
     }
-}
 
-$editor = function(name) {
-    let editor = $t(name);
-    if (editor != null && editor.tagName == 'EDITOR') {
-        return editor;
+    set editing (editing) {
+        if (this.showEditIcon) {
+            this.element.nextElementSibling.hidden = editing;
+        }
+        if (!editing) {
+            this.controller = null;
+        }
+        this.$editing = editing;
     }
-    else {
-        return null;
+
+    get typeName() {
+        return this.inputType.toUpperCase();
+    }
+
+    get value() {
+        return this.controller?.value || this.element.textContent;
     }
 }
 
@@ -169,76 +146,46 @@ String.prototype.concatValue = function(value) {
     }
 }
 
-//保存配置的元素
-Editor.prototype.tag = null;
-//正在编辑的元素
+//保存配置的元素, 可编辑的元素
 Editor.prototype.element = null;
-//所有可以编辑的元素
-Editor.prototype.elements = null;
-//已绑定的可编辑元素
-Editor.prototype.bindings = new Set();
-
-/// <value type="String|Function">开始编辑之前触发, 支持return</value>
-Editor.prototype.onedit = function(element, ev) { };
-/// <value type="String|Function">取消之前触发，支持return</value>
-Editor.prototype.oncancel = function(ev) { };
-/// <value type="String|Function">当值为空时触发, 不支持return</value>
-Editor.prototype.onempty = function(ev) { };
-/// <value type="String|Function">验证失败时触发, 不支持return</value>
-Editor.prototype.onfail = function(value) { };
-/// <value type="String|Function">更新之前触发, 支持return</value>
-Editor.prototype.onupdate = function(value) { };
-/// <value type="String|Function">更新时发生错误触发, 不支持return</value>
-Editor.prototype.onerror = function(error) { };
-/// <value type="String|Function">更新完成之后触发, 支持return</value>
-Editor.prototype.onfinish = function(result, value) { };
-/// <value type="String|Function">所有工作完成之后触发</value>
-Editor.prototype.oncomplete = function(value) { };
-
+Editor.prototype.controller = null;
 /// <value type="Boolean">是否正在编辑</value>
-Editor.prototype.editing = false;
+Editor.prototype.$editing = false;
 /// <value type="Boolean">是否正在更新</value>
 Editor.prototype.updating = false;
 
-Editor.prototype.apply = function(...elements) {
-
-    if (elements != null && elements.length > 0) {
-        this.elements = elements.length == 1 ? elements[0] : elements;
-    }
-
-    this.bindings.clear(); //每次apply都重新获取可编辑元素
-    if (typeof (this.elements) == 'string') {
-        $a(this.elements).forEach(element => this.bindings.add(element));
-    }
-    else  if (this.elements instanceof Array) {
-        this.elements.forEach(element => {
-            if (typeof(element) == 'string') {
-                this.bindings.add($s(element));
-            }
-            else {
-                this.bindings.add(element);
-            }
-        });
+Editor.prototype.getAttribute = function(name) {
+    if (name.startsWith('input-') || name.startsWith('select-') || name.startsWith('textarea-')) {
+        return this.controllerAttributes[this.name.takeAfter('-').toCamel()];
     }
     else {
-        this.bindings.add(this.elements);
+        return this[name];
+    }    
+}
+
+Editor.prototype.initialize = function() {
+
+    if (this.element.textContent == '') {
+        this.setPlaceHolder(this.element);
     }
 
-    if (this.bindings.length == 0) {
-        console.warn('no element to apply editor, please check "elements" property.');
+    if (this.showEditIcon) {
+        if (/\.(jpg|jpeg|png|gif)$/i.test(this.editIcon)) {
+            this.element.insertAdjacentHTML('afterEnd', `<img src="${this.editIcon}" align="absmiddle" class="editor-icon-edit" style="margin-left: 5px;" />`);
+        }
+        else {
+            this.element.insertAdjacentHTML('afterEnd', `<i class="iconfont ${this.editIcon} editor-icon-edit" style="margin-left: 5px;"></i>`);
+        }
+
+        $x(this.element.nextElementSibling).on('click', function(ev) {            
+            this.previousElementSibling.edit(ev);
+        });
+    }
+    else if (this.element.getAttribute('edit-on') == null) {
+        this.element.setAttribute('edit-on', 'click');
     }
 
-    this.bindings.forEach(binding => {
-        if (this.selector != '') {
-            binding = binding.querySelector(this.selector);
-        }
-        if (binding != null && binding.getAttribute('editor-bound') == null) {
-            Editor[this.type](this, binding);
-            binding.setAttribute('editor-bound', 'yes');
-        }
-    }); 
-
-    this.events = new Map();
+    Event.interact(this.element, this.element);
 }
 
 Editor.prototype.setPlaceHolder = function(element) {
@@ -257,142 +204,185 @@ Editor.prototype.setPlaceHolder = function(element) {
     }
 }
 
-Editor['text'] = function (editor, element) {
-    //trim
-    element.innerHTML = element.textContent.trim();
-    if (element.innerHTML == '') { 
-        editor.setPlaceHolder(element);
+Editor.prototype.initializeControllerAttributes = function(controller) {
+    for (let name in this.controllerAttributes) {
+        if (controller[name] !== undefined) {
+            controller[name] = this.controllerAttributes[name];
+        }
+        else {
+            controller.setAttribute(name, this.controllerAttributes[name]);
+        }
     }
+}
 
-    //bind event
-    $x(element).bind(editor.editOn, function (ev) {
-        //edit
-        if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
+Editor.prototype.appendButtons = function(element) {
+    let confirmButton = $create('BUTTON', { innerHTML: this.confirmButtonText, className: this.confirmButtonClass }, { marginLeft: '5px' });
+    confirmButton.onclick = function(ev) {
+        element.editor.update();
+        ev.stopPropagation();
+    }
+    element.appendChild(confirmButton);
 
-            editor.editing = true;
-            editor.element = element;
-            
-            let before = element.querySelector('SPAN[sign=placeholder]') == null ? element.textContent : '';
-            let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass, autosize: true });
-            if (editor.maxLength > 0) {
-                textBox.maxLength = editor.maxLength;
+    let cancelButton = $create('A', { innerHTML: this.cancelButtonText, href: 'javascript:void(0)', className: this.cancelButtonClass }, { marginLeft: '8px' });
+    cancelButton.onclick = function(ev) {
+        element.editor.cancel();
+        ev.stopPropagation();
+    }
+    element.appendChild(cancelButton);
+}
+
+Editor.prototype.update = function(ev) {    
+    Editor[this.typeName].update(this, this.element);    
+}
+
+Editor.prototype.cancel = function(ev) {    
+    Editor[this.typeName].cancel(this, this.element);
+}
+
+Editor.TEXT = {
+
+    editInPrompt: function(editor, element) {
+        if (editor.promptText != '') {
+            if ($root.prompt != null) {
+                $root.prompt()
+                    .on('open', function() {
+                        
+                    })
+                    .on('confirm', function() {
+
+                    })
+                    .on('cancel', function() {
+
+                    })
+                    .on('close', function() {
+
+                    })
             }
-
-            //添加事件不支持return，只能直接指定
-            textBox.onkeydown = function (ev) {
-                // Enter
-                if (ev.keyCode == 13) {
-                    this.blur();
-                    return false;
+            else {
+                let after = window.prompt(editor.promptText);
+                if (after != null) {
+                    editor.update(element.textContent, after);
                 }
-                // ESC
-                else if (ev.keyCode == 27) {
-                    this.value = this.defaultValue;
-                    this.blur();
-                    return false;
-                }
+                else {
+                    editor.cancel();
+                }                
             }
+        }
+    },
 
+    edit: function (editor, element) {
+         
+        let before = element.querySelector('SPAN[sign=placeholder]') == null ? element.textContent : '';
+        let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, autosize: true });
+        editor.initializeControllerAttributes(textBox);
+        textBox.initializeInputable?.();
+        editor.controller = textBox;
+
+        //绑定事件不支持 return，只能直接指定
+        textBox.onkeydown = function (ev) {
+            // Enter
+            if (ev.keyCode == 13) {
+                editor.update();
+                return false;
+            }
+            // ESC
+            else if (ev.keyCode == 27) {
+                editor.cancel();
+                return false;
+            }
+        }
+
+        if (!editor.showButtons) {
             textBox.onblur = function (ev) {
-                if (this.value != this.defaultValue) {
-                    let after = this.value;
-                    if (after == '') {
-                        editor.execute('onempty', ev);
-                        if (!editor.allowEmpty) {
-                            this.focus();
-                            return false;
-                        }                        
-                    }         
-                    if ((!editor.allowEmpty && after == '') || (after != '' && editor.validator != '' && !editor.validator.test(after)) || (editor.minLength > 0 && after.length < editor.minLength)) {
-                        editor.execute('onfail', after, ev);
-                        this.focus();
-                        return false;                        
-                    }
-                    
-                    if (editor.editing && editor.execute('onupdate', after, ev)) {
-                        //update
-                        if (editor.action != '') {
-                            this.disabled = true;
-                            
-                            $cogo(editor.action.concatValue(after), element, after)
-                                .then(data => {
-                                    //finish
-                                    if (editor.execute('onfinish', data, after, ev)) {
-                                        if (after == '') {
-                                            editor.setPlaceHolder(element);
-                                        }
-                                        else {
-                                            element.innerHTML = after;
-                                        }
-                                    }
-                                    else {
-                                        element.innerHTML = before;
-                                    }
-                                    editor.execute('oncomplete', after, ev);
-                                })
-                                .catch(error => {
-                                    Callout(error).position(this).show();
-                                    editor.execute('onerror', error);
-                                    textBox.disabled = false;
-                                    textBox.focus();
-                                })
-                                .finally(() => {
-                                    editor.updating = false;
-                                    editor.editing = false;
-                                    editor.element = null;
-                                });
+                editor.update();
+            }
+        }
 
-                            this.updating = true;
-                        }
-                        else {
-                            //needn't updating, but will update display text  
+        textBox.size = textBox.value.$length(3) + 2;
+        textBox.onkeyup = function (ev) {
+            this.size = this.value.$length(3) + 2;
+        }
+
+        element.innerHTML = '';
+        element.appendChild(textBox);
+
+        if (editor.showButtons) {
+            editor.appendButtons(element);
+        }
+
+        textBox.focus();
+    },
+
+    update: function(editor, element) {
+        if (editor.controller != null && editor.controller.value != editor.controller.defaultValue) {
+            
+            let after = editor.controller.value;
+            if (editor.editing && editor.execute('onchange', after)) {
+                //update
+                if (editor['onchange+'] != null) {
+                    editor.disabled = true;
+                    editor.updating = true;
+    
+                    $FIRE(editor, 'onchange+',
+                        function(data) {
                             if (after == '') {
                                 editor.setPlaceHolder(element);
                             }
                             else {
-                                element.innerHTML = '';
                                 element.innerHTML = after;
                             }
-
-                            editor.execute('oncomplete', after, ev);
-
+                        }, 
+                        function(data) {
+                            element.innerHTML = before;
+                        },
+                        function(error) {
+                            Callout(error).position('up', element).show();
+                            editor.controller.disabled = false;
+                            editor.controller.focus();
+                        },
+                        function() {
+                            editor.updating = false;
                             editor.editing = false;
-                            editor.element = null;
                         }
-                    }
-                    else {
-                        return false;
-                    }
+                    );
                 }
                 else {
-                    //cancel                    
-                    if (editor.editing && !editor.updating && editor.execute('oncancel', ev)) {
-                        if (this.defaultValue == '') {
-                            editor.setPlaceHolder(element);
-                        }
-                        else {
-                            element.innerHTML = this.defaultValue;
-                        }
-                        editor.editing = false;
-                        editor.element = null;
+                    //needn't updating, but will update display text  
+                    if (after == '') {
+                        editor.setPlaceHolder(element);
                     }
+                    else {
+                        element.innerHTML = after;
+                    }
+    
+                    editor.execute('onchange+completion', after);
+                    editor.editing = false;
                 }
             }
-
-            textBox.size = textBox.value.$length(3) + 2;
-            textBox.onkeyup = function (ev) {
-                this.size = this.value.$length(3) + 2;
+            else {
+                return false;
             }
-
-            element.innerHTML = '';
-            element.appendChild(textBox);
-
-            textBox.focus();
         }
-    });
+        else {
+            editor.cancel();
+        }
+    },
+
+    cancel: function(editor, element) {
+        //cancel                    
+        if (editor.editing && !editor.updating && editor.execute('oncancel')) {
+            if (editor?.controller.defaultValue == '') {
+                editor.setPlaceHolder(element);
+            }
+            else {
+                element.innerHTML = editor.controller.defaultValue;
+            }
+            editor.editing = false;
+        }
+    }
 }
 
-Editor['textarea'] = function (editor, element) {
+Editor.TEXTAREA = function (editor, element) {
 
     function textToHtml(text) {
         return text.replace(/\n/g, '<br>').replace(/\t/g, '&nbsp; &nbsp; ').replace(/  /g, '&nbsp; ')
@@ -411,7 +401,6 @@ Editor['textarea'] = function (editor, element) {
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
 
             editor.editing = true;
-            editor.element = element;
 
             let before = element.querySelector('SPAN[sign=placeholder]') == null ? element.innerHTML.replace(/&nbsp;/g, ' ')
                                                                                                     .replace(/<br>/g, '\r\n')
@@ -468,7 +457,7 @@ Editor['textarea'] = function (editor, element) {
                         return false;                        
                     }
                     
-                    if (editor.editing && editor.execute('onupdate', after)) {
+                    if (editor.editing && editor.execute('onchange', after)) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
@@ -476,7 +465,7 @@ Editor['textarea'] = function (editor, element) {
                             $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
                                     //finish
-                                    if (editor.execute('onfinish', data, after)) {
+                                    if (editor.execute('onchange+success', data, after)) {
                                         if (after == '') {
                                             editor.setPlaceHolder(element);
                                         }
@@ -484,7 +473,7 @@ Editor['textarea'] = function (editor, element) {
                                             element.innerHTML = textToHtml(after);
                                         }
 
-                                        editor.execute('oncomplete', after);
+                                        editor.execute('onchange+completion', after);
                                     }
                                     else {
                                         textArea.disabled = false;
@@ -493,14 +482,13 @@ Editor['textarea'] = function (editor, element) {
                                 })
                                 .catch(error => {
                                     Callout(error).position(this).show();
-                                    editor.execute('onerror', error);
+                                    editor.execute('onchange+failure', error);
                                     textArea.disabled = false;
                                     textArea.focus();
                                 })
                                 .finally(() => {
                                     editor.updating = false;
                                     editor.editing = false;
-                                    editor.element = null;
                                 });                            
 
                             this.updating = true;
@@ -514,10 +502,9 @@ Editor['textarea'] = function (editor, element) {
                                 element.innerHTML = textToHtml(after);
                             }
 
-                            editor.execute('oncomplete', after);
+                            editor.execute('onchange+completion', after);
 
                             editor.editing = false;
-                            editor.element = null;
                         }
                     }
                     else {
@@ -534,7 +521,6 @@ Editor['textarea'] = function (editor, element) {
                             element.innerHTML = textToHtml(this.defaultValue);
                         }
                         editor.editing = false;
-                        editor.element = null;
                     }
                 }
             }
@@ -571,7 +557,6 @@ Editor['integer'] = function (editor, element) {
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
 
             editor.editing = true;
-            editor.element = element;
 
             let before = element.querySelector('SPAN[sign=placeholder]') == null ?  element.textContent.toInt(editor.minValue) : '';
             let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
@@ -620,19 +605,19 @@ Editor['integer'] = function (editor, element) {
                     }
                     this.value = after;
 
-                    if (editor.editing && editor.execute('onupdate', after)) {
+                    if (editor.editing && editor.execute('onchange', after)) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
                             $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
-                                    if (editor.execute('onfinish', data, after)) {
+                                    if (editor.execute('onchange+success', data, after)) {
                                         element.innerHTML = (editor.kilo ? after.kilo() : after);
                                         if (element.innerHTML == '') { 
                                             editor.setPlaceHolder(element);
                                         }
 
-                                        editor.execute('oncomplete', after);
+                                        editor.execute('onchange+completion', after);
                                     }
                                     else {
                                         textBox.disabled = false;
@@ -641,14 +626,13 @@ Editor['integer'] = function (editor, element) {
                                 })
                                 .catch(error => {
                                     Callout(error).position(this).show();
-                                    editor.execute('onerror', error);
+                                    editor.execute('onchange+failure', error);
                                     textBox.disable = true;
                                     textBox.focus();
                                 })
                                 .finally(() => {
                                     editor.updating = false;
                                     editor.editing = false;
-                                    editor.element = null;
                                 });
                             
                             this.updating = true;
@@ -659,10 +643,9 @@ Editor['integer'] = function (editor, element) {
                                 editor.setPlaceHolder(element);
                             }
 
-                            editor.execute('oncomplete', after);
+                            editor.execute('onchange+completion', after);
 
                             editor.editing = false;
-                            editor.element = null;
                         }
                     }
                     else {
@@ -677,7 +660,6 @@ Editor['integer'] = function (editor, element) {
                             editor.setPlaceHolder(element);
                          }
                         editor.editing = false;
-                        editor.element = null;
                     }
                 }
             }
@@ -715,7 +697,6 @@ Editor['decimal'] = function (editor, element) {
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
 
             editor.editing = true;
-            editor.element = element;
 
             let before = element.textContent.toFloat(editor.minValue);
             let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
@@ -763,19 +744,19 @@ Editor['decimal'] = function (editor, element) {
                     }
                     this.value = after;
                     
-                    if (editor.editing && editor.execute('onupdate', after)) {
+                    if (editor.editing && editor.execute('onchange', after)) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
                             $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
-                                    if (editor.execute('onfinish', data, after)) {
+                                    if (editor.execute('onchange+success', data, after)) {
                                         element.innerHTML = (editor.kilo ? after.kilo() : after);
                                         if (element.innerHTML == '') { 
                                             editor.setPlaceHolder(element);
                                         }
 
-                                        editor.execute('oncomplete', after);
+                                        editor.execute('onchange+completion', after);
                                     }
                                     else {
                                         textBox.disabled = false;
@@ -784,14 +765,13 @@ Editor['decimal'] = function (editor, element) {
                                 })
                                 .catch(error => {
                                     Callout(error).position(this).show();
-                                    editor.execute('onerror', error);
+                                    editor.execute('onchange+failure', error);
                                     textBox.disable = true;
                                     textBox.focus();
                                 })
                                 .finally(() => {
                                     editor.updating = false;
                                     editor.editing = false;
-                                    editor.element = null;
                                 });                            
 
                             this.updating = true;
@@ -802,10 +782,9 @@ Editor['decimal'] = function (editor, element) {
                                 editor.setPlaceHolder(element);
                             }
 
-                            editor.execute('oncomplete', after);
+                            editor.execute('onchange+completion', after);
 
                             editor.editing = false;
-                            editor.element = null;
                         }
                     }
                     else {
@@ -820,7 +799,6 @@ Editor['decimal'] = function (editor, element) {
                             editor.setPlaceHolder(element);
                         }
                         editor.editing = false;
-                        editor.element = null;
                     }
                 }
             }
@@ -944,7 +922,6 @@ Editor['percent'] = function (editor, element) {
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
 
             editor.editing = true;
-            editor.element = element;
 
             let before = element.innerHTML.toFloat(0);
             let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
@@ -990,16 +967,16 @@ Editor['percent'] = function (editor, element) {
                     }
                     this.value = afterText;
 
-                    if (editor.editing && editor.execute('onupdate', afterText)) {
+                    if (editor.editing && editor.execute('onchange', afterText)) {
                         //update
                         if (editor.action != '') {
                             this.disabled = true;
                             $cogo(editor.action.concatValue(after), element, after)
                                 .then(data => {
-                                    if (editor.execute('onfinish', data, afterValue)) {
+                                    if (editor.execute('onchange+success', data, afterValue)) {
                                         element.innerHTML = (editor.kilo ? afterText.kilo() : afterText) + '%';
 
-                                        editor.execute('oncomplete', afterText);
+                                        editor.execute('onchange+completion', afterText);
                                     }
                                     else {
                                         textBox.disabled = false;
@@ -1008,14 +985,13 @@ Editor['percent'] = function (editor, element) {
                                 })
                                 .catch(error => {
                                     Callout(error).position(this).show();
-                                    editor.execute('onerror', error);
+                                    editor.execute('onchange+failure', error);
                                     textBox.disable = true;
                                     textBox.focus();
                                 })
                                 .finally(() => {
                                     editor.updating = false;
                                     editor.editing = false;
-                                    editor.element = null;
                                 });                            
 
                             this.updating = true;
@@ -1023,10 +999,9 @@ Editor['percent'] = function (editor, element) {
                         else {
                             element.innerHTML = (editor.kilo ? afterText.kilo() : afterText) + '%';
 
-                            editor.execute('oncomplete', afterText);
+                            editor.execute('onchange+completion', afterText);
 
                             editor.editing = false;
-                            editor.element = null;
                         }
                     }
                     else {
@@ -1038,7 +1013,6 @@ Editor['percent'] = function (editor, element) {
                     if (editor.editing && !editor.updating && editor.execute('oncancel', ev)) {
                         element.innerHTML = (editor.kilo ? this.defaultValue.kilo() : this.defaultValue) + '%';
                         editor.editing = false;
-                        editor.element = null;
                     }
                 }
             }
@@ -1078,7 +1052,6 @@ Editor['select'] = function (editor, element) {
             let before = element.textContent.trim();
             if (editor.execute('onedit', element, ev)) {
                 editor.editing = true;
-                editor.element = element;
 
                 let select = $create('SELECT', { className: editor.selectClass });
                 for (let name in editor.options) {
@@ -1099,17 +1072,17 @@ Editor['select'] = function (editor, element) {
                     //update
                     let afterText = this.options[this.selectedIndex].text;
                     let afterValue = this.value;
-                    if (editor.editing && editor.execute('onupdate', afterValue, element)) {
+                    if (editor.editing && editor.execute('onchange', afterValue, element)) {
                         if (editor.action != '') {
                             this.disabled = true;
                             $cogo(editor.action.concatValue(afterValue), element, afterValue)
                                 .then(data => {
-                                    if (editor.execute('onfinish', data, afterValue, element)) {
+                                    if (editor.execute('onchange+success', data, afterValue, element)) {
                                         element.setAttribute('value', afterValue);
                                         element.innerHTML = ''; //must set empty first
                                         element.innerHTML = afterText;
 
-                                        editor.execute('oncomplete', afterValue, element);
+                                        editor.execute('onchange+completion', afterValue, element);
                                     }
                                     else {
                                         select.disabled = false;
@@ -1118,14 +1091,13 @@ Editor['select'] = function (editor, element) {
                                 })
                                 .catch(error => {
                                     Callout(error).position(this).show();
-                                    editor.execute('onerror', status, statusText);
+                                    editor.execute('onchange+failure', status, statusText);
                                     select.disable = true;
                                     select.focus();
                                 })
                                 .finally(() => {
                                     editor.updating = false;
                                     editor.editing = false;
-                                    editor.element = null;
                                 });                            
 
                             editor.updating = true;
@@ -1135,10 +1107,9 @@ Editor['select'] = function (editor, element) {
                             element.innerHTML = ''; //must set empty first
                             element.innerHTML = afterText;
 
-                            editor.execute('oncomplete', value, element);
+                            editor.execute('onchange+completion', value, element);
 
                             editor.editing = false;
-                            editor.element = null;
                         }
                     }
                     else {
@@ -1151,7 +1122,6 @@ Editor['select'] = function (editor, element) {
                     if (editor.editing && !editor.updating) {
                         element.innerHTML = element.getAttribute('text');                        
                         editor.editing = false;
-                        editor.element = null;
                     }
                 }
                 
@@ -1163,423 +1133,7 @@ Editor['select'] = function (editor, element) {
     });
 }
 
-Editor['linktext'] = function (editor, element) {
-
-    if (element.nodeName != 'A') {
-        element = element.querySelector('A');
-    }
-
-    if (element != null && element.nodeName == 'A') {
-
-        let button = $create('INPUT', { type: 'button', value: 'Edit' }, { display: 'none' }, { 'sign': 'editbutton' });
-        
-        button.onclick = function (ev) {
-            //edit
-            if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-    
-                editor.editing = true;
-                editor.element = element;
-                button.style.display = 'none';
-                
-                let before = element.textContent;
-                let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
-                if (editor.maxLength > 0) {
-                    textBox.maxLength = editor.maxLength;
-                }
-    
-                //添加事件不支持return，只能直接指定
-                textBox.onkeydown = function (ev) {
-                    // Enter
-                    if (ev.keyCode == 13) {
-                        this.blur();
-                        return false;
-                    }
-                    // ESC
-                    else if (ev.keyCode == 27) {
-                        this.value = this.defaultValue;
-                        this.blur();
-                        return false;
-                    }
-                }
-    
-                textBox.onblur = function (ev) {
-                    if (this.value != this.defaultValue) {
-                        let after = this.value;
-                        if (after == '') {
-                            editor.execute('onempty', ev);
-                            if (!editor.allowEmpty) {
-                                this.focus();
-                                return false;
-                            }                        
-                        }
-                        if ((editor.validator != '' && !editor.validator.test(text)) || (editor.minLength > 0 && after.length < editor.minLength)) {
-                            editor.execute('onfail', after);
-                            this.focus();
-                            return false;                        
-                        }
-                        
-                        if (editor.editing && editor.execute('onupdate', after)) {
-                            //update
-                            if (editor.action != '') {
-                                this.disabled = true;
-                                $cogo(editor.action.concatValue(after), element, after)
-                                    .then(data => {
-                                        //finish
-                                        if (editor.execute('onfinish', data, after)) {
-                                            element.innerHTML = (after == '' ? '&nbsp;' : after);
-                                            element.style.display = '';
-                                            textBox.remove();
-
-                                            editor.execute('oncomplete', after);
-                                        }
-                                        else {
-                                            textBox.disabled = false;
-                                            textBox.focus();
-                                        }
-                                    })
-                                    .catch(error => {
-                                        Callout(error).position(this).show();
-                                        editor.execute('onerror', error);
-                                        textBox.disabled = false;
-                                        textBox.focus();
-                                    })
-                                    .finally(() => {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    });
-
-                                this.updating = true;
-                            }
-                            else {
-                                //needn't updating, but will update display text         
-                                element.innerHTML = (after == '' ? '&nbsp;' : after);
-                                element.style.display = '';
-                                textBox.remove();
-
-                                editor.execute('oncomplete', after);
-
-                                editor.editing = false;
-                                editor.element = null;
-                            }
-                        }
-                        else {
-                            return false;
-                        }
-                    }
-                    else {
-                        //cancel                    
-                        if (editor.editing && !editor.updating && editor.execute('oncancel', ev)) {
-                            textBox.remove();
-                            element.style.display = '';
-                            editor.editing = false;
-                            editor.element = null;
-                        }
-                    }
-                }
-    
-                textBox.size = textBox.value.$length(3) + 2;
-                textBox.onkeyup = function (ev) {
-                    this.size = this.value.$length(3) + 2;
-                }
-    
-                if (element.nextSibling != null) {
-                    element.parentNode.insertBefore(textBox, element.nextSibling);
-                }   
-                else {
-                    element.parentNode.appendChild(textBox);
-                } 
-                element.style.display = 'none';            
-    
-                textBox.focus();
-            }
-        }
-
-        if (element.nextSibling != null) {
-            element.parentNode.insertBefore(button, element.nextSibling);
-            element.parentNode.insertBefore(document.createTextNode(' '), element.nextSibling);
-        }
-        else {
-            element.parentNode.appendChild(document.createTextNode(' '));
-            element.parentNode.appendChild(button);
-        }
-        //element.insertAdjacentHTML('afterEnd', button);
-        //element.insertAdjacentText('afterEnd', ' ');
-
-        $x(element.parentNode).bind('mouseover', function (ev) {
-            if (editor.editable && !editor.editing) {
-                button.style.display = '';
-            }
-        });
-
-        $x(element.parentNode).bind('mouseout', function (ev) {
-            button.style.display = 'none';
-        });
-    }
-}
-
-Editor['star'] = function (editor, element) {
-    //pcs(1,3,5,10)
-    let stars = element.querySelectorAll('img[sign=star]');
-    if (stars.length == 0) {
-        let value = element.textContent.toInt(1);
-        element.setAttribute("value", value);
-        element.innerHTML = '';
-        for (let i = 0; i < editor.pcs; i++) {
-            let star = $create('IMG',
-                            { src: `${editor.imagesBaseUrl}star_${i < value ? 'enabled' : 'disabled'}.png`, width: editor.zoom, height: editor.zoom, align: 'absmiddle' },
-                            { cursor: 'hand', marginLeft: '1px' },
-                            { 'sign': 'star', 'value': i + 1, 'state': i < value ? 1 : 0 });        
-            element.appendChild(star);
-
-            star.onmouseover = function(ev) {
-                this.width = editor.zoom + 1;
-                this.height = editor.zoom + 1;
-            }
-
-            star.onmouseout = function(ev) {
-                this.width = editor.zoom - 1;
-                this.height = editor.zoom - 1;
-            }
-
-            star.onclick = function(ev) {
-                if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-                    editor.editing = true;
-                    editor.element = element;
-
-                    let last = element.getAttribute("value").toInt();
-                    let after = this.getAttribute("value").toInt();
-
-                    if (after != last) {
-                        if (editor.editing && !editor.updating && editor.execute('onupdate', after)) {
-                            let stars = element.querySelectorAll('img[sign=star]');
-                            if (editor.action != '') {
-                                $cogo(editor.action.concatValue(after), element, after)
-                                    .then(data => {
-                                        if (editor.execute('onfinish', data, after)) {
-                                            for (let j = 0; j < stars.length; j++) {
-                                                stars[j].src = `${editor.imagesBaseUrl}star_${j < after ? 'enabled' : 'disabled' }.png`;                                    
-                                            }
-                                            element.setAttribute("value", after);
-
-                                            editor.execute('oncomplete', after);
-                                        }
-                                    })
-                                    .catch(error => {
-                                        Callout(error).position(this).show();
-                                        editor.execute('onerror', error);
-                                    })
-                                    .finally(() => {
-                                        editor.updating = false;
-                                        editor.editing = false;
-                                        editor.element = null;
-                                    });                                
-    
-                                this.updating = true;
-                            }
-                            else {                                
-                                for (let j = 0; j < stars.length; j++) {
-                                    stars[j].src = `${editor.imagesBaseUrl}star_${j < after ? 'enabled' : 'disabled' }.png`;                                    
-                                }
-                                element.setAttribute("value", after);
-
-                                editor.execute('oncomplete', after);
-
-                                editor.editing = false;
-                                editor.element = null;
-                            }
-                        }
-                    }
-                    else {
-                        editor.editing = false;
-                        editor.element = null;
-                    }                    
-                }
-            }
-        }        
-    }
-}
-
-Editor['starbutton'] = function(editor, element) {
-    
-    if (element.querySelectorAll('button[sign=starbutton]').length == 0) {
-        element.setAttribute('value', element.textContent.trim());
-        element.innerHTML = '';        
-        for (let option of editor.options) {
-
-            let button = $create('BUTTON', { innerHTML: option.text }, { },
-                { 
-                    value: option.value, 
-                    enabledClass: option.enabledClass || 'new', 
-                    disabledClass: option.disabledClass || 'old', 
-                    sign: 'starbutton'
-                });
-
-            button.onmousedown = function (ev) {
-                if (editor.editable && button.getAttribute('value') != element.getAttribute('value') && !editor.editing && editor.execute('onedit', element, ev)) {
-                    editor.editing = true;
-                    editor.element = element;
-                }
-            }
-            
-            button.onmouseup = function (ev) {
-                let before = element.getAttribute('value');
-                let after = button.getAttribute('value');
-                
-                if (editor.editable && before != after && editor.editing && editor.execute('onupdate', after)) {
-                    $x(element).children().disable();
-                    if (editor.action != '') {
-                        $cogo(editor.action.concatValue(after), element, after)
-                            .then(data => {
-                                if (editor.execute('onfinish', data, after)) {
-                                    element.setAttribute('value', after);
-                                    Editor['starbutton'].change(element, button);
-    
-                                    editor.execute('oncomplete', after);
-                                }
-                            })
-                            .catch(error => {
-                                Callout(error).position(this).show();
-                                editor.execute('onerror', error);
-                            })
-                            .finally(() => {
-                                editor.updating = false;
-                                $x(element).children().enable();
-                                editor.editing = false;
-                                editor.element = null;
-                            });
-    
-                        editor.updating = true;
-                    }
-                    else {
-
-                        element.setAttribute('value', after);
-                        Editor['starbutton'].change(element, button);                        
-                        $x(element).children().enable();
-    
-                        editor.execute('oncomplete', after);
-    
-                        editor.editing = false;
-                        editor.element = null;
-                    }
-                }
-                else {                    
-                    editor.editing = false;
-                    editor.element = null;
-                }
-            }
-
-            element.appendChild(button);    
-        }
-
-        Editor['starbutton'].change(element);        
-    }   
-}
-
-Editor['starbutton'].change = function(element, button) {
-    let found = false;
-    for (let i = 0; i < element.children.length; i++) {
-        let enabledClass = element.children[i].getAttribute('enabledClass');
-        let disabledClass = element.children[i].getAttribute('disabledClass');
-        if (!found && element.getAttribute('value') != '') {
-            if (element.children[i].className.endsWith(disabledClass) || element.children[i].className == '') {
-                if (i == 0) {
-                    element.children[i].className = 'button-left ' + enabledClass;
-                }
-                else if (i == element.children.length - 1) {
-                    element.children[i].className = 'button-right ' + enabledClass;
-                }
-                else {
-                    element.children[i].className = 'button-center ' + enabledClass;
-                }                
-            }
-            if ((button != undefined && element.children[i] == button)
-                 || (button == undefined && element.getAttribute('value').$includes(element.children[i].getAttribute('value')))
-                ) {
-                found = true;
-            }            
-        }
-        else {
-            if (element.children[i].className.endsWith(enabledClass) || element.children[i].className == '') {
-                if (i == 0) {
-                    element.children[i].className = 'button-left ' + disabledClass;
-                }
-                else if (i == element.children.length - 1) {
-                    element.children[i].className = 'button-right ' + disabledClass;
-                }
-                else {
-                    element.children[i].className = 'button-center ' + disabledClass;
-                }
-            }
-        }
-    }
-}
-
-Editor.Key = {
-    ///		是不是[复制剪切粘贴]操作
-    ///		ctrl+x
-    ///		ctrl+c
-    ///		ctrl+v
-    isCopyCutPaste : function (ev) {
-        if (ev.ctrlKey) {
-            return (ev.keyCode == 88 || ev.keyCode == 67 || ev.keyCode == 86);
-        }
-        else {
-            return false;
-        }
-    },
-    ///		是不是[选择文本]操作
-    ///		ctrl+shift+←→ 选择上一个单词下一个单词
-    ///		shift+←→ 选择下一个字母上一个字母
-    ///		ctrl+shift+home,end 选择光标前面或后面所有
-    ///		shift+home,end 选择光标本行前面或后面所有
-    ///		ctrl+a 选择所有
-    isSelect : function (ev) {
-        if (ev.shiftKey || (ev.ctrlKey && ev.shiftKey)) {
-            return (ev.keyCode >= 35 && ev.keyCode <= 40);
-        }
-        else if (ev.ctrlKey && !ev.shiftKey) {
-            return ev.keyCode == 65;
-        }
-        else {
-            return false;
-        }
-    },
-    ///		是不是[移动光标]操作
-    ///		ctrl+←→ 移动到上一个单词下一个单词
-    ///		←→ 移动到下一个字母上一个字母
-    ///		ctrl+home,end 移动到段落开始或结尾
-    ///		home,end 行动到行开始或结尾
-    isMove : function (ev) {
-        return (ev.keyCode >= 35 && ev.keyCode <= 40);
-    },
-    ///		是不是[删除文本]操作
-    ///		ctrl+backspace 删除前一单词
-    ///		backspace,insert,delete 删除
-    ///		shift+del删除整行
-    isDelete : function (ev) {
-        if (ev.ctrlKey) {
-            return ev.keyCode == 8;
-        }
-        else if (ev.shiftKey) {
-            return ev.keyCode == 46;
-        }
-        else {
-            return ev.keyCode == 8 || ev.keyCode == 45 || ev.keyCode == 46;
-        }
-    },
-    isEdit : function (ev) {
-        return Editor.Key.isSelect(ev) || Editor.Key.isMove(ev) || Editor.Key.isDelete(ev) || ev.keyCode == 9 || ev.keyCode == 13 || Editor.Key.isCopyCutPaste(ev);
-    },
-    isInteger : function (ev) {
-        return !ev.shiftKey && (ev.keyCode == 45 || (ev.keyCode >= 48 && ev.keyCode <= 57) || (ev.keyCode >= 96 && ev.keyCode <= 105));
-    },
-    isDecimal: function (ev, value) {
-        return !ev.shiftKey && (ev.keyCode == 45 || (ev.keyCode >= 48 && ev.keyCode <= 57) || (ev.keyCode >= 96 && ev.keyCode <= 105) || (value.indexOf('.') == -1 ? (ev.keyCode == 190 || ev.keyCode == 110) : false));
-    }
-};
-
-$editor.reapplyAll = function() {
+Editor.reapplyAll = function() {
     for (let component of document.components.values()) {
         if (component.tagName == 'EDITOR') {
             component.apply();
@@ -1596,18 +1150,19 @@ $editor.reapplyAll = function() {
 }
 
 Editor.initializeAll = function () {
-    //remove all first
-    for (let [name, component] in document.components) {
-        if (component.tagName == 'EDITOR') {
-            document.components.delete(name);
-        }        
-    }
+
+    // <editor bindings="selector" />
+    $a('editor').forEach(editor => {
+        $a(editor.getAttribute('bindings')).forEach(element => {
+            element.editor = new Editor(element);
+            element.editor.initialize();
+        });
+    });
 
     //initialize from element
-    $a('editor,[editable]').forEach(element => {
-        if (element.noneName != 'COL' && element.getAttribute('root') == null) {
-            new Editor(element).apply(element.getAttribute('elements') || element);
-        }
+    $a('[editable]').forEach(element => {
+        element.editor = new Editor(element);
+        element.editor.initialize();            
     });
 }
 
