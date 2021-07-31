@@ -6,7 +6,7 @@ class Calendar {
         .declare({
             name: 'Calendar_' + document.components.size,
             //单日/周/日期期间
-            mode: Enum('DAY', 'WEEK', 'RANGE', 'NONE'),
+            mode: 'day|week|range|none',
             //显示的月数
             months: function(value = 1) {
                 //must be 1,2,3,12
@@ -50,7 +50,7 @@ class Calendar {
             },
 
             //当月是否显示其他月的日期
-            daysOfOtherMonth: Enum('VISIBLE', 'HIDDEN'),
+            daysOfOtherMonth: 'visible|hidden',
             
             minDate: '1900-01-01', //可选择的最小日期
             maxDate: '2100-12-31', //可选择的最大日期
@@ -67,16 +67,17 @@ class Calendar {
             // yyyy-MM yyyy/MM MM/yyyy MMM yyyy yyyy年MM月
             titleFormat: '', //为空表示不显示, 一般整年时显示，分月时不显示
             headFormat: 'yyyy-MM',
+            valueFormat: 'yyyy-MM-dd',
             
             weekTitle: 'Week',
-            weekNames: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], //年历时使用
-            cornerNames: ['R', 'W'],
-            todayText: 'Today',
-            thisWeekText: 'This Week',
-            thisMonthText: 'This Month',
-            thisYearText: 'This Year',
-            confirmText: 'OK',
+            weekNames: $lang == 'zh' ? DateTime.miniChineseWeekNames : DateTime.shortWeekNames,
+            monthNames: $lang == 'zh' ? DateTime.fullChineseMonthNames : DateTime.fullMonthNames, //年历时使用
+            cornerNames: $lang == 'zh' ? ['假', '班'] : ['R', 'W'],
+            todayText: $lang == 'zh' ? '今天': 'Today',
+            thisWeekText: $lang == 'zh' ? '本周' : 'This Week',
+            thisMonthText: $lang == 'zh' ? '本月' : 'This Month',
+            thisYearText: $lang == 'zh' ? '今年' : 'This Year',
+            confirmText: $lang == 'zh' ? '确定' : 'OK',
 
             quickSwitch: true, //年数小于4时，或月数小于 months+3时，自动关闭quickSwitch
 
@@ -93,6 +94,7 @@ class Calendar {
             navYearButtonClass: '-calendar-nav-year-button', //上一年/上一年
             headTitleClass: '-calendar-head-title', //日历标题样式 year-month
             bodyClass: '-calendar-body', //日历主体样式div
+            contentTableClass: '-calendar-content-table', //日历内容外框也是个 TABLE
             contentClass: '-calendar-content', //日历内容样式table
             cornerClass: '-calendar-corner', //角标样式
             dayClass: '-calendar-day', //日期数字样式
@@ -125,7 +127,8 @@ class Calendar {
             switchThisMonthOptionClass: '-calendar-switch-this-month-option',
             switchMonthCheckedOptionClass: '-calendar-switch-month-checked-option',
 
-            align: Enum('LEFT', 'RIGHT')
+            align: 'left|right',
+            onchange: null
         })
         .elementify(element => {
             element.parentNode.insertBefore($create('DIV', { className: this.frameClass }), element);
@@ -135,7 +138,7 @@ class Calendar {
 
                 this.container.id = this.name + '_Calendar';                
 
-                if (element.value != '') {
+                if (element.value != '' && this.mode == 'day') {
                     this.$date = element.value;
                 }
 
@@ -148,7 +151,7 @@ class Calendar {
                 element.nextElementSibling.onclick = function(ev) {
                     $x(calendar.container)                        
                         .left(
-                            calendar.align == 'LEFT' ? $x(element).left() : ($x(element).left() + $x(element).width() - $x(calendar.container).width())
+                            calendar.align == 'left' ? $x(element).left() : ($x(element).left() + $x(element).width() - $x(calendar.container).width())
                         )
                         .top(
                             $x(element).top() + $x(element).height() + 1
@@ -185,6 +188,9 @@ class Calendar {
 
         if (this.$date == 'today') {
             this.$date = this.today;
+            if (this.element.nodeName == 'INPUT') {
+                this.element.value = this.date;
+            }
         }
         if (this.minDate == 'today') {
             this.minDate = this.today;
@@ -205,13 +211,13 @@ class Calendar {
     }
 
     get value() {
-        if (this.mode == 'DAY') {
+        if (this.mode == 'day') {
             return this.date;
         }
-        else if (this.mode == 'WEEK') {
+        else if (this.mode == 'week') {
             return this.week;
         }
-        else if (this.mode == 'RANGE') {
+        else if (this.mode == 'range') {
             return [this.startDate, this.endDate];
         }
         else {
@@ -220,7 +226,12 @@ class Calendar {
     }
     
     get date() {
-        return this.$date;
+        if (this.valueFormat == 'yyyy-MM-dd') {
+            return this.$date;
+        }
+        else {
+            return this.$date.toDateTime().get(this.valueFormat);
+        }
     }
 
     set date(date) {
@@ -435,7 +446,7 @@ class Calendar {
     }
 
     get hidden() {
-        if (this.element != null) {
+        if (this.element.nodeName == 'INPUT') {
             return this.element.hidden;
         }
         else {
@@ -445,13 +456,13 @@ class Calendar {
 
     set hidden(value) {
         if (value) {
-            if (this.element != null) {
+            if (his.element.nodeName == 'INPUT') {
                 this.element.hidden = true;
             }
             this.container.hidden = true;
         }
         else {
-            if (this.element != null) {
+            if (this.element.nodeName == 'INPUT') {
                 this.element.hidden = false;
             }
             else {
@@ -478,7 +489,6 @@ Calendar.LUNAR = { };
 Calendar.prototype.contentFrame = null;
 Calendar.prototype.switching = false; //是否正在切换年份或者月份
 Calendar.prototype.visible = false; //适用于 input.calendar, 日期选择框是否正在显示
-
 Calendar.prototype.loading = new Set(); //正在加载的农历或休息日的年份
 
 Calendar.prototype.onNavPrevMonth = function(month) { }
@@ -494,10 +504,6 @@ Calendar.prototype.onRangeEndSelected = function(startDate, endDate) { }
 Calendar.prototype.onRangeEndCanceled = function(startDate) { }
 Calendar.prototype.onRangeSelected = function(startDate, endDate) { }
 Calendar.prototype.onRangeCanceled = function() { }
-
-// Calendar.$animate = function(fromPosition, toPosition, fromOpacity = 100, toOpacity = 100) {
-//     return Animation('timing-function: ease; duration: 0.8s; from: x(' + fromPosition + ').y(0) 100% ' + fromOpacity + '%; to: x(' + toPosition + ').y(0) 100% ' + toOpacity + '%; fill-mode: forwards;');
-// }
 
 Calendar.prototype.setFocusDayClass = function(day) {
     $x(this.container).select('td[day=v' + day + ']').stash('className').css(this.focusDayClass).objects.forEach(td => td.removeAttribute('range'));
@@ -580,10 +586,10 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
     let table = $create('TABLE', { cellPadding: 3, cellSpacing: 2, border: 0, className: this.contentClass }, { }, { sign: 'M' + month.get('yyyy-MM'), month: month.get('yyyy-MM') });
     let tbody = $create('TBODY');
     if (header) {
-        tbody.appendChild($create('TR', { innerHTML: '<th class="' + this.headClass + '" colspan="' + (this.mode == 'WEEK' ? 8 : 7) + '">' + this.monthNames[month.getMonth() - 1] + '</th>' }));
+        tbody.appendChild($create('TR', { innerHTML: '<th class="' + this.headClass + '" colspan="' + (this.mode == 'week' ? 8 : 7) + '">' + this.monthNames[month.getMonth() - 1] + '</th>' }));
     }
     let tr = $create('TR');
-    if (this.mode == 'WEEK') { 
+    if (this.mode == 'week') { 
         tr.appendChild($create('TH', { innerHTML: this.weekTitle, className: this.weekHeadClass }));
     }
     for (let k = 0; k < 7; k++) {
@@ -594,10 +600,10 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
     let days = DateTime.getCalendar(month.getYear(), month.getMonth(), this.firstDayOfWeek);
     for (let j = 0; j < 6; j++) {
         let tr = $create('TR');
-        if (this.mode == 'WEEK') {
+        if (this.mode == 'week') {
             tr.className = this.weekRowClass;            
             tr.setAttribute('value', days[j][0].year + '-' + days[j][0].weekOfYear);
-            if (this.daysOfOtherMonth == 'VISIBLE' || days[j][1].month == month.getMonth() || days[j][7].month == month.getMonth()) {
+            if (this.daysOfOtherMonth == 'visible' || days[j][1].month == month.getMonth() || days[j][7].month == month.getMonth()) {
                 tr.setAttribute('week', 'v' + days[j][0].year + '-' + days[j][0].weekOfYear);
 
                 if (this.startDate != '' && days[j][1].date == this.startDate) {
@@ -615,7 +621,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
             let td = $create('TD');
             td.setAttribute('value', days[j][k+1].date);
 
-            if (this.daysOfOtherMonth == 'VISIBLE' || days[j][k+1].month == month.getMonth()) {
+            if (this.daysOfOtherMonth == 'visible' || days[j][k+1].month == month.getMonth()) {
                 td.setAttribute('day', 'v' + days[j][k+1].date);
                 if (Calendar.LUNAR[days[j][k+1].date] == null) {
                     td.setAttribute('extra', days[j][k+1].date);
@@ -660,26 +666,27 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                 }
 
                 if (td.getAttribute('sign') != 'DISABLED-DAY') {
-                    if (this.mode == 'DAY') {                    
+                    if (this.mode == 'day') {                    
                         td.onclick = function(ev) {
                             if (calendar.date != this.getAttribute('value')) {
                                 calendar.date = this.getAttribute('value');                            
                                 
-                                calendar.execute('onDaySelected', calendar.$date);
+                                calendar.execute('onDaySelected', calendar.date);
+                                calendar.execute('onchange', calendar.date);
 
                                 //如果是日期选择框，选中即隐藏
-                                if (calendar.element != null) {
-                                    calendar.element.value = calendar.$date;
+                                if (calendar.element.nodeName == 'INPUT') {
+                                    calendar.element.value = calendar.date;
                                     $x(calendar.container).fadeOut();
                                 }
                             }
                         }
 
-                        if (this.date == days[j][k+1].date) {
+                        if (this.$date == days[j][k+1].date) {
                             td.className = this.focusDayClass;
                         }
                     }
-                    else if (this.mode == 'RANGE') {
+                    else if (this.mode == 'range') {
                         td.onclick = function(ev) {
                             // A 空 B 空
                             // A 不空 B 空
@@ -731,7 +738,6 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                                 else if (value > erigin) {
                                     let startDate = calendar.endDate;
                                     calendar.endDate = '';
-                                    //this.execute('onRangeEndCanceled', startDate);
                                     calendar.startDate = startDate;
                                     calendar.endDate = date;
 
@@ -795,9 +801,10 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                             td.setAttribute('range', 'yes');
                         }
                     }
-                    else if (this.mode == 'NONE') {
+                    else if (this.mode == 'none') {
                         td.onclick = function(ev) {
                             calendar.execute('onDayClick', new CalendarCell(td));
+                            calendar.execute('onchange', new CalendarCell(td));
                         }
                     }
                 }
@@ -813,7 +820,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
             tr.appendChild(td);
         }
 
-        if (this.mode == 'WEEK') {
+        if (this.mode == 'week') {
             if (new Array(...tr.children).filter(td => td.getAttribute('sign') == 'DISABLED-DAY').length < 7) {
                 tr.onclick = function(ev) {
                     if (calendar.week != this.getAttribute('value')) {
@@ -822,7 +829,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                         let year = calendar.week.takeBefore('-');
                         let week = calendar.week.takeAfter('-');
 
-                        if (calendar.element != null) {                            
+                        if (calendar.element.nodeName == 'INPUT') {                            
                             calendar.element.value = navigator.language.toLowerCase() == 'zh-cn' ? '第 ' + week + ' 周, ' + year : 'Week ' + week + ', ' + year;
                             calendar.element.setAttribute('week', calendar.week);
                             calendar.element.setAttribute('start', calendar.startDate);
@@ -831,7 +838,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                             $x(calendar.container).fadeOut();
                         }
                         
-                        calendar.execute('onWeekSelected', year.toInt(), week.toInt(), calendar.startDate, calendar.endDate);  
+                        calendar.execute('onWeekSelected', year.toInt(), week.toInt(), calendar.startDate, calendar.endDate);                        
                     }
                 }
             }            
@@ -854,7 +861,7 @@ Calendar.prototype.display = function() {
         this.displayYear();
     }
 
-    if (this.element != null && this.element.nodeName == 'INPUT') {
+    if (this.element.nodeName == 'INPUT') {
         this.container.style.visibility = 'visible';
         this.container.hidden = true;
     }
@@ -866,7 +873,7 @@ Calendar.prototype.displayYear = function() {
  
     let calendar = this;
 
-    let date = this.date != '' ? new DateTime(this.date) : (this.startDate != '' ? new DateTime(this.startDate) : new DateTime());
+    let date = this.$date != '' ? new DateTime(this.$date) : (this.startDate != '' ? new DateTime(this.startDate) : new DateTime());
     if (date.getYear() < this.minYear) {
         date = new DateTime(this.minDate);
     }
@@ -1045,7 +1052,7 @@ Calendar.prototype.displayMonth = function() {
 
     let calendar = this;
 
-    let date = this.date != '' ? new DateTime(this.date) : (this.startDate != '' ? new DateTime(this.startDate) : new DateTime());
+    let date = this.$date != '' ? new DateTime(this.$date) : (this.startDate != '' ? new DateTime(this.startDate) : new DateTime());
     if (this.init.startsWith('=')) {
         date.setMonth(this.init.substring(1).toInt(1));
     }
@@ -1317,7 +1324,7 @@ Calendar.prototype.displayMonth = function() {
     });
 
     let body = $create('DIV', { className: this.bodyClass }, { overflow: 'hidden' }, { sign: 'CALENDAR-BODY' });
-    let content = $create('TABLE', { }, { cellPadding: 0, cellSpacing: 0, border: 0 }, { sign: 'CALENDAR-CONTENT' });
+    let content = $create('TABLE', { cellPadding: 0, cellSpacing: 0, border: 0, className: this.contentTableClass }, {  }, { sign: 'CALENDAR-CONTENT' });
     content.appendChild($create('TBODY'));
     content.firstChild.appendChild($create('TR'));
     for (let i = 0; i < this.months; i++) {
@@ -1330,32 +1337,33 @@ Calendar.prototype.displayMonth = function() {
     this.container.appendChild(body);
     this.contentFrame = content;
 
-    if (this.mode != 'NONE') {
+    if (this.mode != 'none') {
         this.container.appendChild($create('DIV', { className: this.footClass }, { }, { sign: 'CALENDAR-FOOT'}));
         let button = $create('BUTTON', { className: this.footButtonClass });
-        if (this.mode == 'DAY') {
+        if (this.mode == 'day') {
             button.innerHTML = this.todayText;
             button.onclick = function() {
-                let value = DateTime.now().get('yyyy-MM-dd');
+                let value = DateTime.today();
                 let month = value.takeBeforeLast('-');
                 if (calendar.months == 1 ? month != calendar.month : (month < calendar.month || month > calendar.month.toDateTime().plusMonths(calendar.months).get('yyyy-MM'))) {
                     calendar.month = month;
                 }
-                if (calendar.date != value) {
+                if (calendar.$date != value) {
                     calendar.execute('onDaySelected', calendar.date);
+                    calendar.execute('onchange', calendar.date);
                     calendar.date = value;
 
-                    if (calendar.element != null) {
+                    if (calendar.element.nodeName == 'INPUT') {
                         calendar.element.value = calendar.date;
                     }
                 }                
                 //如果是日期选择框，选中即隐藏
-                if (calendar.element != null) {                    
+                if (calendar.element.nodeName == 'INPUT') {
                     $x(calendar.container).fadeOut();
                 }                
             }
         }
-        else if (this.mode == 'WEEK') {
+        else if (this.mode == 'week') {
             button.innerHTML = this.thisWeekText;
             button.onclick = function() {
                 let timeout = 100;
@@ -1373,7 +1381,7 @@ Calendar.prototype.displayMonth = function() {
                         let year = calendar.week.takeBefore('-');
                         let week = calendar.week.takeAfter('-');                 
                     
-                        if (calendar.element != null) {                            
+                        if (calendar.element.nodeName == 'INPUT') {                            
                             calendar.element.value = navigator.language.toLowerCase() == 'zh-cn' ? '第 ' + week + ' 周, ' + year : 'Week ' + week + ', ' + year;
                             calendar.element.setAttribute('week', calendar.week);
                             calendar.element.setAttribute('start', calendar.startDate);
@@ -1383,7 +1391,7 @@ Calendar.prototype.displayMonth = function() {
                         calendar.execute('onWeekSelected', year.toInt(), week.toInt(), calendar.startDate, calendar.endDate);
                     }
 
-                    if (calendar.element != null) {
+                    if (calendar.element.nodeName == 'INPUT') {
                         $x(calendar.container).fadeOut();
                     }
                 }, timeout);
@@ -1395,7 +1403,7 @@ Calendar.prototype.displayMonth = function() {
                 let startDate = calendar.startDate;
                 let endDate = calendar.endDate;
 
-                if (calendar.element != null) {  
+                if (calendar.element.nodeName == 'INPUT') {  
                     calendar.element.value = navigator.language.toLowerCase() == 'zh-cn' ? startDate + ' ~ ' + endDate : startDate + ' to ' + endDate;
                     calendar.element.setAttribute('start', startDate);
                     calendar.element.setAttribute('end', endDate);

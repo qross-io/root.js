@@ -30,9 +30,6 @@
     <template name=" data="">
 
     </template>
-*/
-
-/*
 
 支持的关键字属性
 -html/-value/-href/...
@@ -53,7 +50,7 @@
 */
 
 //hide all <for> and <if>
-document.querySelector('HEAD').appendChild($create('STYLE', { 'type': 'text/css', 'innerHTML': 'model,for,if,elsif,else,o,template { display: none; }' }));
+document.querySelector('HEAD').appendChild($create('STYLE', { 'type': 'text/css', 'innerHTML': 'model,for,if,elsif,else,o,template,chart { display: none; }' }));
 
 document.models = new Object();
 //待加载的model项, 为0时触发finish事件
@@ -74,7 +71,7 @@ Model = function(element) {
     this.vars = { };
 
     this.autoRefresh = $parseBoolean(element.getAttribute('auto-refresh') || element.getAttribute('autoRefresh'), false);
-    this.interval = $parseFloat(element.getAttribute('interval'), 2);
+    this.interval = $parseFloat(element.getAttribute('interval'), 2000);
     this.terminal = element.getAttribute('terminal') || 'false';
     this.deferral = 0;
 
@@ -121,22 +118,34 @@ Model = function(element) {
     document.components.set(this.name, this);
 
     this.events = new Map();
-    this.onload = element.getAttribute('onload');
+    this.onload = element.getAttribute('onload'); //第一次加载完成后触发 //function(data) { }
+    this.onreload = element.getAttribute('onreload'); //每次刷新后触发 //function(data) { }
+    this.followers = new Set(); //当 model reload 时，这里面的对象跟着 reload
 
-    if (this.autoRefresh && this.interval > 0) {
-        Model.refresh(this.name, this.interval, this.terminal);        
+    Event.interact(this, this.element);
+
+    if (this.autoRefresh) {
+        this.refresh();
     }
 }
 
-Model.refresh = function(name, interval, terminal) {
+Model.prototype.loaded = false;
+Model.prototype.loading = false;
+Model.prototype.timer = null;
 
-    let refresher = window.setInterval(
+Model.prototype.on = function(eventName, func) {
+    $listen(this.name).on(eventName, func);
+    return this;
+}
+
+Model.prototype.refresh = function() {
+    let model = this;
+    this.timer = window.setInterval(
         function() {            
-            let model = $model(name);
-            if (eval(terminal.$p())) {
+            if (eval(model.terminal.placeModelData().$p())) {
                 //延期3次才终止
                 if (model.deferral >= 3) {
-                    window.clearInterval(refresher);
+                    window.clearInterval(model.timer);
                     model.deferral = 0;
                 }
                 else {
@@ -149,24 +158,10 @@ Model.refresh = function(name, interval, terminal) {
                     model.deferral = 0;
                 }
 
-                model.refresh();                    
+                model.reload();                    
             }
             
-        }, interval * 1000);
-}
-
-//第一次加载完成后触发
-Model.prototype.onload = null; //function(data) { }
-//每次刷新后触发
-Model.prototype.onrefresh = null; //function(data) { }
-
-Model.prototype.loaded = false;
-
-Model.prototype.loading = false;
-
-Model.prototype.on = function(eventName, func) {
-    $listen(this.name).on(eventName, func);
-    return this;
+        }, model.interval);
 }
 
 //first
@@ -200,17 +195,18 @@ Model.prototype.load = function(data) {
     });
 }
 
-Model.prototype.refresh = function() {
+Model.prototype.reload = function() {
     if (this.loaded && !this.loading) {
         this.loading = true;
         $TAKE(this.data, this.element, this, function(data) {
-            window[this.name + '$'] = data;            
+            window[this.name + '$'] = data;
+            this.followers.forEach(follower => $s(follower)?.reload?.());
             $model(this.name).$set(data);            
-            Model.initializeForOrIf('MODEL.REFRESH');
-            Event.execute(this.name, 'onrefresh', data);
+            Model.initializeForOrIf('MODEL.RELOAD');
+            Event.execute(this.name, 'onreload', data);
             this.loading = false;
         });      
-    }    
+    }
 }
 
 Array.prototype.findAllMatchIn = function(content) {
@@ -218,9 +214,27 @@ Array.prototype.findAllMatchIn = function(content) {
                .reduce((r1, r2) => r1.concat(r2))
                .distinct()
 }
+// $else - set value if empty
+Array.prototype.orElse = function($else) {
+    if (this.length == 0) {
+        if (typeof ($else) == 'function') {
+            return $else.call(this);
+        }
+        else if ($else instanceof Array) {
+            return $else;
+        }
+        else {
+            return [$else];
+        }
+    }
+    else {
+        return this;
+    }
+}
 
 // 从 model 中加载数据，替换特定占位符的值
-String.prototype.placeModelData = function() {
+// follower 要监听哪个对象, 保存在 followers 中
+String.prototype.placeModelData = function(follower) {
    
     let content = this.toString();
     // @modelname!
@@ -228,8 +242,8 @@ String.prototype.placeModelData = function() {
     // @modelname.key[0]?(defaultValue)
     // @modelname[0]
     [
-        /(?<!@)@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /(?<!@)@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig
+        /(?<!@)@([a-z_][a-z0-9_]*)([#\.][a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+        /(?<!@)@([a-z_][a-z0-9_]*)([#\.][a-z_][a-z0-9_]*|\[\d+\])*\!?/ig
     ]
     .findAllMatchIn(content)
     .forEach(holder => {
@@ -241,22 +255,31 @@ String.prototype.placeModelData = function() {
         }
         p = p.replace(/^\@|\!$/g, '')
              .replace(/\[/g, '.')
-             .replace(/\]/g, '');
+             .replace(/\]/g, '')
+             .replace(/(?<!\.)#/g, '.#');
 
-        let ps = p.split('.');
-        if (ps.length == 1) {
-            p = '.';
+        let s = p.split('.');
+        let v = window[s[0] + '$']; //name
+        if (follower != null && follower != '') {
+            document.components.get(s[0])?.followers.add(follower);
         }
-        else {
-            p = p.substring(p.indexOf('.'));
-        }
 
-        let n = ps[0]; //name      
-        let v = window[n + '$'];
-
-        for (let i = 1; i < ps.length; i++) {
+        for (let i = 1; i < s.length; i++) {
             if (v != null) {
-                v = v[ps[i]];
+                let a = s[i]; //a = attribute
+                if (s[i].startsWith('#')) {
+                    a = a.substring(1);
+                    if (v instanceof Array) {                        
+                        v = v.map(t => t[a]) // t = item
+                    }
+                    else {
+                        v = null;
+                        break;
+                    }
+                }
+                else {
+                    v = v[a];
+                }                
             }            
             else {
                 break;
@@ -289,62 +312,143 @@ String.prototype.placeModelData = function() {
 
 //从 data 中加载数据
 String.prototype.placeData = function(data) {
+    
     let content = this.toString();
 
-    //占位符规则与 TEMPLATE 相同
-    //@: 表示整个数据
-    //@:/ 表示根数据
-    //@:key!
-    //@:[0].key
-    //@:key?(default)
-    //@:key[0].name!
+    if (data != null) {
 
-    [
-        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
-        /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
-        /@:\//g
-    ]
-    .findAllMatchIn(content)
-    .forEach(holder => {
-        let d = null; //defaultValue
-        let p = holder; //path
-        if (p.includes('?(')) {
-            d = p.takeAfter('?(').replace(/\)$/, '');
-            p = p.takeBefore('?(');
-        }
+        //占位符规则与 TEMPLATE 相同
+        //@:/ 表示根数据
+        //@:key!
+        //@:[0].key
+        //@:key?(default)
+        //@:key[0].name!
 
-        p = p.replace(/^\@|\!$/g, '')
-                .replace(/\[/g, '.')
-                .replace(/\]/g, '')
-                .replace(/\/$/, '')
-                .replace(/^:/, '.');
-                
-        let v = data;
-        if (p != '.') {
-            let ps = p.split('.');        
-            for (let i = 1; i < ps.length; i++) {
-                if (v != null) {
-                    v = v[ps[i]];
-                }            
-                else {
-                    break;
+        [
+            /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+            /@:([a-z_][a-z0-9_]*|\[\d+\])(\.[a-z_][a-z0-9_]*|\[\d+\])*\!?/ig,
+            /@:\//g
+        ]
+        .findAllMatchIn(content)
+        .ofElse(function() {
+            if (this.length == 0 && content.startsWith('#')) {
+                return ['@:' + content];
+            }
+            else {
+                return [];
+            }
+        })
+        .forEach(holder => {
+            let d = null; //defaultValue
+            let p = holder; //path
+            if (p.includes('?(')) {
+                d = p.takeAfter('?(').replace(/\)$/, '');
+                p = p.takeBefore('?(');
+            }
+
+            p = p.replace(/^\@|\!$/g, '')
+                    .replace(/\[/g, '.')
+                    .replace(/\]/g, '')
+                    .replace(/\/$/, '')
+                    .replace(/^:/, '.')
+                    .replace(/(?<!\.)#/g, '.#');
+                    
+            let v = data;
+            if (p != '.') {
+                let s = p.split('.');        
+                for (let i = 1; i < s.length; i++) {
+                    if (v != null) {
+                        let a = s[i]; //a = attribute
+                        if (s[i].startsWith('#')) {
+                            a = a.substring(1);
+                            if (v instanceof Array) {                        
+                                v = v.map(t => t[a]) // t = item
+                            }
+                            else {
+                                v = null;
+                                break;
+                            }
+                        }
+                        else {
+                            v = v[a];
+                        }  
+                    }            
+                    else {
+                        break;
+                    }
                 }
             }
-        }
 
-        if (v == null) {
-            if (d != null) {
-                v = d;
+            if (v == null) {
+                if (d != null) {
+                    v = d;
+                }
             }
-        }
 
-        if (v != null) {
-            if (typeof(v) != 'string') {
-                v = Json.toString(v);
+            if (v != null) {
+                if (typeof(v) != 'string') {
+                    v = Json.toString(v);
+                }
+                content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));            
             }
-            content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));            
-        }
-    });
+        });
+    }
+
+    return content.evalJsExpression();
+}
+
+String.prototype.placeItemData = function(data) {
+
+    let content = this.toString();
+
+    if (data != null) {
+        [
+            /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*\?\([^\(\)]*?\)/ig,
+            /@([a-z_][a-z0-9_]*)(\.[a-z_][a-z0-9_]*|\[\d+\])*/ig,
+            /@\[[a-z0-9_\/\.]+\]\?\([^\(\)]*?\)/ig,
+            /@\[[a-z0-9_\/\.]+\]/ig
+        ].findAllMatchIn(content)
+        .forEach(holder => {
+            let d = null; //defaultValue
+            let p = holder; //path
+            if (p.includes('?(')) {
+                d = p.takeAfter('?(').replace(/\)$/, '');
+                p = p.takeBefore('?(');
+            }
+    
+            p = p.replace(/^\@/g, '')
+                .replace(/\[/g, '/')
+                .replace(/\]/g, '')
+                .replace(/\.$/, '')
+                .replace(/\./g, '/');
+    
+            let n = p.includes('/') ? p.takeBefore('/') : p;
+            if (n != '') {
+                if (p.includes('/')) {
+                    p = p.takeAfter('/');
+                }
+                else {
+                    p = '';
+                }
+            }
+    
+            if (n == '') {
+                let v = p != '' ? Json.find(data, p) : data;
+                if (v == null) {
+                    if (d != null) {
+                        v = d;
+                    }
+                }
+                else {
+                    v = Json.toString(v);
+                }
+        
+                if (v != null) {
+                    content = content.replaceAll(holder, v.replace(/"/g, '&quot;'));
+                }
+            } 
+        });
+    }
 
     return content.evalJsExpression();
 }
@@ -662,10 +766,6 @@ For.prototype.load = function(data) {
     }
 
     //in="url" in="[a, b, c]" in="{result/data}" in="0 to 9"
-    if (typeof(this.in) == 'string' && this.in.includes('@')) {
-        this.in = this.in.placeModelData();
-    }
-
     if (typeof(this.in) == 'string') {
         if (/^(\d+)\s+to\s+(\d+)$/i.test(this.in)) {
             let m = /^(\d+)\s+to\s+(\d+)$/i.exec(this.in);
@@ -1047,7 +1147,7 @@ HTMLSpanElement.prototype.load = function() {
     let span = this;  
     $cogo(this.data, this)
         .then(data => {            
-            span.innerHTML = this.content.placeModelData().placeData(data).$p(this);
+            span.innerHTML = this.content.placeModelData('#' + span.id).placeData(data).$p(this);
             span.loaded = true;
             Event.fire(span, 'onload', data);
         });
@@ -1058,7 +1158,7 @@ HTMLSpanElement.prototype.reload = function() {
     let span = this;  
     $cogo(this.data, this)
         .then(data => {
-            span.innerHTML = this.content.placeModelData().placeData(data).$p(this);
+            span.innerHTML = this.content.placeModelData('#' + span.id).placeData(data).$p(this);
             Event.fire(span, 'onreload', data);
         });
 }
@@ -1080,7 +1180,7 @@ HTMLSpanElement.prototype.initialize = function() {
 }
 
 //new Template(element)
-//template.setData(data, path).asArray().load(func);
+//template.setData(data).asArray().load(func);
 
 document.templates = new Object();
 //页面上独立的template元素, 未检查之前初始值为-1
@@ -1096,7 +1196,7 @@ Template = function(element, container, parentName) {
         this.name = parentName + ':' + this.name;
     }
 
-    this.data = element.getAttribute('data') || '';
+    this.data = element.getAttribute('data') || ''; //原始值
     element.removeAttribute('data');
 
     this.content = element.innerHTML.trim();
@@ -1133,7 +1233,7 @@ Template = function(element, container, parentName) {
     this.lazyLoad = $parseBoolean(element.getAttribute('lazy-load') || element.getAttribute('lazyLoad'), false);
         
     this.autoRefresh = $parseBoolean(element.getAttribute('auto-refresh') || element.getAttribute('autoRefresh'), false);
-    this.interval = $parseFloat(element.getAttribute('interval'), 2);
+    this.interval = $parseFloat(element.getAttribute('interval'), 2000);
     this.terminal = element.getAttribute('terminal') || 'false';
     this.deferral = 0; //延长次数, 默认延长3次, 不可设置
     this.clearOnRefresh = $parseBoolean(element.getAttribute('clear-on-refresh') || element.getAttribute('clearOnRefresh')  || element.getAttribute('clear-on-reload') || element.getAttribute('clearOnReload'), true);
@@ -1173,7 +1273,7 @@ Template = function(element, container, parentName) {
     }
 
     this.onload = element.getAttribute('onload');
-    this.onlazyload = element.getAttribute('onlazyload');
+    this.onreload = element.getAttribute('onreload');
     this.ondown = element.getAttribute('ondone');
     this.events = new Map();
 
@@ -1194,7 +1294,7 @@ Template.refresh = function(name, interval, terminal) {
     let refresher = window.setInterval(
         function() {            
             let template = $template(name);
-            if (eval(terminal.$p())) {
+            if (eval(terminal.$p(template))) {
                 //再尝试3次, 有时会出现结束但仍有数据产生的情况
                 if (template.deferral < 3) {
                     if (template.deferral == 0) {
@@ -1217,7 +1317,7 @@ Template.refresh = function(name, interval, terminal) {
 
                 template.reload();
             }        
-        }, interval * 1000);
+        }, interval);
 }
 
 //执行事件时call的对象
@@ -1225,10 +1325,11 @@ Template.prototype.owner = null;
 //每次加载完成后触发
 Template.prototype.onload = null; //function(data) { };
 //仅每次增量加载完成后触发
-Template.prototype.onlazyload = null; //function(data) { };
+Template.prototype.onreload = null; //function(data) { };
 Template.prototype.onterminate = null; //function() { };
 //所有数据加载完成之后触发
 Template.prototype.ondone = null; //function() { };
+
 
 //是否正在加载
 Template.prototype.loading = false;
@@ -1376,10 +1477,6 @@ Template.prototype.$eachOf = function(data) {
                 .replace(/\]/g, '')
                 .replace(/\.$/, '')
                 .replace(/\./g, '/');
-    
-            if (p.includes('/')) {
-    
-            }
     
             let n = p.includes('/') ? p.takeBefore('/') : p;
             if (n != '') {
@@ -1558,10 +1655,6 @@ Template.prototype.reload = function() {
 }
 
 Template.prototype.load = function(func) {
-    //检查是否包含 model 的数据
-    if (this.data.includes('@')) {
-        this.data = this.data.placeModelData();
-    }
 
     if (!this.loading) {
         this.loading = true;
@@ -1585,7 +1678,7 @@ Template.prototype.load = function(func) {
                     }
 
                     //即使不支持懒加载也会增加页码, 以保证手工加载正常
-                    this.page++;
+                    this.page ++;
                     this.ownerElement.setAttribute('page', this.page);
                 }
                 else if (typeof(data) == 'object') {                    
@@ -1608,9 +1701,9 @@ Template.prototype.load = function(func) {
 
             Model.initializeForOrIf('TEMPLATE');
                       
-            //当前值大于初始值为"增量加载"
+            //当前值大于初始值为"增量加载" 
             if (this.page > this.$page) {
-                Event.execute(this.name, 'onlazyload', data);
+                Event.execute(this.name, 'onreload', data);
             }
             else {
                 Event.execute(this.name, 'onload', data);

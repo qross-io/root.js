@@ -1,12 +1,10 @@
-
-
 DateTime = function(value) {
 
     //支持格式
     //yyyyMMdd
     //yyyyMMddHHmmss
-
     //yyyy-MM-dd HH:mm:ss
+    //yyyy/MM/dd
 
     if (typeof(value) == 'string') {
         let [year, month, day, hour, minute, second] = [0, 0, 1, 0, 0, 0];
@@ -107,50 +105,200 @@ DateTime.allWeekNames = {
     'SU': 0
 }
 
-DateTime.shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+DateTime.fullWeekNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+DateTime.shortWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+DateTime.miniWeekNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+DateTime.fullChineseWeekNames = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+DateTime.shortChineseWeekNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+DateTime.miniChineseWeekNames = ['日', '一', '二', '三', '四', '五', '六'];
 DateTime.fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+DateTime.shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+DateTime.fullChineseMonthNames = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+DateTime.shortChineseMonthNames = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
+DateTime.noonNames = ['AM', 'PM'];
+DateTime.chineseNoonNames = ['上午', '下午'];
+
+// 2018-08-01 13:05:03.235
+// yyyy 2018  getFullYear()
+// yy 18   getYear()
+// MMMM
+// MMM
+// MM 08  getMonth() + 1
+// M 8
+// dd 01    getDate()
+// d 1
+// HH 13    getHours()
+// H 13
+// mm 05    getMinutes()
+// m 5
+// ss 03    getSeconds()
+// s 3
+// SSS 235   getMilliseconds
+
+//E,EE,EEE = Sun
+//EEEE = Sunday
+//e = 1
+//ee = 01
+//eee = Sun
+//eeee = Sunday
+
+//M = 11
+//MM = 11
+//MMM = Nov
+//MMMM = November
+
+//a = PM
+
+DateTime.formats = {
+    'yyyy': function() {
+        return this.date.getFullYear().toString();
+    },
+    'yyy': function() {
+        return this.date.getFullYear().toString();
+    },
+    'yy': function() {
+        return this.date.getFullYear().toString().substring(2);
+    },
+    'y': function() {
+        return this.date.getFullYear().toString().substring(3);
+    },
+    'MMMM': function() {
+        if ($lang == 'zh') {
+            return DateTime.fullChineseMonthNames[this.date.getMonth()];
+        }
+        else {
+            return DateTime.fullMonthNames[this.date.getMonth()];
+        }
+    },
+    'MMM': function() {
+        if ($lang == 'zh') {
+            return DateTime.shortChineseMonthNames[this.date.getMonth()];
+        }
+        else {
+            return DateTime.shortMonthNames[this.date.getMonth()];
+        }
+    },
+    'MM': function() {
+        return (this.date.getMonth() + 1).toString().padStart(2, '0'); 
+    },
+    'M': function() {
+        return (this.date.getMonth() + 1).toString(); 
+    },
+    'dd': function() {
+        return this.date.getDate().toString().padStart(2, '0'); 
+    },
+    'd': function() {
+        return this.date.getDate().toString(); 
+    },
+    'HH': function() {
+        return this.date.getHours().toString().padStart(2, '0'); 
+    },
+    'H': function() {
+        return this.date.getHours().toString(); 
+    },
+    'hh': function() {
+        let h = this.date.getHours();
+        if (h > 12) h -= 12;
+        if (h == 0) h = 12;
+        return h.toString().padStart(2, '0'); 
+    },
+    'h': function() {
+        let h = this.date.getHours();
+        if (h > 12) h -= 12;
+        if (h == 0) h = 12;
+        return h.toString(); 
+    },
+    'mm': function() {
+        return this.date.getMinutes().toString().padStart(2, '0'); 
+    },
+    'm': function() {
+        return this.date.getMinutes().toString(); 
+    },
+    'ss': function() {
+        return this.date.getSeconds().toString().padStart(2, '0'); 
+    },
+    's': function() {
+        return this.date.getSeconds().toString(); 
+    },
+    'SSS': function() {
+        return this.date.getMilliseconds().toString().padStart(3, '0'); 
+    },
+    'SS': function() {
+        return this.date.getMilliseconds().toString().padStart(2, '0'); 
+    },
+    'S': function() {
+        return this.date.getMilliseconds().toString(); 
+    },
+    'a': function() {
+        if ($lang == 'zh') {
+            return DateTime.chineseNoonNames[Math.floor(this.date.getHours() / 12)];
+        }
+        else {
+            return DateTime.noonNames[Math.floor(this.date.getHours() / 12)];
+        }
+    },
+    'eeee': function() {
+        if ($lang == 'zh') {
+            return DateTime.fullChineseWeekNames[this.getWeek()];
+        }
+        else {
+            return DateTime.fullWeekNames[this.getWeek()];
+        }
+    },
+    'EEEE': function() {
+        if ($lang == 'zh') {
+            return DateTime.fullChineseWeekNames[this.getWeek()];
+        }
+        else {
+            return DateTime.fullWeekNames[this.getWeek()].toUpperCase();
+        }
+    },
+    'eee': function() {
+        if ($lang == 'zh') {
+            return DateTime.shortChineseWeekNames[this.getWeek()];
+        }
+        else {
+            return DateTime.shortWeekNames[this.getWeek()];
+        }
+    },
+    'EEE': function() {
+        if ($lang == 'zh') {
+            return DateTime.shortChineseWeekNames[this.getWeek()];
+        }
+        else {
+            return DateTime.shortWeekNames[this.getWeek()].toUpperCase();
+        }
+    },
+    'ee': function() {
+        if ($lang == 'zh') {
+            return DateTime.miniChineseWeekNames[this.getWeek()];
+        }
+        else {
+            return DateTime.miniWeekNames[this.getWeek()];
+        }
+    },
+    'EE': function() {
+        if ($lang == 'zh') {
+            return DateTime.miniChineseWeekNames[this.getWeek()];
+        }
+        else {
+            return DateTime.miniWeekNames[this.getWeek()].toUpperCase();
+        }
+    },
+    'e': function() {
+        return this.getWeek();
+    },
+    'E': function() {
+        return this.getWeek();
+    }
+}
 
 DateTime.prototype.get = function (style = 'yyyy-MM-dd HH:mm:ss') {
 
-    // 2018-08-01 13:05:03.235
-    // yyyy 2018  getFullYear()
-    // yy 18   getYear()
-    // MMMM
-    // MMM
-    // MM 08  getMonth() + 1
-    // M 8
-    // dd 01    getDate()
-    // d 1
-    // HH 13    getHours()
-    // H 13
-    // mm 05    getMinutes()
-    // m 5
-    // ss 03    getSeconds()
-    // s 3  get
-    // SSS 235   getMilliseconds
-
-    let values = {
-        'yyyy': this.date.getFullYear().toString(),
-        'yy': this.date.getFullYear().toString().substring(2),
-        'MMMM': DateTime.fullMonthNames[this.date.getMonth()],
-        'MMM': DateTime.shortMonthNames[this.date.getMonth()],
-        'MM': (this.date.getMonth() + 1).toString().padStart(2, '0'),
-        'M': (this.date.getMonth() + 1).toString(),
-        'dd': this.date.getDate().toString().padStart(2, '0'),
-        'd': this.date.getDate().toString(),
-        'HH': this.date.getHours().toString().padStart(2, '0'),
-        'H': this.date.getHours().toString(),
-        'mm': this.date.getMinutes().toString().padStart(2, '0'),
-        'm': this.date.getMinutes().toString(),
-        'ss': this.date.getSeconds().toString().padStart(2, '0'),
-        's': this.date.getSeconds().toString(),
-        'SSS': this.date.getMilliseconds().toString().padStart(3, '0')
-    }
-
-    for (let name in values) {
+    for (let name in DateTime.formats) {
         let rex = new RegExp(name, 'g');
         if (rex.test(style)) {
-            style = style.replace(rex, values[name]);
+            style = style.replace(rex, DateTime.formats[name].call(this));
         }
     }
 

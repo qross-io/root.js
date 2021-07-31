@@ -9,9 +9,21 @@ Layout.layPanel = function(panel) {
     }    
 }
 
+Layout.layJustify = function(justify) {
+    justify.classList.add('justify');
+}
+
 Layout.initializeAll = function() {
-    $a('div[display=panel]').forEach(p => {
-        Layout.layPanel(p);
+    $a('div[display]').forEach(p => {
+        let display = p.getAttribute('display');
+        switch(display) {
+            case 'panel':
+                Layout.layPanel(p);
+                break;
+            case 'justify':
+                Layout.layJustify(p);
+                break;
+        }        
     });
 }
 

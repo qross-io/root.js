@@ -22,7 +22,7 @@
 $enhance(HTMLTableElement.prototype)
     .declare({
         name: 'Table_' + document.components.size,
-        exclusions: '', //0, n
+        excludes: '', //0, n
 
         captionClass: '', //caption
         headerClass: 'header-row', //thead
@@ -43,6 +43,10 @@ $enhance(HTMLTableElement.prototype)
         //editingCellClass: '',
 
         data: '',
+        autoRefresh: false,
+        interval: 0,  //ms
+        terminal: 'false',
+        meet: null,
 
         onrowhover: null, //function(row) { },
         onrowleave: null, //function(row) { },
@@ -52,6 +56,8 @@ $enhance(HTMLTableElement.prototype)
         onrowremove: null, //function(row) { },
         onload: null, //function() { },
         onreload: null, //function() { },
+        onmeet: null,
+        onmiss: null,
         onfilter: null, //function() {},
         onsort: null, //function() {},
         onfiltercancel: null, //function() {}
@@ -69,8 +75,8 @@ $enhance(HTMLTableElement.prototype)
     });
 
 HTMLTableElement.prototype.template = null;
-HTMLTableElement.prototype.cols = new Array(); //表格的列数组
-HTMLTableElement.prototype.excludedRows = new Set();
+HTMLTableElement.prototype.cols = null; //表格的列数组
+HTMLTableElement.prototype.excluded = null; //excluded rows
 HTMLTableElement.prototype.hoverRow = null;
 //HTMLTableElement.prototype.hoverColumn = -1;
 HTMLTableElement.prototype.focusRow = null;
@@ -80,6 +86,10 @@ HTMLTableElement.prototype.focusRow = null;
 HTMLTableElement.prototype.loaded = false;
 
 HTMLTableElement.prototype.initialize = function() {
+
+    this.cols = [];
+    this.excluded = new Set();
+
     if (this.id == '') {
         this.id = this.name;
     }
@@ -113,7 +123,28 @@ HTMLTableElement.prototype.initialize = function() {
         .bind('mouseout', function (ev) { table.leave(ev); })
         .bind('mousedown', function (ev) { table.active(ev); })
         .bind('mouseup', function (ev) { table.focus(ev); })
-        .bind('dblclick', function (ev) { table.dblclick(ev); });    
+        .bind('dblclick', function (ev) { table.dblclick(ev); });
+
+    if (this.autoRefresh && this.interval > 0) {
+        let refresher = window.setInterval(
+            function() {            
+                if (table.terminal.placeModelData().$p(table).eval(table)) {
+                    window.clearInterval(refresher);                
+                }
+                else {
+                    table.reload();                    
+                }
+                
+                if (table.meet != null) {
+                    if (table.meet.placeModelData().$p(table).eval(table)) {
+                        table.execute('onmeet');
+                    }
+                    else {
+                        table.execute('onmiss');
+                    }
+                }
+            }, this.interval);
+    }
 }
 
 HTMLTableElement.prototype.hover = function (ev) {
@@ -139,12 +170,6 @@ HTMLTableElement.prototype.leave = function (ev) {
         this.execute('onrowleave', this.hoverRow);
         this.hoverRow = null;
     }
-//    else {
-//        let row = this.__bubbleRow(ev)
-//        if (row.isFocusRow) {
-//            this.execute('onrowleave', row.tr);
-//        }
-//    }
 }
 
 HTMLTableElement.prototype.active = function (ev) {
@@ -208,7 +233,7 @@ HTMLTableElement.prototype.__bubbleRow = function (ev) {
         isContent: isContent,
         isHoverRow: tr == this.hoverRow,
         isFocusRow: tr == this.focusRow,
-        isExcludedRow: this.excludedRows.has(Number.parseInt(tr.getAttribute('index')))
+        isExcludedRow: this.excluded.has(Number.parseInt(tr.getAttribute('index')))
     };
 }
 
@@ -226,8 +251,8 @@ HTMLTableElement.prototype.__initializeAllRows = function() {
         }
     }
 
-    if (this.exclusions != '') {
-        this.excludedRows = new Set(this.exclusions.replace(/n/ig, rows - 1).split(',').map(e => eval(e)));
+    if (this.excludes != '') {
+        this.excluded = new Set(this.excludes.replace(/[nl]/ig, rows - 1).split(',').map(e => eval(e)));
     }
 }
 
@@ -537,7 +562,7 @@ HTMLTableElement.prototype.__formatCellData = function(row) {
             let data = row.cells[col.index].innerHTML;
             if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
                 row.cells[col.index].innerHTML = col.map[data];
-                row.cells[col.index].setAttribute('formatted');
+                row.cells[col.index].setAttribute('formatted', '');
             }
         }
     }
@@ -559,8 +584,8 @@ HTMLTableElement.prototype.__formatAllCellData = function() {
     }
 }
 
-HTMLTableElement.prototype.clear = function() {
-    for (let i = this.tBodies[0].children.length - 1; i >= 0; i--) {
+HTMLTableElement.prototype.clear = function(index = 0) {
+    for (let i = this.tBodies[0].children.length - 1; i >= index; i--) {
         let element = this.tBodies[0].children[i];
         if (element.getAttribute('irremovable') == null) {
             element.remove();
@@ -578,38 +603,100 @@ HTMLTableElement.prototype.append = function(row) {
         });    
 }
 
+HTMLTableElement.prototype.appendOrRenew = function(index, data) {
+    if (index >= this.tBodies[0].children.length) {
+        let tr = $create('TR');
+        for (let i = 0; i < this.cols.length; i++) {
+            let col = this.cols[i];
+            let content = col.template.placeItemData(data);
+            if (col.map != null && col.map[content] != null) {
+                content = col.map[content];
+            }
+            tr.appendChild($create('TD', { innerHTML: content, className: col.className.placeItemData(data) }));
+        }
+        this.tBodies[0].appendChild(tr);
+    }
+    else {
+        let tr = this.tBodies[0].children[index];
+        for (let i = 0; i < this.cols.length; i++) {
+            let col = this.cols[i];
+            let content = col.template.placeItemData(data);
+            if (col.map != null && col.map[content] != null) {
+                content = col.map[content];
+            }
+            tr.cells[i].innerHTML = content;
+            tr.cells[i].className = col.className.placeItemData(data);
+        }
+    }
+}
+
 HTMLTableElement.prototype.load = function() {
-     //数据格式未实现
-    // #{name}
-    // #{0}
-    // #{name:0.00}
-    // #{name:0:00%}
-    // #{name:yyyMMdd}
-    this.template
-        .setData(this.data)
-        .asArray()
-        .load(function(data) {
-            //主要是设置样式
-            this.__initializeAllRows();
-                    
+    if (this.template != null) {
+        this.template
+            .setData(this.data)
+            .asArray()
+            .load(function(data) {
+                //主要是设置样式
+                this.__initializeAllRows();
+                        
+                if (!this.loaded) {
+                    //仅第一次加载初始化设置
+                    this.__initializeSettings();
+                    //第一次加载执行事件
+                    this.execute('onload');
+                    this.loaded = true;
+                }
+                else {
+                    //reload 执行事件
+                    this.execute('onreload');
+                }
+                
+                this.__formatAllCellData(); //初始化列的值 map
+            });   
+    }
+    else {
+        $TAKE(this.data, this, this, function(data) {
+
             if (!this.loaded) {
                 //仅第一次加载初始化设置
                 this.__initializeSettings();
+            }
+
+            if (data instanceof Array) {
+                for (let i = 0; i < data.length; i++) {
+                    this.appendOrRenew(i, data[i]);
+                }
+                //删除多余的行
+                this.clear(data.length);
+            }
+            else if (typeof (data) == 'object') {
+                this.appendOrRenew(0, data);
+                this.clear(1);
+            }
+            else {
+                this.clear(0);
+            }
+
+            //主要是设置样式
+            this.__initializeAllRows();
+                        
+            if (!this.loaded) {                
                 //第一次加载执行事件
                 this.execute('onload');
                 this.loaded = true;
             }
             else {
-                //reload执行事件
+                //reload 执行事件
                 this.execute('onreload');
             }
-            
-            this.__formatAllCellData();
-        });   
+        });
+    }
 }
 
 HTMLTableElement.prototype.reload = function() {
-    this.clear();
+    if (this.template != null) {
+        this.clear();
+    }
     this.load();
 }
 
@@ -621,6 +708,21 @@ $enhance(HTMLTableColElement.prototype)
         filterStyle: Enum('INPUT', 'LIST'), //PC模式下是下拉菜单, MOBILE模式下是弹出框
         sortable: false,
         sortingStyle: Enum('LINK', 'LIST'),
+        type: 'text|integer|float|percent', //未实现
+        percision: 2, //未实现
+        template: function(value) {
+            if (value != null) {
+                if (value.startsWith('#')) {
+                    return $s(value).innerHTML;
+                }
+                else {
+                    return value;
+                }
+            }
+            else {
+                return '';
+            }            
+        },
         map: function(value) {
             return value != null ? value.toMap() : null;
         },

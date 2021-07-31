@@ -18,7 +18,9 @@
 </head>
 <body>
 
-<input type="number" maxlength="3" max="199" />
+<div id="F" class="center" 1="2" -A="A" _="B" 中="文">
+    <button type="execute">TEST</button>
+</div>
 
 <span editable show-buttons="yes" edit-on="click" underline="dashed">HELLO WORLD</span>
 
@@ -28,6 +30,16 @@
     <button id="P">Prompt</button>
 </form>
  <script type="text/javascript">
+
+Object.defineProperty(HTMLDivElement.prototype, 'color', {
+    get() {
+        return this.getAttribute('color');
+    },
+    set(color) {
+        this.setAttribute('color', color);
+    }
+});
+
 $s('#P').onclick = function() {
 
     $root.prompt('HELLO WORLD');

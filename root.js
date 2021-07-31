@@ -648,7 +648,7 @@ $root.offsetTop = function(element) {
     let parent = element.parentNode;
     let top = element.offsetTop;
     while (parent != null && parent.nodeName != 'BODY') {
-        if (parent.nodeName == 'TABLE' || parent.nodeName == 'TD') {
+        if (parent.nodeName == 'TABLE' || parent.nodeName == 'TD' || parent.style.position == 'fixed') {
             top += parent.offsetTop;
         }
         parent = parent.parentNode;
@@ -1170,6 +1170,9 @@ $n = function(container, tag) {
     if (container == null) {
         return document.querySelectorAll(tag);
     }
+    else if (tag == null) {
+        return document.querySelectorAll(container);
+    }
     else if (typeof (container) == 'string') {
         return document.querySelectorAll(container + ' ' + tag);
     }
@@ -1241,6 +1244,9 @@ $TAKE = function(data, element, owner, func) {
         }
         else if (data.includes(",") && !data.includes("(") && !data.includes(")")) {
             func.call(owner, Json.parse('["' + data.replace(/,/g, '","') + '"]').find());
+        }
+        else if (data.startsWith('@')) {
+            func.call(owner, Json.eval(data.placeModelData(owner.name)));
         }
         else if (data != '') {
             //如果是js变量
@@ -1455,15 +1461,15 @@ $cogo = function(todo, element, data) {
                         })
                         .success(result => {
 
-                            if (window['$configuration'] != null && $configuration.debug) {
-                                console.log(result);
-                            }
+                            // if (window['$configuration'] != null && $configuration.debug) {
+                            //     console.log(result);
+                            // }
 
                             if (setting == null) {
                                 resolve(result);
                             }
                             else {
-                                let ready  = eval('_ = function(result) { with(result) { return ' + setting.ready + ' } }').call(window, result);
+                                let ready  = eval('_ = function(result) { with(result) { return ' + setting.ready + '; } }').call(window, result);
                                 if (ready) {
                                     resolve(Json.find(result, setting.path));
                                 }
@@ -1526,10 +1532,10 @@ $FIRE = function (element, event, succeed, fail, except, complete) {
                     valid = $parseBoolean(data, true);
                 }
 
-                if (window['$configuration'] != null && $configuration.debug) {
-                    console.log(data);
-                    console.log('status: ' + (valid ? 'success' : 'failure'));
-                }
+                // if (window['$configuration'] != null && $configuration.debug) {
+                //     console.log(data);
+                //     console.log('status: ' + (valid ? 'success' : 'failure'));
+                // }
 
                 if (valid) {
                     succeed.call(element, data);
@@ -1548,9 +1554,7 @@ $FIRE = function (element, event, succeed, fail, except, complete) {
                 console.error(error);
             })
             .finally(() => {
-                if (complete != null) {
-                    complete.call(element);
-                }                
+                complete?.call(element);
                 Event.execute(element, event + 'completion');
             });
     }
@@ -1853,11 +1857,6 @@ String.prototype.takeAfterLast = function(value) {
 
 String.prototype.fill = function(...element) {
     $a(...element).forEach(tag => tag.innerHTML = this.toString());
-    return this;
-}
-
-String.prototype.print = function() {
-    console.log(this);
     return this;
 }
 
@@ -2868,7 +2867,7 @@ Event.bind = function (tag, eventName, func) {
         Event.s.get(tag).get(eventName).push(func);
     }
     else {
-        if (Object.getOwnPropertyNames(tag.constructor.prototype).filter(n => n.startsWith('on')).map(n => n.toLowerCase()).includes(eventName)) {
+        if (document.components.has(tag.name) || Object.getOwnPropertyNames(tag.constructor.prototype).filter(n => n.startsWith('on')).map(n => n.toLowerCase()).includes(eventName)) {
             extension = true;
         }
 
@@ -3368,9 +3367,6 @@ $Settings.prototype.get = function(attr) {
                     if (!this.carrier.hasAttribute(attr) && this.carrier[attr] == undefined) {
                         attr = '';
                     }                    
-                }
-                else {
-                    attr = '';
                 }
             }
             

@@ -748,27 +748,32 @@ $root.prototype.fadeIn = function(opacity = 0) {
         if (element.style.display == 'none') {
             element.style.display = '';
         }
-        Animation('timing-function: ease; duration: 0.6s; from-opacity: ' + (opacity) + '%; to-opacity: 100%; fill-mode: forwards;')
-            .apply(element)
-            .resetOnStop()
-            .on('stop', function() {
-                element.style.opacity = 1;
-            })
-            .play();
+
+        if (element.style.opacity != '' && element.style.opacity < 1) {
+            Animation('timing-function: ease; duration: 0.6s; from-opacity: ' + (opacity) + '%; to-opacity: 100%; fill-mode: forwards;')
+                .apply(element)
+                .resetOnStop()
+                .on('stop', function() {
+                    element.style.opacity = 1;
+                })
+                .play();
+        }
     });
 }
 
 $root.prototype.fadeOut = function(opacity = 0) {
     this.objects.forEach(element => {
-        Animation('timing-function: ease; duration: 0.6s; from-opacity: 100%; to-opacity: ' + opacity + '%; fill-mode: forwards;')
-        .apply(element)
-        .resetOnStop()
-        .on('stop', function() {            
-            element.style.opacity = opacity / 100;
-            if (opacity == 0 && element.style.position == 'absolute') {
-                element.hidden = true;
-            }
-        }).play();
+        if (element.style.display != 'none' && !element.hidden && (element.style.opacity == '' || element.style.opacity > 0)) {
+            Animation('timing-function: ease; duration: 0.6s; from-opacity: 100%; to-opacity: ' + opacity + '%; fill-mode: forwards;')
+            .apply(element)
+            .resetOnStop()
+            .on('stop', function() {            
+                element.style.opacity = opacity / 100;
+                if (opacity == 0 && element.style.position == 'absolute') {
+                    element.style.display = 'none';
+                }
+            }).play();
+        }
     });
 }
 

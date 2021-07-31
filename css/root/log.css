@@ -1,10 +1,13 @@
-
+log { display:  none; }
 .logs div { line-height: 180%; }
 .datetime { color: #999999; }
+.HIGHLIGHT { background-color: var(--lighter); color: #FFFFFF; border-radius: 0.2rem; padding: 0px 3px; }
+.ADDRESS { color: #22A2DD; }
 .INFO { color: #40BB00; }
 .WARN { color: #f6b70b; }
 .ERROR { color: #CC3333; }
 .DEBUG { color: #0080CC; }
+.SYSTEM { color: #0080CC; }
 .STRING { color: #009900; }
 .NUMBER { color: #8800FF; }
 .DATETIME { color: #FF2277; }

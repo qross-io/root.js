@@ -28,7 +28,7 @@ FocusView = function(element) {
 		this.bindings.push(e);
 	}
 
-	this.exclusions = (element.getAttribute('exclusions') || '').split(',');
+	this.exclusions = (element.getAttribute('exclusions') || '').split(',').filter(e => e != '');
 	for (let i = 0; i < this.exclusions.length; i++) {
 		let e = this.exclusions[i].trim().toLowerCase();
 		if (e == 'odd') {

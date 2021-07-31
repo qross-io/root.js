@@ -1,8 +1,8 @@
 var $configuration = {
-    "debug": true,
+    "debug": false,
     "ajax": {
         "/api/": {
-            "ready": "code == 200",
+            "ready": "code != null && code == 200",
             "info": "/message",
             "path": "/data"
         }

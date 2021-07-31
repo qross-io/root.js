@@ -19,10 +19,12 @@ class BackTop {
                             value = document.body.firstElementChild.id;
                         }
                     }
-                }                
+                }
+                else if (value.startsWith('#')) {
+                    value = value.replace('#', '');
+                }
                 return value;
             },
-            className: '',
             opacity: 0,
             onback: null
         })
@@ -38,6 +40,7 @@ class BackTop {
 }
 
 BackTop.prototype.element = null;
+BackTop.prototype.display = '';
 
 $backtop = function(name) {
     let backtop = $t(name);
@@ -52,18 +55,22 @@ $backtop = function(name) {
 BackTop.prototype.initialize = function() {
 
     if ($s('#' + this.anchor + ',[name=' + this.anchor + ']') == null) {
-        $x(document.body).insertFirst($create('A', { id: this.anchor, name: this.anchor }));        
-    }
+        $x(document.body).insertFirst($create('DIV', { id: this.anchor, name: this.anchor }));
+    } 
 
     if (this.element == null) {
-        this.element = $create('DIV', { id: this.id, innerHTML: `<a href="#${this.anchor}">${this.text}</a>`, className: this.className });
-        if (this.className == '') {
+        this.element = $create('DIV', { id: this.id, innerHTML: `<a href="#${this.anchor}">${this.text}</a>` });
+
             $x(this.element)
                 .styles({ width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--darker)', backgroundColor: 'var(--primary)' })
                 .first()
                 .styles({ textDecoration: 'none', fontWeight: 'bold', color: '#FFFFFF', fontSize: '1rem' });
-        }
+
         document.body.appendChild(this.element);
+        this.display = 'flex';
+    }
+    else {
+        this.display = this.element.style.display;
     }
 
     $x(this.element).styles({
@@ -101,7 +108,7 @@ BackTop.prototype.initialize = function() {
             if (backTop.opacity > 1) {
                 backTop.opacity = 1;
             }
-            backTop.element.style.display = '';
+            backTop.element.style.display = backTop.display;
             backTop.element.style.opacity = backTop.opacity;
         }
         else {
@@ -125,6 +132,6 @@ $finish(function() {
         new BackTop(backTop).initialize();
     }
     else {
-        new BackTop({ text: 'TOP', className: 'backtop' }).initialize();
+        new BackTop({ text: 'TOP' }).initialize();
     }
 });

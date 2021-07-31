@@ -3,14 +3,16 @@
 
 $enhance(HTMLButtonElement.prototype)
     .declare({
-        type: 'normal|switch',
+        type: 'normal|switch|confirm',
         enabledClass: '', //normal-button blue-button,
         disabledClass: '', //normal-button optional-button,
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
 
         confirmText: '', //确定提醒文字
         confirmButtonText: 'OK', //确定框确定按钮
+        confirmButtonClass: 'normal-button prime-button',
         cancelButtonText: 'Cancel', //确定框取消按钮
+        cancelButtonClass: 'normal-button gray-button',
         confirmTitle: 'Confirm', //确定框标题
         jumpingText: '', //跳转提醒文字
         href: '', //跳转到哪个页面
@@ -22,7 +24,7 @@ $enhance(HTMLButtonElement.prototype)
         failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
 
-        textClass: '',
+        textClass: '', //默认提醒文字的样式
         errorTextClass: 'error',
         validTextClass: 'correct',
 
@@ -31,12 +33,15 @@ $enhance(HTMLButtonElement.prototype)
         alert: null,
 
         disableOnClick: true,
+        enableOnSuccess: true,
 
         scale: 'normal', //little/small/normal/big/large
         color: 'blue', //prime/green/red/maroon/purple/blue/orange/gray/white
 
-        'onclick-enabled': null,
-        'onclick-disabled': null
+        'onclick-enabled': null, //for switch only
+        'onclick-disabled': null, //for switch only
+        'onclick-confirm': null, //for confirm only
+        'onclick-cancel': null //for confirm only
     })
     .getter({
         'scale': value => value.toLowerCase(),
@@ -133,7 +138,7 @@ $enhance(HTMLButtonElement.prototype)
         }
     });
 
-HTMLButtonElement.prototype.onclick_ = null;
+HTMLButtonElement.prototype.onclick_ = null; // onclick 的值
 HTMLButtonElement.prototype._options = null;
 //1 success 0 failure -1 exception 2 action
 HTMLButtonElement.prototype.status = 1;
@@ -146,12 +151,36 @@ HTMLButtonElement.prototype.enable = function() {
         this.className = this.enabledClass;
         this.disabled = false;
     }
+
+    if (this.type == 'confirm') {
+        $x(this).slideIn('up');
+    }
 }
 
 HTMLButtonElement.prototype.disable = function() {
     if (!this.disabled) {
         this.className = this.disabledClass;
         this.disabled = true;
+    }
+}
+
+HTMLButtonElement.prototype.show = function() {
+    if (this.hidden) {
+        this.hidden = false;
+    }
+    if (this.type == 'confirm') {
+        this.previousElementSibling.hidden = true;
+        this.nextElementSibling.hidden = true;
+    }
+}
+
+HTMLButtonElement.prototype.hide = function() {
+    if (!this.hidden) {
+        this.hidden = true;
+    }
+    if (this.type == 'confirm') {
+        this.previousElementSibling.hidden = true;
+        this.nextElementSibling.hidden = true;
     }
 }
 
@@ -211,11 +240,8 @@ HTMLButtonElement.prototype.go = function() {
             function(error) {
                 this.status = -1;            
                 this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-            },
-            function() {
-                if (this.href == '') {
-                    this.enable();
-                }
+                this.text = this.defaultText;
+                this.enable();
             }
         );
     }
@@ -262,6 +288,20 @@ HTMLButtonElement.prototype.initialize = function() {
         this.onclick = null;
     }
 
+    if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+        if (this.hint != null || this.callout == null) {
+            if (this.hintSpan == null) {
+                if (this.hint != '') {
+                    this.hintSpan = $s(this.hint);
+                }
+                else {
+                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
+                    this.insertAdjacentElement('afterEnd', this.hintSpan);
+                }
+            }
+        }
+    }
+
     if (this.type == 'switch') {
         if (this.value == '' || this.value == this.options[0].value) {
             this.className = this.enabledClass;
@@ -304,6 +344,77 @@ HTMLButtonElement.prototype.initialize = function() {
             else {
                 this.hintText = this.invalidText.$p(this);
             }
+        });
+    }
+    else if (this.type == 'confirm') {
+        let button = this;
+        let confirm = $create('BUTTON', { innerHTML: this.confirmButtonText, className: this.confirmButtonClass });
+        let cancel = $create('BUTTON', { innerHTML: this.cancelButtonText, className: this.cancelButtonClass });
+        
+        this.insertAdjacentElement('beforeBegin', confirm);
+        this.insertAdjacentHTML('beforeBegin', '&nbsp;');
+        this.insertAdjacentElement('afterEnd', cancel);
+        this.insertAdjacentHTML('afterEnd', '&nbsp;');
+
+        if (confirm.offsetWidth < cancel.offsetWidth) {
+            confirm.style.width = cancel.offsetWidth + 'px';
+        }
+        else {
+            cancel.style.width = confirm.offsetWidth + 'px';
+        }
+        
+        confirm.hidden = true;
+        cancel.hidden = true;
+
+        this.style.position = 'absolute';
+        this.style.marginLeft = (- this.offsetWidth / 2) + 'px';
+
+        $x(this).on('click', function() {
+            $x(button).slideOut('down');
+            $x(confirm).slideIn('left');
+            $x(cancel).slideIn('right');
+        });
+
+        $x(confirm).on('click', function(ev) {
+
+            $x(confirm).slideOut('left');
+            $x(cancel).slideOut('right');
+
+            if (Event.fire(button, 'onclick_'), ev) {
+                if (button['onclick+'] != null) {
+                    button.hintText = button.actionText.$p(button);
+                    button.disable();
+                    $FIRE(button, 'onclick+',
+                        function(data) {
+                            this.hintText = this.successText.$p(this, data);            
+                            if (this.href != '') {
+                                window.location.href = this.href.$p(this, data);
+                            }
+                            else if (button.enableOnSuccess) {
+                                this.enable();
+                            }
+                        }, 
+                        function(data) {
+                            this.enable();
+                            this.hintText = this.failureText.$p(this, data);                            
+                        },
+                        function(error) {
+                            this.enable();
+                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);                            
+                        }
+                    );
+                }
+
+                Event.execute(button, 'onclick-confirm');
+            }            
+        });
+
+        $x(cancel).on('click', function() {
+            $x(confirm).slideOut('left');
+            $x(cancel).slideOut('right');
+            $x(button).slideIn('up');
+
+            Event.execute(button, 'onclick-cancel');            
         });
     }
     else if (this['onclick+'] != null)  {
@@ -356,20 +467,6 @@ HTMLButtonElement.prototype.initialize = function() {
                 this.hintText = this.invalidText.$p(this);
             }
         });
-
-        if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
-            if (this.hint != null || this.callout == null) {
-                if (this.hintSpan == null) {
-                    if (this.hint != '') {
-                        this.hintSpan = $s(this.hint);
-                    }
-                    else {
-                        this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
-                        $x(this).insertBehind(this.hintSpan);
-                    }
-                }
-            }
-        }
     }
     else if (this.getAttribute('href') != null) {
         $x(this).bind('click', function() {

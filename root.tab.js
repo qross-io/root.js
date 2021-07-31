@@ -6,6 +6,7 @@ class Tab {
         .declare({
 			name: 'Tab_' + document.components.size,
 			bindings: '',
+			excludes: '', //0, n
 			defaultClass: '',
 			selectedClass: '',
 
@@ -24,18 +25,44 @@ class Tab {
 			this.element = element;
 			if (this.bindings == '') {
 				if (this.element.nodeName == 'TABLE') {
-					this.bindings = this.element.querySelectorAll('TR');
+					this.bindings = [...this.element.querySelectorAll('TR')];
 				}
 				else {
-					this.bindings = this.element.children;
+					this.bindings = [...this.element.children];
 				}
 			}
 			else if (typeof (this.bindings) == 'string') {
-				this.bindings = this.element.querySelectorAll(this.bindings);
+				this.bindings = [...this.element.querySelectorAll(this.bindings)];
 			}
 
-			if (this.bindings == null || this.bindings == '') {
+			if (this.bindings == null || this.bindings.length == 0) {
 				throw new Error('Must specify "bindings" property to bind Tab.');
+			}
+
+			if (this.excludes != '') {
+				this.excludes = this.excludes.split(',').map(e => e.trim()).filter(e => e != '');
+				for (let i = 0; i < this.excludes.length; i++) {
+					let e = this.excludes[i];
+					if (/^odd$/i.test(e)) {
+						for (let j = 0; j < this.bindings.length; j++) {
+							if (j % 2 == 1) {
+								this.bindings[j] = null;
+							}
+						}
+					}
+					else  if (/^even$/i.test(e)) {
+						for (let j = 0; j < this.bindings.length; j++) {
+							if (j % 2 == 0) {
+								this.bindings[j] = null;
+							}
+						}
+					}
+					else {			
+						e = e.replace(/n|l/g, this.bindings.length - 1);
+						this.bindings[eval(e)] = null;
+					}
+				}
+
 			}
 		});
 	}
@@ -84,7 +111,7 @@ String.prototype.$css = function(element) {
     return css;
 }
 
-Tab.prototype.change = function(element) {
+Tab.prototype.change = function(element, trigger = true) {
 
 	if (typeof(element) == 'string') {
 		element = $s(element);
@@ -110,7 +137,9 @@ Tab.prototype.change = function(element) {
 		this.element.setAttribute('value', $value(element));
 		this.element.setAttribute('text', $text(element));
 
-		Event.execute(this.name, 'onchange', element);
+		if (trigger) {
+			Event.execute(this.name, 'onchange', element);
+		}		
 	}
 }
 
@@ -120,10 +149,10 @@ Tab.prototype.bind = function() {
 
 	Event.interact(this, this.element);
 
-	this.bindings.forEach(element => {
+	this.bindings.filter(e => e != null).forEach(element => {
 
 		if ($parseBoolean(element.getAttribute('selected'), false) || element.className == tab.selectedClass.$css(element)) {
-			tab.change(element);
+			tab.change(element, false);
 		}
 		else if (element.className == '') {
 			element.className = tab.defaultClass;

@@ -53,24 +53,26 @@ HTMLAnchorElement.prototype.go = function() {
         function(data) {
             this.hintText = this.successText.$p(this, data);            
             
-            switch(this.target) {
-                case '':
-                case '_self':
-                    window.location.href = this._href.$p(this, data);
-                    break;
-                case '_top':
-                    top.location.href = this._href.$p(this, data);
-                    break;
-                case '_parent':
-                    parent.location.href = this._href.$p(this, data);
-                    break;
-                case '_blank':
-                    window.open(this.href.$p(this, data));
-                    break;
-                default:
-                    window.frames[this.target].location.href = this._href.$p(this, data);
-                    break;
-            }
+            if (this._href != '') {
+                switch(this.target) {
+                    case '':
+                    case '_self':
+                        window.location.href = this._href.$p(this, data);
+                        break;
+                    case '_top':
+                        top.location.href = this._href.$p(this, data);
+                        break;
+                    case '_parent':
+                        parent.location.href = this._href.$p(this, data);
+                        break;
+                    case '_blank':
+                        window.open(this.href.$p(this, data));
+                        break;
+                    default:
+                        window.frames[this.target].location.href = this._href.$p(this, data);
+                        break;
+                }
+            }            
         }, 
         function(data) {
             this.hintText = this.failureText.$p(this, data);           

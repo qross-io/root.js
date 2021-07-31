@@ -523,7 +523,13 @@ HTMLInputElement.prototype.initializeInputable = function() {
     if (this.getAttribute('enter') != null) {
         $x(this).on('keypress', function(ev) {
             if (ev.keyCode == 13 && this.value != this.defaultValue) {
-                window.location.href = this.getAttribute('enter').$p(this);
+                let enter = this.getAttribute('enter');
+                if (enter == '') {
+                    this.blur();
+                }
+                else {
+                    window.location.href = enter.$p(this);
+                }                
             }
         });
     }
