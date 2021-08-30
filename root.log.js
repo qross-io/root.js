@@ -14,6 +14,7 @@ class Log {
             loadUntilEmpty: true, //直到没有日志时才结束加载
 
             data: '',
+            await: '',
             _cursor: 0, //初始值
 
             filter: '', //日志过滤
@@ -177,7 +178,12 @@ Log.prototype.reload = function() {
 Log.prototype.initialize = function() {
 
     if (this.autoStart) {
-        this.start();
+        if (this.await == '') {
+            this.start();
+        }
+        else {
+            Event.await(this, this.await);
+        }
     }
 
     Event.interact(this, this.element);
@@ -238,13 +244,13 @@ Log.format = function(log, ...matches) {
 
 Log.initializeAll = function() {
     $a('log').forEach(log => {
-        if (log.getAttribute('root') == null) {
-            log.setAttribute('root', 'LOG');
+        if (!log.getAttribute('root-log')) {
+            log.setAttribute('root-log', '');
             new Log(log).initialize();
         }        
     })
 }
 
-$finish(function() {
+document.on('post', function() {
     Log.initializeAll();
 });

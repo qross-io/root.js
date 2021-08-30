@@ -149,17 +149,17 @@ class Calendar {
 
                 let calendar = this;
                 element.nextElementSibling.onclick = function(ev) {
-                    $x(calendar.container)                        
-                        .left(
-                            calendar.align == 'left' ? $x(element).left() : ($x(element).left() + $x(element).width() - $x(calendar.container).width())
+                    calendar.container
+                        .setLeft(
+                            calendar.align == 'left' ? element.left : (element.left + element.width - calendar.container.width)
                         )
-                        .top(
-                            $x(element).top() + $x(element).height() + 1
+                        .setTop(
+                            element.top + element.height + 1
                         ).fadeIn();
                     calendar.visible = true;
                 }
 
-                $x(document.body).on('click', function(ev) {
+                document.body.on('click', function(ev) {
                     if (calendar.visible) {
                         let target = ev.target;
                         while(target.nodeName != 'BODY') {
@@ -171,7 +171,7 @@ class Calendar {
                             }
                         }
                         if (target.nodeName == 'BODY') {
-                            $x(calendar.container).fadeOut();
+                            calendar.container.fadeOut();
                             calendar.visible = false;
                         }                        
                     }                    
@@ -256,20 +256,22 @@ class Calendar {
 
         //week 2019-1
          if (this.$week != '') {
-            $x(this.container).select('tr[week=v' + this.$week + ']')
-                .css(this.weekRowClass)
-                .first()
-                .css(this.weekOfYearClass);
+            this.container.selectAll('tr[week=v' + this.$week + ']')
+                .forEach(row => {
+                    row.setClass(this.weekRowClass)
+                       .first
+                       .setClass(this.weekOfYearClass);    
+                });                
         }
 
-        $x(this.container).select('tr[week=v' + week + ']')
-            .css(this.weekFocusRowClass)
-            .first()
-            .css(this.weekOfYearFocusClass)
-            .parent()
-            .head()
-            .objects
-            .forEach(row => {
+        this.container.selectAll('tr[week=v' + week + ']')
+            .map(row => row.setClass(this.weekFocusRowClass)
+                           .first
+                           .setClass(this.weekOfYearFocusClass)
+                           .parent
+            )
+            .first
+            .do(row => {
                 this.$week = week;
                 this.$startDate = row.cells[1].getAttribute('value');
                 this.$endDate = row.cells[7].getAttribute('value');
@@ -277,7 +279,7 @@ class Calendar {
                 this.container.setAttribute('week', this.$week);
                 this.container.setAttribute('startDate', this.$startDate);
                 this.container.setAttribute('endDate', this.$endDate);
-            });        
+            });
     }
 
     get startDate() {
@@ -375,9 +377,8 @@ class Calendar {
                 prev.innerHTML = year - 1;
                 next.innerHTML = year + 1;
                 
-                
-                $x(prev).enable(year > calendar.minYear);
-                $x(next).enable(year < calendar.maxYear);
+                prev.disabled = year <= calendar.minYear;  //.enabled = year > calendar.minYear;
+                next.disabled = year >= calendar.maxYear; //.enabled = year < calendar.maxYear
             }
         }
         //非年历时无法设置
@@ -505,13 +506,18 @@ Calendar.prototype.onRangeEndCanceled = function(startDate) { }
 Calendar.prototype.onRangeSelected = function(startDate, endDate) { }
 Calendar.prototype.onRangeCanceled = function() { }
 
+
 Calendar.prototype.setFocusDayClass = function(day) {
-    $x(this.container).select('td[day=v' + day + ']').stash('className').css(this.focusDayClass).objects.forEach(td => td.removeAttribute('range'));
+    let td = this.container.select('td[day=v' + day + ']');
+    td.setAttribute('class-', td.className);
+    td.setClass(this.focusDayClass).removeAttribute('range');
 }
 
 Calendar.prototype.resetDayClass = function(day) {
     let selector = (day == undefined ? 'range' : 'day=v' + day);
-    $x(this.container).select('td[' + selector + ']').reset('className').objects.forEach(td => td.removeAttribute('range'));
+    let td = this.container.select('td[' + selector + ']');
+    td.className = td.getAttribute('class-');
+    td.removeAttribute('range');
 }
 
 Calendar.prototype.setSelectionClass = function() {
@@ -524,9 +530,9 @@ Calendar.prototype.setSelectionClass = function() {
         let end = new DateTime(this.endDate);
 
         while (start.before(end)) {
-            $x(this.container).select('td[day=v' + start.get('yyyy-MM-dd') + ']')
-                .css(this.selectionDayClass)
-                .attr('range', '');
+            this.container.select('td[day=v' + start.get('yyyy-MM-dd') + ']')
+                .setClass(this.selectionDayClass)
+                .set('range', '');
             start.plusDays(1);
         }
     }
@@ -677,7 +683,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                                 //如果是日期选择框，选中即隐藏
                                 if (calendar.element.nodeName == 'INPUT') {
                                     calendar.element.value = calendar.date;
-                                    $x(calendar.container).fadeOut();
+                                    calendar.container.fadeOut();
                                 }
                             }
                         }
@@ -712,7 +718,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                                 else if (value < origin) {
                                     let endDate = calendar.startDate;
                                     calendar.startDate = '';
-                                    //this.execute('onRangeStartCanceled', endDate);
+                                    //calendar.execute('onRangeStartCanceled', endDate);
 
                                     calendar.startDate = date;
                                     calendar.endDate = endDate;
@@ -835,7 +841,7 @@ Calendar.prototype.$populateMonthContent = function(month, header = false) {
                             calendar.element.setAttribute('start', calendar.startDate);
                             calendar.element.setAttribute('end', calendar.endDate);
 
-                            $x(calendar.container).fadeOut();
+                            calendar.container.fadeOut();
                         }
                         
                         calendar.execute('onWeekSelected', year.toInt(), week.toInt(), calendar.startDate, calendar.endDate);                        
@@ -896,24 +902,21 @@ Calendar.prototype.displayYear = function() {
     let body = $create('DIV', { className: this.bodyClass }, { padding: '0.4rem', marginLeft: '0px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around' }, { sign: 'CALENDAR-BODY' });
 
     //显示快速切换
-    $x(title).on('click', function(ev) {
+    title.on('click', function(ev) {
         if (ev.target.nodeName == 'A' || ev.target.nodeName == 'I') {
-            let checked = $x(years).select('div.' + calendar.switchYearCheckedOptionClass);
-            if (checked.nonEmpty() && checked.html().toInt() != calendar.year) {
-                checked.css(checked.html().toInt() != DateTime.now().getYear() ? calendar.switchYearOptionClass : calendar.switchThisYearOptionClass);                    
+            let checked = years.select('div.' + calendar.switchYearCheckedOptionClass);
+            if (checked != null && checked.html.toInt() != calendar.year) {
+                checked.className =(checked.html.toInt() != DateTime.now().getYear() ? calendar.switchYearOptionClass : calendar.switchThisYearOptionClass);                    
             }
-            $x(years).select('div[year=v' + calendar.year + ']').css(calendar.switchYearCheckedOptionClass);
-            $x(calendar.container)
+            years.select('div[year=v' + calendar.year + ']')?.setClass(calendar.switchYearCheckedOptionClass);
+            calendar.container
                 .select('div[sign=CALENDAR-YEAR-SWITCH]')
                 .show()
-                .left(
-                    $x(calendar.container).left() + $x(title).width() / 2 - $x(frame).width() / 2
-                )
-                .top(                
-                    $x(body).top() - 8
-                ).fadeIn();            
-            $x(body).fadeOut(20);
-            $x(title).fadeOut(50);
+                .setLeft(calendar.container.left + title.width / 2 - frame.width / 2)
+                .setTop(body.top - 8)
+                .fadeIn();
+            body.fadeOut(20);
+            title.fadeOut(50);
         }
     });
 
@@ -961,9 +964,9 @@ Calendar.prototype.displayYear = function() {
                 calendar.year = year;
             }
             
-            $x(frame).fadeOut();
-            $x(body).fadeIn(20);
-            $x(title).fadeIn(50);    
+            frame.fadeOut();
+            body.fadeIn(20);
+            title.fadeIn(50);
         }
     }
     frame.appendChild(years);
@@ -976,9 +979,9 @@ Calendar.prototype.displayYear = function() {
             calendar.year = year;              
         }
         
-        $x(frame).fadeOut();
-        $x(body).fadeIn(20);
-        $x(title).fadeIn(50);
+        frame.fadeOut();
+        body.fadeIn(20);
+        title.fadeIn(50);
     }
     frame.lastChild.appendChild(thisYearButton); 
 
@@ -986,7 +989,7 @@ Calendar.prototype.displayYear = function() {
     this.container.appendChild(body);
 
     this.container.appendChild(frame);
-    $x(document.body).on('click', function(ev) {
+    document.body.on('click', function(ev) {
         if (frame.style.display == '') {
             let target = ev.target;
             while(target.nodeName != 'BODY') {
@@ -998,9 +1001,9 @@ Calendar.prototype.displayYear = function() {
                 }
             }
             if (target.nodeName == 'BODY') {
-                $x(frame).fadeOut();
-                $x(body).fadeIn(20);
-                $x(title).fadeIn(50);
+                frame.fadeOut();
+                body.fadeIn(20);
+                title.fadeIn(50);
             }                        
         }                    
     });
@@ -1092,7 +1095,7 @@ Calendar.prototype.displayMonth = function() {
                         let currentTable = calendar.container.querySelector('table[sign=M' + currentMonth + ']');
                         let prevTable = calendar.container.querySelector('table[sign=M' + prevMonth.get('yyyy-MM') + ']');
 
-                        let unit = Math.round($x(calendar.contentFrame).width() / calendar.contentFrame.rows[0].cells.length);
+                        let unit = Math.round(calendar.contentFrame.width / calendar.contentFrame.rows[0].cells.length);
 
                         if (prevTable == null) {
                             prevTable = calendar.$populateMonthContent(prevMonth);                    
@@ -1161,7 +1164,7 @@ Calendar.prototype.displayMonth = function() {
                         let nextMonth = lastMonth.plusMonths(1);
                         let nextTable = calendar.container.querySelector('table[sign=M' + nextMonth.get('yyyy-MM') + ']');
 
-                        let unit = Math.round($x(calendar.contentFrame).width() / calendar.contentFrame.rows[0].cells.length);
+                        let unit = Math.round(calendar.contentFrame.width / calendar.contentFrame.rows[0].cells.length);
 
                         if (nextTable == null) {
                             nextTable = calendar.$populateMonthContent(nextMonth);                    
@@ -1232,10 +1235,10 @@ Calendar.prototype.displayMonth = function() {
     for (let i = calendar.minYear; i <= calendar.maxYear; i++) {
         let year = $create('DIV', { innerHTML: i, className: this.switchYearHeadClass }, { }, { year: 'v' + i });
         year.onclick = function(ev) {
-            $x(this.nextElementSibling).toggle();
+            this.nextElementSibling.hidden = !this.nextElementSibling.hidden;
             if (this.nextElementSibling.style.display == '') {
-                if (this.parentNode.offsetHeight < $x(years).attr('height').toInt()) {
-                    $x(years).height(this.parentNode.offsetHeight + 10);
+                if (this.parentNode.offsetHeight < years.getAttribute('height').toInt()) {
+                    years.height = this.parentNode.offsetHeight + 10;
                 }
             }
         }
@@ -1270,11 +1273,9 @@ Calendar.prototype.displayMonth = function() {
                 this.querySelector('td[month=v' + calendar.month + ']').className = (calendar.month == DateTime.now().get('yyyy-MM') ? calendar.switchThisMonthOptionClass : calendar.switchMonthOptionClass);
                 option.className = calendar.switchMonthCheckedOptionClass;
                 calendar.month = month;
-            }
-            
-            $x(frame).fadeOut();
-            $x(body).fadeIn(20);
-            $x(body.nextElementSibling).fadeIn(20);
+            }            
+            frame.fadeOut();
+            body.fadeIn(20).next.fadeIn(20);
         }
     }
     frame.appendChild(years);
@@ -1287,39 +1288,34 @@ Calendar.prototype.displayMonth = function() {
         if (month != calendar.month) {
             calendar.month = month;
         }        
-        $x(frame).fadeOut();
-        $x(body).fadeIn(20);
-        $x(body.nextElementSibling).fadeIn(20);
+        frame.fadeOut();
+        body.fadeIn(20).next.fadeIn(20);
     }
     frame.lastChild.appendChild(thisMonthButton); 
 
     //显示快速切换
-    $x(head).on('click', function(ev) {
+    head.on('click', function(ev) {
         let target = ev.target;
         if (target.nodeName == 'I') {
             target = target.parentNode;
         }
         if (target.nodeName == 'A') {
             let month = target.getAttribute('value');
-            $x(frame).attr('head', target.parentNode.getAttribute('index'));
-            let checked = $x(years).select('td.' + calendar.switchMonthCheckedOptionClass);
-            if (checked.nonEmpty() && checked.attr('month') != 'v' + month) {
-                checked.css(checked.attr('month') != DateTime.now().get('vyyyy-MM') ? calendar.switchMonthOptionClass : calendar.switchThisMonthOptionClass);                    
+            frame.set('head', target.parentNode.getAttribute('index'));
+            let checked = years.select('td.' + calendar.switchMonthCheckedOptionClass);
+            if (checked != null && checked.getAttribute('month') != 'v' + month) {
+                checked.className = (checked.getAttribute('month') != DateTime.now().get('vyyyy-MM') ? calendar.switchMonthOptionClass : calendar.switchThisMonthOptionClass);
             }
-            $x(years).select('td[month=v' + month + ']').css(calendar.switchMonthCheckedOptionClass);
-            $x(calendar.container)
+            years.select('td[month=v' + month + ']').className = calendar.switchMonthCheckedOptionClass;
+            calendar.container
                 .select('div[sign=CALENDAR-MONTH-SWITCH]')
-                .style('visibility', 'visible')
+                .setStyle('visibility', 'visible')
                 .show()
-                .left(
-                    $x(target).left() + $x(target).width() / 2 - $x(frame).width() / 2
-                )
-                .top(                
-                    $x(body).top() - 8
-                ).fadeIn();
+                .setLeft(target.left + target.width / 2 - frame.width / 2)
+                .setTop(body.top - 8)
+                .fadeIn();
 
-            $x(body).fadeOut(20);
-            $x(body.nextElementSibling).fadeOut(20);
+            body.fadeOut(20).next.fadeOut(20);
         }
     });
 
@@ -1359,7 +1355,7 @@ Calendar.prototype.displayMonth = function() {
                 }                
                 //如果是日期选择框，选中即隐藏
                 if (calendar.element.nodeName == 'INPUT') {
-                    $x(calendar.container).fadeOut();
+                    calendar.container.fadeOut();
                 }                
             }
         }
@@ -1392,7 +1388,7 @@ Calendar.prototype.displayMonth = function() {
                     }
 
                     if (calendar.element.nodeName == 'INPUT') {
-                        $x(calendar.container).fadeOut();
+                        calendar.container.fadeOut();
                     }
                 }, timeout);
             }
@@ -1409,7 +1405,7 @@ Calendar.prototype.displayMonth = function() {
                     calendar.element.setAttribute('end', endDate);
                 }
 
-                $x(calendar.container).fadeOut();
+                calendar.container.fadeOut();
             }
 
             if (calendar.element == null) {
@@ -1426,12 +1422,12 @@ Calendar.prototype.displayMonth = function() {
         //content.rows[0].cells[i].firstChild.style.width = content.rows[0].cells[i].firstChild.offsetWidth + 'px';
     }
     body.style.width = (width + 12 * this.months + 12) + 'px';
-    $x(this.container).select('div[sign=CALENDAR-FOOT]').width(body.offsetWidth - 20);
+    this.container.select('div[sign=CALENDAR-FOOT]').width = body.offsetWidth - 20;
 
     this.loadExtraInfo();
 
     this.container.appendChild(frame);
-    $x(document.body).on('click', function(ev) {
+    document.body.on('click', function(ev) {
         if (frame.style.display == '' && frame.style.visibility == 'visible') {
             let target = ev.target;
             while(target.nodeName != 'BODY') {
@@ -1443,8 +1439,8 @@ Calendar.prototype.displayMonth = function() {
                 }
             }
             if (target.nodeName == 'BODY') {
-                $x(frame).fadeOut();
-                $x(body).fadeIn(20);
+                frame.fadeOut();
+                body.fadeIn(20);
             }                        
         }                    
     });
@@ -1456,7 +1452,7 @@ Calendar.prototype.displayMonth = function() {
 
     frame.querySelector('div[year=v' + (this.year > this.minYear ? this.year - 1 : this.year) + ']').scrollIntoView();
     frame.style.width = frame.offsetWidth + 5 + 'px';
-    $x(frame).left(-1000).top(-1000).style('visibility', 'hidden');
+    frame.setLeft(-1000).setTop(-1000).setStyle('visibility', 'hidden');
 }
 
 Calendar.prototype.loadExtraInfo = function() {
@@ -1593,6 +1589,6 @@ Calendar.initializeAll = function() {
     }    
 }
 
-$finish(function() {
+document.on('post', function() {
     Calendar.initializeAll();
 });

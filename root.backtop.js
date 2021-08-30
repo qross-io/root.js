@@ -55,16 +55,15 @@ $backtop = function(name) {
 BackTop.prototype.initialize = function() {
 
     if ($s('#' + this.anchor + ',[name=' + this.anchor + ']') == null) {
-        $x(document.body).insertFirst($create('DIV', { id: this.anchor, name: this.anchor }));
+        document.body.insertAdjacentElement('afterBegin', $create('DIV', { id: this.anchor, name: this.anchor }));
     } 
 
     if (this.element == null) {
         this.element = $create('DIV', { id: this.id, innerHTML: `<a href="#${this.anchor}">${this.text}</a>` });
-
-            $x(this.element)
-                .styles({ width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--darker)', backgroundColor: 'var(--primary)' })
-                .first()
-                .styles({ textDecoration: 'none', fontWeight: 'bold', color: '#FFFFFF', fontSize: '1rem' });
+        this.element
+            .setStyles({ width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--darker)', backgroundColor: 'var(--primary)' })
+            .first
+            .setStyles({ textDecoration: 'none', fontWeight: 'bold', color: '#FFFFFF', fontSize: '1rem' });
 
         document.body.appendChild(this.element);
         this.display = 'flex';
@@ -73,7 +72,7 @@ BackTop.prototype.initialize = function() {
         this.display = this.element.style.display;
     }
 
-    $x(this.element).styles({
+    this.element.setStyles({
         position: 'fixed',
         bottom: '30px',
         right: '30px',
@@ -84,15 +83,15 @@ BackTop.prototype.initialize = function() {
     let backTop = this;
 
     if (self != parent) {
-        $x(this.element).on('click', function() {
-            $root.scrollTop(0);
+        this.element.on('click', function() {
+            $root.scrollTop = 0;
             backTop.execute('onback');
         });
     }
     else {
         for (let a of $a(`[href$=${this.anchor}]`)) {
             if (a.href.endsWith('#' + this.anchor)) {
-                $x(a).on('click', function() {
+                a.on('click', function() {
                     backTop.execute('onback');
                 });
                 break;
@@ -100,8 +99,8 @@ BackTop.prototype.initialize = function() {
         }
     }
 
-    $x(window).on('scroll', function() {
-        let scrollTop = $root.scrollTop();
+    window.on('scroll', function() {
+        let scrollTop = $root.scrollTop;
         if (scrollTop > 200) {
             scrollTop -= 200;
             backTop.opacity = Math.round(scrollTop / 20) / 100;
@@ -117,16 +116,16 @@ BackTop.prototype.initialize = function() {
         }
     });
 
-    $x(this.element).on('mouseover', function() {
+    this.element.on('mouseover', function() {
         this.style.opacity = 1;
     });
 
-    $x(this.element).on('mouseout', function() {
+    this.element.on('mouseout', function() {
         this.style.opacity = backTop.opacity;
     });
 }
 
-$finish(function() {
+document.on('post', function() {
     let backTop = $s('backtop,[backtop]');
     if (backTop != null) {
         new BackTop(backTop).initialize();

@@ -1,12 +1,15 @@
-
+//-----------------------------------------------------------------------
 // INPUT 标签扩展
+//-----------------------------------------------------------------------
 
 HTMLInputElement.valueDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+HTMLInputElement.checkedDescriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'checked');
 
 $enhance(HTMLInputElement.prototype)
     .declare({
         hint: null, //selector
         callout: null,
+        message: null,
         requiredText: '',
         invalidText: '', //当格式不正确时的提醒文字
         validText: '',
@@ -42,7 +45,9 @@ $enhance(HTMLInputElement.prototype)
         
         onmodify: null,
         'onchange-checked': null,
-        'onchange-unchecked': null
+        'onchange-unchecked': null,
+
+        _checked: 'no'
     })
     .getter({
         'strength': value => value.toUpperCase(),
@@ -87,13 +92,17 @@ $enhance(HTMLInputElement.prototype)
                     if (this._blured) {                    
                         if (this.hintSpan != null) {
                             this.hintSpan.innerHTML = text;
-                            this.hintSpan.className = (this.status != 1 ? this.errorTextClass : this.validTextClass);
-                            this.hintSpan.style.display = text == '' ? 'none' : '';
+                            this.hintSpan.className = (this.status != $input.status.valid ? this.errorTextClass : this.validTextClass);
+                            this.hintSpan.hidden = text == '';
                         }
                         
                         if (text != '' && this.callout != null) {
                             Callout(text).position(this, this.callout).show();
-                        }                    
+                        }
+
+                        if (text != '' && this.message != null) {
+                            window.Message?.[this.status != $input.status.valid ? 'red' : 'green'](text).show(this.message.toFloat(0));
+                        }
                     }
                 }
                 else if (text != '') {
@@ -119,6 +128,14 @@ $enhance(HTMLInputElement.prototype)
                 }
             }
         },
+        checked: {
+            get() {
+                return HTMLInputElement.checkedDescriptor.get.call(this);
+            },
+            set(checked) {
+                HTMLInputElement.checkedDescriptor.set.call(this, $parseBoolean(checked, true));
+            }
+        },
          //根据不同的类型选择不同的 iconfont 图标（自动设置）
         icon: {
             get () {
@@ -134,7 +151,7 @@ $enhance(HTMLInputElement.prototype)
                     else if (this.type == 'calendar') {
                         this.iconA.setAttribute('sign', 'CALENDAR-BUTTON');
                     }
-                    $x(this).insertBehind(this.iconA);
+                    this.insertAdjacentElement('afterEnd', this.iconA);
                     
                     this.setAttribute('relative', '#' + this.iconA.id);
                 }
@@ -170,33 +187,55 @@ $enhance(HTMLInputElement.prototype)
                 }
                 return this._options;
             }
+        },
+        'enabled': {
+            get () {                
+                return !this.disabled;
+            },
+            set (enabled) {
+                if (typeof(enabled) != 'boolean') {
+                    enabled = $parseBoolean(enabled, true, this);
+                }
+                this.disabled = !enabled;
+            }
         }
     });
+
+$input = {
+    status: {
+        "filled": 3, //有值初始状态
+        "valueless": 2, //无值初始状态
+        "valid": 1, //正确的
+        "empty": 0, //空值
+        "incorrect": -1, //错误的值
+        "unexpected": -2, //不符合预期
+        'exception': -3 //后端请求出错
+    }
+}
 
 HTMLInputElement.prototype.defaultClass = null;
 HTMLInputElement.prototype.hintSpan = null;
 HTMLInputElement.prototype.iconA = null;
-HTMLInputElement.prototype._status = 2; //无值初始状态
+HTMLInputElement.prototype.changed = false; //onblur 中使用
+HTMLInputElement.prototype._status = $input.status.valueless; //无值初始状态
 HTMLInputElement.prototype._blured = false; //是否已失去过一次焦点
-HTMLInputElement.prototype._inputable = true; //是否已失去过一次焦点
+HTMLInputElement.prototype._inputable = true;
 HTMLInputElement.prototype._recent = null;
 HTMLInputElement.prototype._options = null;
 HTMLInputElement.prototype.relations = null; //关联的按钮
-
 HTMLInputElement.prototype._timer = null; //最后一次修改的计时器
 HTMLInputElement.prototype._timestamp = null;
    
-HTMLInputElement.prototype.validate = function (toCheck = false) {
-    //验证方法 按情况 有正则验证走正则 否则非空验证
-    // 0 empty -1 incorrectd 1 valid -2 不符合预期
+HTMLInputElement.prototype.validate = function (check = false) {
+    //验证方法 按情况 有正则验证走正则 否则非空验证    
     if ((this.required || this.requiredText != '') && this.value.$trim() == '') {
-        this.status = 0; //无值空状态       
+        this.status = $input.status.empty; //无值空状态        
     }
     else if (this.minLength > 0 && this.value.$trim().length < this.minLength) {
-        this.status = -1; //有值验证失败状态
+        this.status = $input.status.incorrect; //有值验证失败状态
     }
     else if (this.pattern != '') {
-        this.status = this.validity.patternMismatch ? -1 : 1;
+        this.status = this.validity.patternMismatch ? $input.status.incorrect : $input.status.valid;
     }
     else if (this.validator != '') {
         this.status = new RegExp(this.validator, 'i').test(this.value) ? 1 : -1;        
@@ -204,51 +243,51 @@ HTMLInputElement.prototype.validate = function (toCheck = false) {
     else if (this.type == 'number' || this.type == 'integer' || this.type == 'float') {
         let value = $parseFloat(this.value, 0);
         if ((this.min == '' || value >= $parseFloat(this.min, 0)) && (this.max == '' || value <= $parseFloat(this.max, 0))) {
-            this.status = 1;
+            this.status = $input.status.valid;
         }
         else {
-            this.status = -1;
+            this.status = $input.status.incorrect;
         }        
     }
     else if (this.type == 'password') {
         if (this.fit == '') {
             if (this.strength == 'complex') {
                 if (this.value.length >= 8 && /[a-z]/.test(this.value) && /[A-Z]/.test(this.value) && /\d/.test(this.value) && /[\~\`\!\@\#\$\%\^\&\*\(\)\_\+\-\=\{\}\[\]\|\\\:\;\"\'\<\>\,\.\?\/]/.test(this.value)) {
-                    this.status = 1;
+                    this.status = $input.status.valid;
                 }
                 else {
-                    this.status = -1;
+                    this.status = $input.status.incorrect;
                 }
             }
             else if (this.strength == 'strong') {
                 if (this.value.length >= 6 && /[a-z]/i.test(this.value) && /\d/.test(this.value)) {
-                    this.status = 1;
+                    this.status = $input.status.valid;
                 }
                 else {
-                    this.status = -1;
+                    this.status = $input.status.incorrect;
                 }
             }
             else {
-                this.status = 1;
+                this.status = $input.status.valid;
             }
         }
         else {
             let pwd = $s(this.fit);
             if (pwd == null) {
                 console.error('Password field id "' + this.fit + '" is incorrect.');
-                this.status = -1;
+                this.status = $input.status.incorrect;
             }
             else {
-                this.status = pwd.value == this.value ? 1 : -1;
+                this.status = pwd.value == this.value ? $input.status.valid : $input.status.incorrect;
             }            
         }
     }
     else {
-        this.status = 1;
+        this.status = $input.status.valid;
     }
 
-    if (this.status == 1) {
-        if (toCheck && this['onchange+'] != null) {
+    if (this.status == $input.status.valid) {
+        if (check && this['onchange+'] != null) {
             this.disabled = true;
             $FIRE(this, 'onchange+',
                     function(data) {
@@ -256,12 +295,12 @@ HTMLInputElement.prototype.validate = function (toCheck = false) {
                         this.className = this.validClass; 
                     }, 
                     function(data) {
-                        this.status = -2;
+                        this.status = $input.status.unexpected;
                         this.className = this.errorClass;
                         this.hintText = this.failureText.$p(this, data);
                     },
                     function(error) {
-                        this.status = -1;
+                        this.status = $input.status.exception;
                         this.className = this.errorClass;
                         this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
                     },
@@ -280,7 +319,7 @@ HTMLInputElement.prototype.validate = function (toCheck = false) {
             }
         }
     }
-    else if (this.status == 0) {        
+    else if (this.status == $input.status.empty) {        
         this.className = this.errorClass;
         this.hintText = this.requiredText.$p(this);
     }
@@ -302,23 +341,6 @@ HTMLInputElement.prototype.ajust = function() {
     }
 }
 
-HTMLInputElement.prototype.set = function(attr, value) {
-    if (attr != null) {
-        if (this[attr] != null) {
-            this[attr] = value;
-            if (attr == 'value') {
-                this.ajust();
-            }
-        }
-        else if (this[attr.toCamel()] != null) {
-            this[attr.toCamel()] = value;
-        }
-        else {
-            this.setAttribute(attr, value);
-        }
-    }    
-}
-
 HTMLInputElement.prototype.update = function(value) {
     this.set('value', value);
 }
@@ -328,9 +350,45 @@ HTMLInputElement.prototype.copy = function() {
     document.execCommand('Copy');
 }
 
+HTMLInputElement.prototype.check = function(checked = true) {
+    if (this.type == 'checkbox') {
+        this.indeterminate = false
+        this.checked = checked;
+    }
+}
+
+HTMLInputElement.prototype.uncheck = function() {
+    if (this.type == 'checkbox') {
+        this.indeterminate = false
+        this.checked = false;
+    }
+}
+
+HTMLInputElement.prototype.incheck = function() {
+    if (this.type == 'checkbox') {
+        this.indeterminate = true;
+    }
+}
+
+HTMLInputElement.prototype.tocheck = function() {
+    if (this.type == 'checkbox') {
+        this.indeterminate = false;
+        this.checked = !this.checked;        
+    }
+}
+
+HTMLInputElement.prototype.enable = function() {
+    this.disabled = false;
+}
+
+HTMLInputElement.prototype.disable = function() {
+    this.disabled = true;
+}
+
 HTMLInputElement.prototype.initializeInputable = function() {
 
     this.relations = new Set();
+    this.previousValue = this.value;
 
     let input = this;
     this.minSize = this.getAttribute('size') == null ? 0 : this.size;
@@ -338,18 +396,37 @@ HTMLInputElement.prototype.initializeInputable = function() {
     
     //验证事件
     //重新输入时暂时清除 warning
-    $x(this).on('focus', function(ev) {
+    this.on('focus', function(ev) {
         if (this.$required && this.hintText != '') {
-            this.hintText = '';
+            this.hintSpan.hidden = true;
         }
         this.className = this.focusClass;
     });
 
-    //失去焦点时对值进行检查
-    $x(this).on('change', function(ev) {
+    this.on('blur', function(ev) {
         if (!this._blured) {
             this._blured = true;
         }
+
+        if (!this.changed) {
+            if (this.hintSpan != null) {
+                this.hintSpan.hidden = false;
+            }
+            if (this.$required && this.value == '') {
+                this.hintText = this.requiredText.$p(this);
+            }
+            else {
+                this.className = this.status == $input.status.valid ? this.validClass : this.errorClass;
+            }            
+        }
+        else {
+            this.changed = false;
+        }
+    });
+
+    //失去焦点时对值进行检查
+    this.on('change', function(ev) {
+        this.changed = true;
 
         if (this.type == 'float' || this.type == 'number') {
             let value = this.value;
@@ -395,8 +472,13 @@ HTMLInputElement.prototype.initializeInputable = function() {
             }
         }
 
-        if (this.ifEmpty != '' &&this.value == '') {
+        if (this.ifEmpty != '' && this.value == '') {
             this.value = this.ifEmpty;
+        }
+
+        //初始值不为空时
+        if (this.value == '' && this.defaultValue != '') {
+            this._blured = true;
         }
 
         if (this.$required) {
@@ -409,7 +491,7 @@ HTMLInputElement.prototype.initializeInputable = function() {
 
     this._recent = this.value;
     //输入时对值进行检查    
-    $x(this).on('input', function(ev) {
+    this.on('input', function(ev) {
         if (this.value.trim() != this._recent) {
             if (this.onmodify != null || (this.id != '' && this.events.has('onmodify'))) {
                 if (this._timer != null) {
@@ -427,7 +509,7 @@ HTMLInputElement.prototype.initializeInputable = function() {
             }        
 
             if (this.$required) {
-                this.validate();
+                this.validate(false);
             }
 
             this.ajust();
@@ -486,10 +568,13 @@ HTMLInputElement.prototype.initializeInputable = function() {
             if (this.hintSpan == null) {
                 if (this.hint != null && this.hint != '') {
                     this.hintSpan = $s(this.hint);
+                    if (this.hintSpan == null) {
+                        throw new Error('Incorrect selector "' + this.hint + '" or element doesn\'t exists.');
+                    }
                 }
                 else {
-                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
-                    $x(this).insertBehind(this.hintSpan);
+                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass });
+                    this.insertAdjacentElement('afterEnd', this.hintSpan);
                 }
             }
         }
@@ -498,7 +583,7 @@ HTMLInputElement.prototype.initializeInputable = function() {
 
         if (this.value != '') {
             this._status = 3; //有值初始状态
-            this.validate();
+            this.validate(false);
         }
     }
     else {
@@ -521,7 +606,7 @@ HTMLInputElement.prototype.initializeInputable = function() {
 
     //enter event
     if (this.getAttribute('enter') != null) {
-        $x(this).on('keypress', function(ev) {
+        this.on('keypress', function(ev) {
             if (ev.keyCode == 13 && this.value != this.defaultValue) {
                 let enter = this.getAttribute('enter');
                 if (enter == '') {
@@ -535,7 +620,18 @@ HTMLInputElement.prototype.initializeInputable = function() {
     }
 
     Event.interact(this, this);
-    $complete(function() {
+
+    if (this.hasAttribute('disabled')) {
+        let disabled = $parseBoolean(this.getAttribute('disabled'), false);
+        if (this.disabled != disabled) {
+            this.disabled = disabled;
+        }
+    }
+    else if (this.hasAttribute('enabled')) {
+        this.enabled = $parseBoolean(this.getAttribute('enabled'), true);
+    }
+
+    document.on('load', function() {
         Event.execute(input, 'onload');
     });
 }
@@ -548,7 +644,7 @@ HTMLInputElement.prototype.initializeCheckable = function() {
     this._inputable = false;
 
     if (this.type == 'switch') {
-        this.status = 1;
+        this.status = $input.status.valid;
         this.hidden = true;
         let button = $create('IMG',
                                 { src: `${$root.images}${this.theme}_${this.value == this.options[0] ? 'on' : 'off'}_default.${this.theme != 'checkbox' ? 'png' : 'gif'}`, align: 'absmiddle' },
@@ -618,16 +714,16 @@ HTMLInputElement.prototype.initializeCheckable = function() {
         } 
     }
     else if (this.type == 'checkbox') {
-        this.checked = this.value == this.options[0];
-        $x(this).on('change', function() {
+        //this.checked = this.value == this.options[0];
+        this.on('change', function() {
             if (this['onchange+'] != null) {
                 this.disabled = true;
-                this.value = this.checked ? this.options[0] : this.options[1];
+                //this.value = this.checked ? this.options[0] : this.options[1];
                 $FIRE(this, 'onchange+',
                         function(data) {
                             this.hintText = this.successText.$p(this, data);                            
                             if (this.$required) {
-                                this.status = this.checked ? 1 : 0;
+                                this.status = this.checked ? $input.status.valid : $input.status.empty;
                             }
                             if (this.checked) {
                                 Event.execute(this, 'onchange-checked');
@@ -637,11 +733,11 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                             }
                         }, 
                         function(data) {
-                            this.status = -2;
+                            this.status = $input.status.unexpected;
                             this.hintText = this.failureText.$p(this, data);
                         },
                         function(error) {
-                            this.status = -1;
+                            this.status = $input.status.exception;
                             this.className = this.errorClass;
                             this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
                         },
@@ -652,7 +748,7 @@ HTMLInputElement.prototype.initializeCheckable = function() {
             }
             else {
                 if (this.$required) {
-                    this.status = this.checked ? 1 : 0;
+                    this.status = this.checked ? $input.status.valid : $input.status.empty;
                 }
                 if (this.checked) {
                     Event.execute(this, 'onchange-checked');
@@ -665,7 +761,18 @@ HTMLInputElement.prototype.initializeCheckable = function() {
     }
 
     Event.interact(this, this);
-    $complete(function() {
+
+    if (this.hasAttribute('disabled')) {
+        let disabled = $parseBoolean(this.getAttribute('disabled'), false);
+        if (this.disabled != disabled) {
+            this.disabled = disabled;
+        }
+    }
+    else if (this.hasAttribute('enabled')) {
+        this.enabled = $parseBoolean(this.getAttribute('enabled'), true);
+    }
+
+    document.on('load', function() {
         Event.execute(input, 'onload');
     });
 }
@@ -673,7 +780,7 @@ HTMLInputElement.prototype.initializeCheckable = function() {
 HTMLInputElement.prototype.initializeSelectable = function() {
 
     this.relations = new Set();
-    
+    //未完成
     let input = this;
     this._inputable = false;
 
@@ -866,13 +973,11 @@ HTMLInputElement.Key = {
 
 HTMLInputElement.initializeAll = function(container) {
     $n(container, 'INPUT').forEach(input => {
-        if (input.getAttribute('root') == null) {
-            input.setAttribute('root', 'INPUT');
-            if (document.models != null) {
-                Model.boostPropertyValue(input);
-            }
+        if (!input.hasAttribute('root-input')) {
+            input.setAttribute('root-input', '');
+            window.Model?.boostPropertyValue(input);            
 
-            if (/^(text|password|number|float|integer|mobile|idcard|name|search|calendar|datetime)$/i.test(input.type)) {            
+            if (/^(text|password|number|float|integer|mobile|idcard|name|search|calendar|datetime|email)$/i.test(input.type)) {            
                 input.initializeInputable();
             }
             else if (/^(switch|checkbox)$/i.test(input.type)) {
@@ -885,6 +990,6 @@ HTMLInputElement.initializeAll = function(container) {
     });
 }
 
-$finish(function() {
+document.on('post', function() {
     HTMLInputElement.initializeAll();
 });

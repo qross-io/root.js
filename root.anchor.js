@@ -11,8 +11,8 @@ $enhance(HTMLAnchorElement.prototype)
         failureText: '', //执行失败后的提醒文字
         exceptionText: '', //请求发生错误的提醒文字
 
-        callout: 'upside',
-        alert: null        
+        callout: null,
+        message: null        
     })
     .extend('onclick+')
     .define({
@@ -29,16 +29,12 @@ $enhance(HTMLAnchorElement.prototype)
         'hintText': {
             set (text) {
                 if (text != '') {
-                    if (this.alert != null) {
-                        if ($root.alert != null) {
-                            $root.alert(text, this.confirmButtonText);
-                        }
-                        else {
-                            window.alert(text);
-                        }
-                    }
-                    else {
+                    if (this.callout != null) {                        
                         Callout(text).position(this, this.callout).show();
+                    }
+
+                    if (this.message != null) {
+                        window.Message?.[this.status == 'success' ? 'green' : 'red'](text).show(this.message.toFloat(0));
                     }
                 }                
             }
@@ -46,11 +42,13 @@ $enhance(HTMLAnchorElement.prototype)
     });
 
 HTMLAnchorElement.prototype._href = '';
+HTMLAnchorElement.prototype.status = null;
 
 HTMLAnchorElement.prototype.go = function() {
 
     $FIRE(this, 'onclick+',
         function(data) {
+            this.status = 'success';
             this.hintText = this.successText.$p(this, data);            
             
             if (this._href != '') {
@@ -75,9 +73,11 @@ HTMLAnchorElement.prototype.go = function() {
             }            
         }, 
         function(data) {
-            this.hintText = this.failureText.$p(this, data);           
+            this.status = 'failure';
+            this.hintText = this.failureText.$p(this, data);
         },
         function(error) {
+            this.status = 'exception';
             this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
         },
         function() {
@@ -93,7 +93,7 @@ HTMLAnchorElement.prototype.initialize = function() {
     this._href = this.href;
     this.href = 'javascript:void(0)';
 
-    $x(this).on('click', function(ev) {
+    this.on('click', function(ev) {
         if (this.confirmText != '') {
             if ($root.confirm != null) {
                 let a = this;
@@ -126,18 +126,22 @@ HTMLAnchorElement.prototype.initialize = function() {
 
 HTMLAnchorElement.initializeAll = function(container) {
     for (let a of $n(container, 'a')) {
-        if (a.getAttribute('root') == null) {
-            a.setAttribute('root', 'A');
-            if (document.models != null) {
-                Model.boostPropertyValue(a);
-            }
+        if (!a.hasAttribute('root-anchor')) {
+            a.setAttribute('root-anchor', '');
+            window.Model?.boostPropertyValue(a);            
             if (a.getAttribute('onclick+') != null) {
                 a.initialize();
+            }
+            else if (a.getAttribute('onclick-') != null) {
+                if (a.href == '') {
+                    a.href = 'javascript:void(0)';
+                }
+                Event.interact(a, a);
             }
         }
     }
 }
 
-$finish(function () {
+document.on('post', function () {
     HTMLAnchorElement.initializeAll();
 });

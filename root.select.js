@@ -12,12 +12,87 @@
 reload-on
  */ 
 
+HTMLSelectElement.valueDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+
+$enhance(HTMLSelectElement.prototype)
+    .define({
+        text: {
+            get() {
+                if (this.selectedIndex > -1) {
+                    if (this.multiple) {
+                        return [...this.options].filter(option => option.selected).map(option => option.text).join(',');
+                    }
+                    else {
+                        return this.options[this.selectedIndex].text;
+                    }
+                }
+                else {
+                    return "";
+                }
+            },
+            set(value) {
+                if (typeof(value) == 'string') {
+                    value = value.split(',');
+                }
+                if (value instanceof Array) {
+                    let vs = new Set(value);
+                    [...this.options].forEach(option => option.selected = vs.has(option.value));                    
+                }
+                else {
+                    HTMLSelectElement.valueDescriptor.set.call(this, value);
+                }
+            }
+        },
+        value: {
+            get() {
+                if (this.multiple) {
+                    return [...this.options].filter(option => option.selected).map(option => option.value).join(',');
+                }
+                else {
+                    return HTMLSelectElement.valueDescriptor.get.call(this);
+                }
+            },
+            set(value) {
+                if (this.multiple) {
+                    if (typeof(value) == 'string') {
+                        value = value.split(',');
+                    }
+                    [...this.options].forEach(option => option.selected = value.includes(option.value));
+                }
+                else {
+                    HTMLSelectElement.valueDescriptor.set.call(this, value);
+                }                
+            }
+        },
+        selectedIndexes: {
+            get() {
+                if (this.multiple) {
+                    return [...this.selectedOptions].map(option => option.index);
+                }
+                else {
+                    return [this.selectedIndex];
+                }
+            },
+            set(indexes) {
+                if (this.multiple) {
+                    let before = this.selectedIndexes;
+                    before.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
+                    indexes.filter(index => !before.includes(index)).forEach(index => this.options[index].selected = true);
+                }
+                else {
+                    this.selectedIndex = indexes[0] ?? -1;
+                }
+            }
+        }
+    });
+
 class Select {
 
     constructor(element) {
         
         this.options = [];
         this._selectedIndex = -1;
+        this._selectedIndexes = [];
 
         $initialize(this)
         .with(element)
@@ -58,12 +133,14 @@ class Select {
             multiple: false,
    
             data: '',
+            await: '',
             
-            _disabled: function(value) {
-                return value == 'disabled' || $parseBoolean(value, false);
-            },
+            _disabled: false,
+            _enabled: true,
 
-            onchange: null, //function(beforeOption, ev) { },
+            onload: null,
+            onreload: null,
+            onchange: null, //function(index, ev) { },
             'onchange+': null, //server side event
             'onchange+success': null,
             'onchange+failure': null,
@@ -73,21 +150,21 @@ class Select {
             status: 'none',
             hint: null,
             callout: null,
-            alter: null
+            message: null
         })
         .elementify(element => {
             if (this.type == 'beauty') {
-                //this.box = 
-                //this.container =                 
+                //this.box =           
             }
             else if (this.type != 'original') {
                 this.container = $create(Select[this.type].container, { id: this.id, className: this._frameClass }, { }, { name: this._name, value: this._value || '' });
                 if (element.getAttribute('style') != null) {
                     this.container.setAttribute('style', element.getAttribute('style'));
                 }
-                $x(element).insertFront(this.container);
+                element.insertAdjacentElement('beforeBegin', this.container);
                 //transfer attributes
-                $transfer(element, this.container);                
+                $transfer(element, this.container);
+                element.id = '';
             }
             else {
                 this.container = element;
@@ -97,36 +174,51 @@ class Select {
                 this.multiple = true;
             }
             
-            this.$value = element.getAttribute('value') || '';
+            this.$value = element.getAttribute('value') ?? '';
             this.element = element;
         });        
 
+        let select = this;
         if (this.type != 'original') {
-            let select = this;
             this.container.onclick = function(ev) {
-                let target = ev.target;
-                let allowed = true;
-                if (select.type == 'radio' || select.type == 'checkbox') {
-                    allowed = target.nodeName == 'INPUT' || target.nodeName == 'LABEL';
-                }
-                while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
-                    target = target.parentNode;
-                }
-                if (allowed && target.nodeName != 'BODY') {
-                    let index = target.getAttribute('index').toInt();
-                    if (select.multiple) {
-                        select.options[index].selected = !select.options[index].selected;
+                if (!select.disabled) {
+                    let target = ev.target;
+                    let allowed = true;
+                    if (select.type == 'radio' || select.type == 'checkbox') {
+                        allowed = target.nodeName == 'INPUT' || target.nodeName == 'LABEL';
                     }
-                    else if (!select.options[index].selected) {
-                        select.options[index].selected = true;
+                    while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
+                        target = target.parentNode;
+                    }
+                    if (allowed && target.nodeName != 'BODY') {
+                        let index = target.getAttribute('index').toInt();
+                        if (select.initialized) {
+                            select.container.setAttribute('value-', select.getComingValue(index));
+                            if (select.execute('onchange', index, ev)) {
+                                if (select.multiple) {
+                                    select.options[index].selected = !select.options[index].selected;
+                                }
+                                else if (!select.options[index].selected) {
+                                    select.options[index].selected = true;
+                                }
+                                select._fireChange();
+                            }
+                            select.container.removeAttribute('value-');
+                        }                    
                     }
                 }
             }
         }
         else {
-            $x(this.element).on('change', function(ev) {
-                this.setAttribute('text', this.options[this.selectedIndex].text);
-                this.setAttribute('value', this.value);
+            if (this.container.onchange != null && this['onchange+'] != null) {
+                this.onchange_ = this.container.onchange;
+                this.container.onchange = null;
+            }
+
+            this.container.on('change', function(ev) {
+                if (select.execute(select.onchange_ != null ? 'onchange_' : 'onchange', this.selectedIndex, ev)) {
+                    select._fireChange();
+                }
             });
         }
     }
@@ -150,22 +242,75 @@ class Select {
     }
 
     set selectedIndex(index) {
-        if (index != this._selectedIndex) {
-            if (index < -1) {
-                index = -1;
-            }
-            if (index > this.options.length - 1) {
-                index = this.options.length - 1;
-            }
+        if (index < -1) {
+            index = -1;
+        }
+        if (index > this.options.length - 1) {
+            index = this.options.length - 1;
+        }
 
-            if (index == -1) {
-                this.options.filter(option => option.selected).forEach(option => option.selected = false);
+        if (!this.multiple) {            
+            if (index != this._selectedIndex) {
+                if (this.initialized) {
+                    this.container.setAttribute('value-', select.getComingValue(index));
+                    if (this.execute('onchange', index)) {
+                        this._source = 'index';
+                        if (index == -1) {
+                            this.options[this._selectedIndex].selected = false;                        
+                        }
+                        else {                        
+                            this.options[index].selected = true;                
+                        }
+                        this._source = 'none';
+                        this._selectedIndex = index;  
+                        this._fireChange();
+                    }
+                    this.container.removeAttribute('value-');
+                }
+                else {
+                    this._source = 'index';
+                    if (index == -1) {
+                        this.options[this._selectedIndex].selected = false;                        
+                    }
+                    else {                        
+                        this.options[index].selected = true;                
+                    }
+                    this._selectedIndex = index;
+                    this._source = 'none';
+                }
+            }            
+        }
+        else {
+            this.selectedIndexes = [index];
+        }
+    }
+
+    get selectedIndexes() {
+        return this._selectedIndexes;
+    }
+
+    set selectedIndexes(indexes) {
+        if (JSON.stringify(indexes) != JSON.stringify(this._selectedIndexes)) {
+            if (this.initialized) {
+                this.container.setAttribute('value-', select.getComingValue(indexes));
+                if (this.execute('onchange', indexes)) {
+                    this._source = 'indexes';
+                    this._selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
+                    indexes.filter(index => !this._selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
+                    this._source = 'none';
+                    this._selectedIndexes = indexes;
+                    this._selectedIndex = indexes[0] ?? -1;
+                    this._fireChange();
+                }
+                this.container.removeAttribute('value-');
             }
             else {
-                if (this.multiple) {
-                    this.options.filter(option => option.selected && option.index != index).forEach(option => option.selected = false);
-                }
-                this.options[index].selected = true;
+                this._source = 'indexes';
+                this._selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
+                indexes.filter(index => !this._selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
+                this._source = 'none';
+                this._selectedIndexes = indexes;
+                this._selectedIndex = indexes[0] ?? -1;
             }
         }
     }
@@ -175,24 +320,83 @@ class Select {
     }
 
     set disabled(disabled) {
+        if (typeof(disabled) != 'boolean') {
+            disabled = $parseBoolean(disabled, true, this);
+        }        
         this.options.forEach(option => option.disabled = disabled);
         this._disabled = disabled;        
     }
 
+    get enabled() {
+        return !this._disabled;
+    }
+
+    set enabled(enabled) {
+        if (typeof(enabled) != 'boolean') {
+            enabled = $parseBoolean(enabled, true, this);
+        }
+        this.disabled = !enabled;
+    }
+
     get text() {
-        return this.container.getAttribute('text') || '';
+        if (this.type != 'original') {
+            if (this.multiple) {
+                return [...this.options].filter(option => option.selected).map(option => option.text).join(',');
+            }
+            else {
+                return this.selectedIndex > -1 ? this.options[this.selectedIndex].text : '';
+            }
+        }
+        else {
+            return this.container.text;
+        }
     }
 
     set text(text) {
-        this.container.setAttribute('text', text);
+        if (this.type != 'original') {
+            if (this.multiple) {
+                this.selectedIndexes = this.indexesTextOf(typeof(value) == 'string' ? text.split(',') : text);
+            }
+            else {
+                this.selectedIndex = this.indexTextOf(text);
+            }
+        }
+        else {
+            this.container.text = text;
+        }
     }
 
-    get value() {        
-        return this.container.getAttribute('value') || '';
+    get value() {
+        if (this.type != 'original') {
+            if (this.container.hasAttribute('value-')) {
+                return this.container.getAttribute('value-');
+            }
+            else {
+                if (this.multiple) {
+                    return [...this.options].filter(option => option.selected).map(option => option.value).join(',');
+                }
+                else {
+                    return this.selectedIndex > -1 ? this.options[this.selectedIndex].value : '';
+                }
+            }
+        }
+        else {
+            return this.container.value;
+        }        
     }
 
     set value(value) {
-        this.container.setAttribute('value', value);
+        if (this.type != 'original') {
+            if (this.multiple) {
+                this.selectedIndexes = this.indexesOf(typeof(value) == 'string' ? value.split(',') : value);
+            }
+            else {
+                this.selectedIndex = this.indexOf(value);
+            }
+        }
+        else {
+            this.container.value = value;
+        }
     }
 
     get className() {
@@ -286,16 +490,13 @@ class Select {
             this.hintSpan.hidden = text == '';
         }
         
-        if (text != '' && this.callout != null) {
-            Callout(text).position(this, this.callout).show();
-        }
-
-        if (text != '' && this.alert != null) {
-            if ($root.alert != null) {
-                $root.alert(text, this.confirmButtonText);
+        if (text != '') {
+            if (this.callout != null) {
+                Callout(text).position(this.container, this.callout).show();
             }
-            else {
-                window.alert(text);
+            
+            if (this.message != null) {
+                window.Message?.[this.status != 'success' ? 'red' : 'green'](text).show(this.message.toFloat(0));
             }
         }
     }
@@ -325,10 +526,33 @@ $select = function(name) {
 // Select.prototype.onsuccess = function(result) { };
 
 Select.prototype.$value = null; //初始值
+Select.prototype.onchange_ = null; //原生 onchange 事件
 Select.prototype.element = null; //保存配置的元素
 Select.prototype.container = null; //容器元素
 Select.prototype.$for = null; //as a for loop
 Select.prototype._initialized = false;
+Select.prototype._source = 'none'; // 触发 selected 的来源 value/text/index/none
+
+Select.prototype.getComingValue = function(index) {
+    if (this.multiple) {
+        if (index instanceof Array) {
+            return index.map(i => this.options[i].value).join(',');
+        }
+        else {
+            let indexes = new Set(this.selectedIndexes);
+            if (indexes.has(index)) {
+                index.delete(index);
+            }
+            else {
+                indexes.add(index);
+            }
+            return [...indexes].map(i => this.options[i].value).join(',');
+        }
+    }
+    else {
+        return this.options[index].value;
+    }
+}
 
 Select.prototype.apply = function() {
 
@@ -337,27 +561,32 @@ Select.prototype.apply = function() {
             this.add(option);
         }
     }
-
-    if (this.$value != '') {
-        this.$value.split(',')
-            .forEach(v => {
-                this.options.filter(option => option.value == v).forEach(option => option.selected = true);
-            });
+    else {
+        //同步属性
+        this._selectedIndex = this.container.selectedIndex;
+        this.options = [...this.container.options];
     }
-    
-    if (this.selectedIndex > -1) {
-        if (this.text == '') {
-            this.text = this.options.filter(option => option.selected).map(option => option.text).join(',');
-        }
-        if (this.value == '') {
-            this.value = this.options.filter(option => option.selected).map(option => option.value).join(',');
+
+    if (!this._initialized) {
+        if (this.$value != '' && this.value != this.$value) {
+            this.value = this.$value;
         }
     }
 }
 
+Select.prototype.enable = function() {
+    this.disabled = false;
+}
+
+Select.prototype.disable = function() {
+    this.disabled = true;
+}
+
 Select.prototype.initialize = function() {
 
-    this.element.hidden = true;
+    if (this.type != 'original') {
+        this.element.hidden = true; 
+    }
     
     if (this.data != '') {        
         this.$for = new For(this.element);
@@ -369,10 +598,17 @@ Select.prototype.initialize = function() {
             }
             else {
                 this.owner._initialized = true;
+                this.owner.element.setAttribute('loaded', '');
                 Event.execute(this.owner, 'onload', data);                
-            }            
+            }
         }
-        this.$for.load();
+
+        if (this.await == '') {
+            this.$for.load();
+        }
+        else {
+            Event.await(this, this.await);
+        }
     }
 
     Event.interact(this, this.element);
@@ -382,12 +618,8 @@ Select.prototype.initialize = function() {
         this._initialized = true;
         Event.execute(this, 'onload');
     }
-    
-    if (this.type == 'original') {
-        this.element.hidden = false;
-    }
 
-    if (this._disabled) {
+    if (this._disabled || !this._enabled) {
         this.disabled = true;
     }
 
@@ -399,7 +631,7 @@ Select.prototype.initialize = function() {
                 }
                 else {
                     this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
-                    $x(this).insertBehind(this.hintSpan);
+                    this.insertAdjacentElement('afterEnd', this.hintSpan);
                 }
             }
         }
@@ -435,21 +667,26 @@ Select.prototype.add = function(settingsOrOptionElement) {
     this.container.appendChild(option.container);
     this.options.push(option);    
 
-    if (this.value.$includes(option.value) || option._selected) {
-        if (!this.multiple) {
+    if (option._selected) {
+        if (this.multiple) {
+            this._selectedIndexes.push(option.index);
+            this._selectedIndex = this._selectedIndexes[0];
+        }
+        else {
             if (this.selectedIndex > -1) {
-                $x(this.options[this.selectedIndex].container).swap(this.options[this.selectedIndex].selectedClass, this.options[this.selectedIndex].className);
+                //$1x(this.options[this.selectedIndex].container).swap(this.options[this.selectedIndex].selectedClass, this.options[this.selectedIndex].className);
+                his.options[this.selectedIndex].container.className = this.options[this.selectedIndex].selectedClass;
                 this.options[this.selectedIndex]._selected = false;
             }
+            this._selectedIndex = option.index;
         }
 
-        $x(option.container).swap(option.selectedClass, option.className);
-        option._selected = true;
-        this._selectedIndex = option.index;
+        //$1x(option.container).swap(option.selectedClass, option.className);
+        option.container.className = option.selectedClass;
         option.hideAndShow();
     }
     
-    if (option.disabled && !option.container.disabled) {
+    if ((option._disabled || !option._enabled) && !option.container.disabled) {
         option.disabled = true;
     }
 
@@ -482,9 +719,8 @@ Select.prototype.updateAppearances = function() {
     }
 }
 
-Select.prototype.insertBefore = function(index, text, value, className) { };
-
-Select.prototype.insertAfter = function(index, text, value, className) { };
+//Select.prototype.insertBefore = function(index, text, value, className) { };
+//Select.prototype.insertAfter = function(index, text, value, className) { };
 
 Select.prototype.clear = function() {
     this.container.innerHTML = '';
@@ -495,59 +731,81 @@ Select.prototype.clear = function() {
     this.options.length = 0;
 };
 
-Select.prototype.indexOf = function(value) { };
-
-Select.prototype.indexTextOf = function(text) { };
-
-//回退到上一个状态
-Select.prototype._rollback = function(before, after) {
-    if (this.multiple) {
-        $x(this.options[after].container).swap(this.options[after].selectedClass, this.options[after].className);
-        this.options[after]._selected = !this.options[after]._selected;
-
-        let options = this.options.filter(option => option.selected);
-        if (options.length == 0) {
-            this.text = '';
-            this.value = '';
-            this._selectedIndex = -1;
-        }
-        else {
-            this.text = options.map(option => option.text).join(',');
-            this.value = options.map(option => option.value).join(',');
-            this._selectedIndex = options[0].index;
-
-            options.forEach(option => option.hideAndShow());
+Select.prototype.indexOf = function(value) {
+    let index = -1;
+    if (value != '') {
+        for (let option of this.options) {
+            if (option.value == value) {
+                index = option.index;
+                break;
+            }
         }
     }
-    else {
-        if (before > -1) {
-            $x(this.options[before].container).swap(this.options[before].selectedClass, this.options[before].className);
-            this.options[before]._selected = true;
-        }
-        if (after > -1) {
-            $x(this.options[after].container).swap(this.options[after].selectedClass, this.options[after].className);
-            this.options[after]._selected = false;
-        }
+    return index;
+};
 
-        this._selectedIndex = before;
-        this.text = before != -1 ? this.options[before].text : '';
-        this.value = before != -1 ? this.options[before].value : '';
-
-        if (this.options[before].hide != '') {
-            $x(this.options[before].hide).hide();
-        }
-        if (this.options[before].show != '') {
-            $x(this.options[before].show).show();
+Select.prototype.indexesOf = function(values) {
+    let indexes = [];
+    if (values.length > 0) {
+        for (let option of this.options) {
+            if (values.includes(option.value)) {
+                indexes.push(option.index);
+            }
         }
     }
+    return indexes;
+}
+
+Select.prototype.indexTextOf = function(text) { 
+    let index = -1;
+    for (let option of this.options) {
+        if (option.text == text) {
+            index = option.index;
+        }
+    }
+    return index;
+};
+
+Select.prototype.indexesTextOf = function(texts) {
+    let indexes = [];
+    if (texts.length > 0) {
+        for (let option of this.options) {
+            if (texts.includes(option.text)) {
+                indexes.push(option.index);
+            }
+        }
+    }
+    return indexes;
+}
+
+Select.prototype._fireChange = function() {
+    if (this['onchange+'] != null) {
+        $FIRE(this, 'onchange+',
+                function(data) {
+                    this.status = 'success';
+                    this.hintText = this.successText.$p(this, data);
+                }, 
+                function(data) {
+                    this.status = 'failure';
+                    this.hintText = this.failureText.$p(this, data);
+                },
+                function(error) {
+                    this.status = 'exception';
+                    this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                });
+    }
+}
+
+Select.prototype.set = function(item, value) {
+    $attr(this, item, value);
 }
 
 Select.prototype.setValue = function(value) {
-    this.container.setAttribute('value', value);
+    this.value = value;
 }
 
 Select.prototype.setText = function(text) {
-    this.container.setAttribute('text', text);
+    this.text = text;
 }
 
 Select.prototype.getAttribute = function(attr) {
@@ -587,14 +845,11 @@ class SelectOption {
                 _selectedClass: '', //默认从Select继承
                 _className: '', //默认从Select继承
                 _disabledClass: '', //默认从Select继承
-                _selected: function(value) {
-                    return value == 'selected' || $parseBoolean(value, false);
-                },
-                _disabled: function(value) {
-                    return value == 'disabled' || $parseBoolean(value, false);
-                },
-                show: '', //切换到当前选项时显示哪些元素
-                hide: '' //切换到当前选项时隐藏哪些元素
+                _selected: false,
+                _disabled: false,
+                _enabled: true,
+                toShow: '', //切换到当前选项时显示哪些元素
+                toHide: '' //切换到当前选项时隐藏哪些元素
             })
             .elementify(element => {
                 this.element = element;
@@ -616,9 +871,6 @@ class SelectOption {
 
     set text(text) {
         if (text != this._text) {
-            if (this.selected) {
-                this.select.container.setAttribute('text', text);
-            }
             this._text = text;
             Select[this.select.type].setText.call(this, text);
         }        
@@ -630,9 +882,6 @@ class SelectOption {
 
     set value(value) {
         if (value != this._value) {
-            if (this.selected) {
-                this.select.container.setAttribute('value', value);
-            }
             this.container.setAttribute('value', value);
             this._value = value;
         }        
@@ -711,81 +960,52 @@ class SelectOption {
     }
 
     set selected(selected) {
-        if (typeof (selected) == 'boolean') {
-            if (selected != this._selected || (selected && this._selected && this.select.selectedIndex == -1)) {
-                let before = this.select.selectedIndex;
+        if (typeof (selected) != 'boolean') {
+            selected = $parseBoolean(selected);
+        }
+                
+        if (selected != this._selected || (selected && this._selected && this.select.selectedIndex == -1)) {
 
-                if (this.select.multiple) {
-                    $x(this.container).swap(this.selectedClass, this.className);
-                    this._selected = selected;
-            
-                    let options = this.select.options.filter(option => option.selected);
-                    if (options.length == 0) {
-                        this.select.container.setAttribute('text', '');
-                        this.select.container.setAttribute('value', '');
-                        this.select._selectedIndex = -1;
-                    }
-                    else {
-                        this.select.container.setAttribute('text', options.map(option => option.text).join(','));
-                        this.select.container.setAttribute('value', options.map(option => option.value).join(','));
-                        this.select._selectedIndex = options[0].index;
-                    }
-                }
-                else {
-                    if (selected) {
-                        if (this.select.selectedIndex > -1) {
-                            $x(this.select.options[this.select.selectedIndex].container).swap(this.select.options[this.select.selectedIndex].selectedClass, this.select.options[this.select.selectedIndex].className);
-                            this.select.options[this.select.selectedIndex]._selected = false;
-                        }        
-                        $x(this.container).swap(this.selectedClass, this.className);
-                        this._selected = true;
-                        this.select._selectedIndex = this.index;
-            
-                        this.select.container.setAttribute('text', this.text);
-                        this.select.container.setAttribute('value', this.value);
+            if (this.select.multiple) {
+                //$1x(this.container).swap(this.selectedClass, this.className);
+                this.container.className = selected ? this.selectedClass : this.className;
+                this._selected = selected;
 
-                        this.hideAndShow();
-                    }
-                    else {
-                        $x(this.container).swap(this.selectedClass, this.className);
-                        this._selected = false;
-                        this.select._selectedIndex = -1;
-            
-                        this.select.container.setAttribute('text', '');
-                        this.select.container.setAttribute('value', '');
-                    }
+                if (selected) {
+                    this.hideAndShow();
                 }
 
-                //事件在加载完成后才触发
-                if (this.select.initialized) {
-                    if (this.select.execute('onchange', this.select.options[before], this)) {
-                        if (this.select['onchange+'] != null) {
-                            $FIRE(this.select, 'onchange+',
-                                    function(data) {
-                                        this.status = 'success';
-                                        this.hintText = this.successText.$p(this, data);
-                                    }, 
-                                    function(data) {
-                                        this.status = 'failure';
-                                        this.hintText = this.failureText.$p(this, data);
-                                        this._rollback(before, this.selectedIndex);
-                                    },
-                                    function(error) {
-                                        this.status = 'exception';
-                                        this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-                                        this._rollback(before, this.selectedIndex);
-                                    },
-                                    function() { });
-                        }
-                    }
-                    else {
-                        //back on illegal
-                        this.select._rollback(before, this.index);
-                    }
+                if (this.select._source == 'none') {
+                    this.select._selectedIndexes = this.select.options.filter(option => option.selected).map(option => option.index);
+                    this.select._selectedIndex = this.select._selectedIndexes[0] ?? -1;
                 }
             }
-            Select[this.select.type].selectAop.call(this, selected);
+            else {
+                if (selected) {
+                    if (this.select._selectedIndex > -1) {
+                        //$1x(this.select.options[this.select.selectedIndex].container).swap(this.select.options[this.select._selectedIndex].selectedClass, this.select.options[this.select._selectedIndex].className);
+                        this.select.options[this.select.selectedIndex].container.className = this.select.options[this.select._selectedIndex].selectedClass;
+                        this.select.options[this.select._selectedIndex]._selected = false;
+                    }        
+                    //$1x(this.container).swap(this.selectedClass, this.className);
+                    this.container.className = this.selectedClass;
+                    this._selected = true;
+
+                    this.hideAndShow();
+                }
+                else {
+                    //$1x(this.container).swap(this.selectedClass, this.className);
+                    this.container.className = this.className;
+                    this._selected = false;
+                }
+
+                if (this.select._source == 'none') {
+                    this.select._selectedIndex = selected ? this.index : -1;
+                }
+            }            
         }
+        
+        Select[this.select.type].selectAop.call(this, selected);
     }
 
     get disabled() {
@@ -793,13 +1013,30 @@ class SelectOption {
     }
 
     set disabled(disabled) {
-        if (typeof(disabled) == 'boolean') {
-            if (disabled != this._disabled) {                
-                $x(this.container).swap(this.selected ? this.selectedClass : this.className, this.disabledClass);
-                this._disabled = disabled;
+        if (typeof(disabled) != 'boolean') {
+            disabled = $parseBoolean(disabled, true, this);
+        }
+        if (disabled != this._disabled) {                
+            if (disabled) {
+                this.container.classList.add(this.disabledClass);
             }
+            else {
+                this.container.classList.remove(this.disabledClass);
+            }
+            this._disabled = disabled;
             Select[this.select.type].disableAop.call(this, disabled);
         }        
+    }
+
+    get enabled() {
+        return !this._disabled;
+    }
+
+    set enabled(enabled) {
+        if (typeof(enabled) != 'boolean') {
+            enabled = $parseBoolean(enabled, true, this);
+        }
+        this.disabled = !enabled;
     }
 }
 
@@ -841,12 +1078,8 @@ SelectOption.prototype.insertFront = function(text, value, className) {
 };
 
 SelectOption.prototype.hideAndShow = function() {
-    if (this.hide != '') {
-        $x(this.hide).hide();
-    }
-    if (this.show != '') {
-        $x(this.show).show();
-    }
+    $a(this.toHide).forEach(e => e.hide());
+    $a(this.toShow).forEach(e => e.show());
 }
 
 // scale = normal
@@ -861,6 +1094,7 @@ Select['original'] = {
     optionClass: '', 
     selectedOptionClass: '',
     disabledOptionClass: '',
+    defaultSelectedIndex: 0,
     setText: function(text) {
 
     },
@@ -879,7 +1113,8 @@ Select['button'] = {
     container: 'SPAN',
     optionClass: 'optional-button', 
     selectedOptionClass: 'blue-button',
-    disabledOptionClass: 'disabled',
+    disabledOptionClass: 'disabled-button',
+    defaultSelectedIndex: 0,
     setText: function(text) {
         this.container.innerHTML = text;
     },
@@ -926,14 +1161,15 @@ Select['button'] = {
             }
         }
 
-        if (this.disabled) {
-            css += ' ' + (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
-        }
-        else if (this.selected) {
+        if (this.selected) {
             css += ' ' + (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
         }
         else {
             css += ' ' + (this.className == '' ? this.select.optionClass : this.className);
+        }
+
+        if (this.disabled) {
+            css += ' ' + (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
         }
 
         if (this.container.className != css) {
@@ -956,6 +1192,7 @@ Select['image'] = {
     optionClass: 'image-option', 
     selectedOptionClass: 'image-selected-option',
     disabledOptionClass: 'image-disabled-option',
+    defaultSelectedIndex: 0,
     setText: function(text) {
         this.container.lastChild.innerHTML = text;
     },
@@ -974,14 +1211,15 @@ Select['image'] = {
         this.container.setAttribute('disabled', yes);
     },
     updateAppearance: function(terminal) {
-        if (this.disabled) {
-            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
-        }
-        else if (this.selected) {
+        if (this.selected) {
             this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
         }
         else {
             this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+        }
+
+        if (this.disabled) {
+            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
         }
     }
 }
@@ -991,6 +1229,7 @@ Select['radio'] = {
     optionClass: 'item-option',
     selectedOptionClass: 'item-selected-option',
     disabledOptionClass: 'item-disabled-option',
+    defaultSelectedIndex: 0,
     setText: function(text) {
         this.container.lastChild.innerHTML = text;
     },
@@ -1010,14 +1249,15 @@ Select['radio'] = {
         this.container.firstChild.disabled = yes;
     },
     updateAppearance: function(terminal) {
-        if (this.disabled) {
-            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
-        }
-        else if (this.selected) {
+        if (this.selected) {
             this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
         }
         else {
             this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+        }
+
+        if (this.disabled) {
+            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
         }
     }
 }
@@ -1027,6 +1267,7 @@ Select['checkbox'] = {
     optionClass: 'item-option',
     selectedOptionClass: 'item-selected-option',
     disabledOptionClass: 'item-disabled-option',
+    defaultSelectedIndex: -1,
     setText: function(text) {
         this.container.lastChild.innerHTML = text;
     },
@@ -1046,14 +1287,15 @@ Select['checkbox'] = {
         this.container.firstChild.disabled = yes;
     },
     updateAppearance: function(terminal) {
-        if (this.disabled) {
-            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
-        }
-        else if (this.selected) {
+        if (this.selected) {
             this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
         }
         else {
             this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+        }
+
+        if (this.disabled) {
+            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
         }
     }
 }
@@ -1075,9 +1317,7 @@ Select.initializeAllIn = function(element) {
         element = $s(element);
     }
     element.querySelectorAll('select').forEach(select => {
-        if (document.models != null) {
-            Model.boostPropertyValue(select, 'value');
-        }
+        window.Model?.boostPropertyValue(select, 'value');        
         new Select(select).initialize();
     });
 }
@@ -1086,6 +1326,6 @@ Select.initializeAll = function() {
     Select.initializeAllIn(document);
 }
 
-$finish(function () {
+document.on('post', function () {
     Select.initializeAll();
 });

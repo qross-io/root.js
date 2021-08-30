@@ -26,6 +26,7 @@ class Chart {
             .declare({
                 name: 'Chart_' + document.components.size,
                 _data: '',
+                await: '',
 
                 title: null,
                 type: 'line',
@@ -62,14 +63,9 @@ Chart.prototype.xData = null;
 Chart.prototype.yData = null;
 
 Chart.prototype.load = function() {
-    if (this._data != '') {
-        $TAKE(this._data, this.element, this, function(data) {
-            this.render(data);
-        });
-    }
-    else {
-        this.render();
-    }
+    $TAKE(this._data, this.element, this, function(data) {
+        this.render(data);
+    });
 }
 
 Chart.prototype.reload = function() {
@@ -77,12 +73,12 @@ Chart.prototype.reload = function() {
 }
 
 Chart.prototype.render = function(data) {
-    this.xData = this.xAxis.placeModelData('#' + this.name);
+    this.xData = this.xAxis.placeModelData(this.name);
     if (typeof(this.xData) == 'string' && data != null) {
         this.xData = this.xData.placeData(data);
     }
     
-    this.yData = this.yAxis.placeModelData('#' + this.name);
+    this.yData = this.yAxis.placeModelData(this.name);
     if (typeof(this.yData) == 'string' && data != null) {
         this.yData = this.yData.placeData(data);
     }
@@ -132,6 +128,20 @@ Chart.prototype.render = function(data) {
     });
 }
 
+Chart.prototype.initialize = function() {
+    if (this._data != '') {
+        if (this.await == '') {
+            this.load();
+        }
+        else {
+            Event.await(this, this.await);
+        }    
+    }
+    else {
+        this.render();
+    }
+}
+
 class Serie {
     constructor(element) {
         $initialize(this)
@@ -152,6 +162,6 @@ Chart.initializeAll = function() {
     });
 }
 
-$finish(function() {
+document.on('post', function() {
     Chart.initializeAll();
 });

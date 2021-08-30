@@ -24,8 +24,8 @@ class Clock {
             //maxTime: '2100-12-31 23:59:59',
             //calendar: '',
 
-            optionFrameAlign: Enum('CENTER', 'LEFT', 'RIGHT'),
-            optionFrameSide: Enum('DOWNSIDE', 'UPSIDE'),
+            optionFrameAlign: 'center|left|right',
+            optionFrameSide: 'downside|upside',
 
             frameClass: '-clock',
             hourClass: '-clock-hour',
@@ -306,25 +306,24 @@ Clock.prototype.display = function() {
         this.container.parentNode.appendChild(this.hourOptionFrame);
 
         this.hourInput.onfocus = function() {
-            $x(clock.minuteOptionFrame).hide();
-            $x(clock.secondOptionFrame).hide();
-            $x(clock.hourOptionFrame).select('td.' + clock.checkedOptionClass).css(clock.optionClass);
-            $x(clock.hourOptionFrame).select('td[hour=v' + clock.hourInput.value + ']').css(clock.checkedOptionClass);
+            clock.minuteOptionFrame.hide();
+            clock.secondOptionFrame.hide();
+            clock.hourOptionFrame.select('td.' + clock.checkedOptionClass).className = clock.optionClass;
+            clock.hourOptionFrame.select('td[hour=v' + clock.hourInput.value + ']').className = clock.checkedOptionClass;
 
-            $x(clock.hourOptionFrame).show()[clock.optionFrameSide.toLowerCase()](clock.hourInput, 0, 0, clock.optionFrameAlign.toLowerCase());
-            $x(clock.hourOptionFrame).fadeIn();            
-                
-            $x(clock.container).fadeOut(20);
+            $s(clock.hourOptionFrame).show()[clock.optionFrameSide](clock.hourInput, 0, 0, clock.optionFrameAlign);
+            clock.hourOptionFrame.fadeIn();                
+            clock.container.fadeOut(20);
         }
 
         this.hourOptionFrame.onclick = function(ev) {
             let target = ev.target;
             if (target.nodeName == 'TD' && target.className != clock.checkedOptionClass) {
-                $x(this).select('td.' + clock.checkedOptionClass).css(clock.optionClass);
+                this.select('td.' + clock.checkedOptionClass).className = clock.optionClass;
                 target.className = clock.checkedOptionClass;
                 clock.hourInput.value = target.innerHTML;
-                $x(clock.hourOptionFrame).fadeOut();
-                $x(clock.container).fadeIn(20);
+                clock.hourOptionFrame.fadeOut();
+                clock.container.fadeIn(20);
 
                 clock.execute('onHourChanged', target.innerHTML);
                 clock.execute('onTimeChanged', clock.time);
@@ -366,23 +365,23 @@ Clock.prototype.display = function() {
         this.container.parentNode.appendChild(this.minuteOptionFrame);
 
         this.minuteInput.onfocus = function() {
-            $x(clock.hourOptionFrame).hide();
-            $x(clock.secondOptionFrame).hide();
-            $x(clock.minuteOptionFrame).select('td.' + clock.checkedOptionClass).css(clock.optionClass);
-            $x(clock.minuteOptionFrame).select('td[minute=v' + clock.minuteInput.value + ']').css(clock.checkedOptionClass);
-            $x(clock.minuteOptionFrame).show()[clock.optionFrameSide.toLowerCase()](clock.minuteInput, 0, 0, clock.optionFrameAlign.toLowerCase());
-            $x(clock.minuteOptionFrame).fadeIn();
-            $x(clock.container).fadeOut(20);
+            clock.hourOptionFrame.hide();
+            clock.secondOptionFrame.hide();
+            clock.minuteOptionFrame.select('td.' + clock.checkedOptionClass).className = clock.optionClass;
+            clock.minuteOptionFrame.select('td[minute=v' + clock.minuteInput.value + ']').className = clock.checkedOptionClass;
+            clock.minuteOptionFrame.show()[clock.optionFrameSide](clock.minuteInput, 0, 0, clock.optionFrameAlign);
+            clock.minuteOptionFrame.fadeIn();
+            clock.container.fadeOut(20);
         }
 
         this.minuteOptionFrame.onclick = function(ev) {
             let target = ev.target;
             if (target.nodeName == 'TD' && target.className != clock.checkedOptionClass) {
-                $x(this).select('td.' + clock.checkedOptionClass).css(clock.optionClass);
+                this.select('td.' + clock.checkedOptionClass).className = clock.optionClass;
                 target.className = clock.checkedOptionClass;
                 clock.minuteInput.value = target.innerHTML;
-                $x(clock.minuteOptionFrame).fadeOut();
-                $x(clock.container).fadeIn(20);
+                clock.minuteOptionFrame.fadeOut();
+                clock.container.fadeIn(20);
 
                 clock.execute('onMinuteChanged', target.innerHTML);
                 clock.execute('onTimeChanged', clock.time);
@@ -424,23 +423,23 @@ Clock.prototype.display = function() {
         this.container.parentNode.appendChild(this.secondOptionFrame);
 
         this.secondInput.onfocus = function() {
-            $x(clock.hourOptionFrame).hide();
-            $x(clock.minuteOptionFrame).hide();
-            $x(clock.secondOptionFrame).select('td.' + clock.checkedOptionClass).css(clock.optionClass);
-            $x(clock.secondOptionFrame).select('td[second=v' + clock.secondInput.value + ']').css(clock.checkedOptionClass);
-            $x(clock.secondOptionFrame).show()[clock.optionFrameSide.toLowerCase()](clock.secondInput, 0, 0, clock.optionFrameAlign.toLowerCase());
-            $x(clock.secondOptionFrame).fadeIn();
-            $x(clock.container).fadeOut(20);
+            clock.hourOptionFrame.hide();
+            clock.minuteOptionFrame.hide();
+            clock.secondOptionFrame.select('td.' + clock.checkedOptionClass).className = clock.optionClass;
+            clock.secondOptionFrame.select('td[second=v' + clock.secondInput.value + ']').className = clock.checkedOptionClass;
+            clock.secondOptionFrame.show()[clock.optionFrameSide](clock.secondInput, 0, 0, clock.optionFrameAlign);
+            clock.secondOptionFrame.fadeIn();
+            clock.container.fadeOut(20);
         }
 
         this.secondOptionFrame.onclick = function(ev) {
             let target = ev.target;
             if (target.nodeName == 'TD' && target.className != clock.checkedOptionClass) {
-                $x(this).select('td.' + clock.checkedOptionClass).css(clock.optionClass);
+                this.select('td.' + clock.checkedOptionClass).className = clock.optionClass;
                 target.className = clock.checkedOptionClass;
                 clock.secondInput.value = target.innerHTML;
-                $x(clock.secondOptionFrame).fadeOut();
-                $x(clock.container).fadeIn(20);
+                clock.secondOptionFrame.fadeOut();
+                clock.container.fadeIn(20);
 
                 clock.execute('onSecondChanged', target.innerHTML);
                 clock.execute('onTimeChanged', clock.time);
@@ -451,7 +450,7 @@ Clock.prototype.display = function() {
         this.secondInput.style.outline = 'none';
     }
 
-    $x(document.body).on('click', function(ev) {
+    document.body.on('click', function(ev) {
         if ((clock.hourOptionFrame != null && clock.hourOptionFrame.style.display == '') || (clock.minuteOptionFrame && clock.minuteOptionFrame.style.display == '') || (clock.secondOptionFrame != null && clock.secondOptionFrame.style.display == '')) {
             let target = ev.target;
             while(target.nodeName != 'BODY') {
@@ -464,15 +463,15 @@ Clock.prototype.display = function() {
             }
             if (target.nodeName == 'BODY') {
                 if (clock.hourOptionFrame != null && clock.hourOptionFrame.style.display == '') {
-                    $x(clock.hourOptionFrame).fadeOut();
+                    clock.hourOptionFrame.fadeOut();
                 }
                 if (clock.minuteOptionFrame != null && clock.minuteOptionFrame.style.display == '') {
-                    $x(clock.minuteOptionFrame).fadeOut();
+                    clock.minuteOptionFrame.fadeOut();
                 }
                 if (clock.secondOptionFrame != null && clock.secondOptionFrame.style.display == '') {
-                    $x(clock.secondOptionFrame).fadeOut();
+                    clock.secondOptionFrame.fadeOut();
                 }
-                $x(clock.container).fadeIn(20);
+                clock.container.fadeIn(20);
             }                        
         }                    
     });
@@ -495,6 +494,6 @@ Clock.initializeAll = function() {
     }    
 }
 
-$finish(function() {
+document.on('post', function() {
     Clock.initializeAll();    
 });

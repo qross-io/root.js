@@ -1,10 +1,10 @@
-﻿
+﻿//-----------------------------------------------------------------------
+// Animation 动画支持
+//-----------------------------------------------------------------------
+
 /*
 Animation(settings).apply(element).on('start', func).on('stop', func).play();
-或
-new Animation.Entity(settings, element).play(event);
-或
-$x(element).animate(settings);
+
 
 settings : "duration:<time>; timing-function:<function>; iteration-count:<count>; fill-mode:forwards|backwards; direction:normal|reverse; delay:0s;  from:<position> <scale> <opcity>; to:<position> <scale> <opcity>;"
 element : elementId | element;
@@ -65,46 +65,6 @@ from(0%)|x%|to(100%)-opacity:
 */
 
 /*
-document.styleSheets[0] members
-    cssRules [object CSSRuleList]
-    insertRule function insertRule() { [native code] }
-    deleteRule function deleteRule() { [native code] }
-    addRule function addRule() { [native code] }
-    removeRule function removeRule() { [native code] }
-*/
-
-/*
-classList members
-    item function item() { [native code] }
-    contains function contains() { [native code] }
-    add function add() { [native code] }
-    remove function remove() { [native code] }
-    toggle function toggle() { [native code] }
-*/
-
-/*
-程序本身不需要有方法和属性被使用者调用, 所以属性和方法全部为私有, 都不以双下划线"__"开始
-动画播放完成后不再回到自己原来的位置, 原有CSS3返回到原来状态
-鼠标事件使用全局变量(document.onclick)  #鼠标点击事件是否受滚动条的影响（受）
-将配置转化为class添加到页面的<style>中
-播放动画时添加class
-动画完成后移除class，根据duration。确定能不能移除
-属性设置中有无百分号均可
-要运动的元素必须手动设置position和overflow属性
-
-#AnimationOnShow, AnimationOnHide For Popup
-#scrollLeft和scrollTop在不同浏览器中获得的方式不一样 webkit 用 document.body.scrollTop，其他用document.documentElement.scrollTop
-#元素定位,left right center, top middle bottom
-#保留动画最后状态问题
-#移除CSS样式问题
-#onStop和onStart问题
-#增加事件而不是额外样式
-#多次为同一元素执行动画时元素变小的问题
-研究Transform和Transition, translate函数
-坐标支持表达式
-*/
-
-/*
 Animation(settings).apply(element).play();
    Animation(settings) return Animation.Settings()
    .apply(element) return Animation.Entity()
@@ -129,8 +89,8 @@ Animation.Entity = function (settings, element) {
 
     this.toBeReset = false;
 
-    this.onstart = function(element) {};
-    this.onstop = function(element) {};
+    this.onstart = null; //function(element) {};
+    this.onstop = null; //function(element) {};
 }
 
 Animation.Entity.prototype.on = function(eventName, func) {
@@ -161,7 +121,7 @@ Animation.Entity.prototype.play = function (ev) {
         //检查head中有没有样式单<style>
 
         if (this.element.id == '') {
-            this.element.id = 'animation_object_' + $randomPassword(11);
+            this.element.id = 'animation_object_' + $shuffle(11);
         }
         
         if (document.getElementById('__AnimationStyleSheet_' + this.element.id) != null) {
@@ -276,27 +236,12 @@ Animation.Entity.prototype.play = function (ev) {
                         //动画结束时移除样式
                         a.element.classList.remove('Animation_' + a.element.id);
                         //移除样式表标签<style>
-                        $x('#__AnimationStyleSheet_' + a.element.id).remove();
+                        $s('#__AnimationStyleSheet_' + a.element.id).remove();
                     }   
                     Event.fire(a, 'stop', a.element);
                     window.clearTimeout(Animation.timer[a.element.id]);
                     delete Animation.timer[a.element.id];
                 }, Animation.parseTimeOut(this.settings.duration, this.settings.delay));
-
-        //播放完成时移除样式
-        //e.classList.add('Animation_Finally_' + e.id);
-        /*
-        let e = this.element;
-        window.setTimeout(function () {
-            //将element上的样式移除
-            e.classList.remove('Animation_' + e.id);
-
-            //移除以element.id命名的动画样式
-            //移除以element.id命名的关键帧
-            //移除样式表标签<style>
-            document.getElementsByTagName('HEAD')[0].removeChild(document.getElementById('__AnimationStyleSheet_' + e.id));
-
-        }, Animation.parseDuration(this.settings.duration)); */
     }    
 }
 
@@ -367,26 +312,6 @@ Animation.Entity.prototype.getPositionY = function (y, ev) {
 
     return y;
 }
-
-//Animation.Entity.prototype.translateX = function (v) {
-//    /// <summary>获得相对元素的X值</summary>
-
-//    if (typeof (v) == 'string') {
-//        v = parseInt(v);
-//    }
-//    let x = this.element.offsetLeft;
-//    return x + v;
-//}
-
-//Animation.Entity.prototype.translateY = function (v) {
-//    /// <summary>获得相对元素的Y值</summary>
-
-//    if (typeof (v) == 'string') {
-//        v = parseInt(v);
-//    }
-//    let y = this.element.offsetTop;
-//    return y + v;
-//}
 
 Animation.Entity.prototype.random = function () {
     /// <summary>获得随机值</summary>
@@ -739,62 +664,65 @@ Animation.getBrowser = function () {
     return { name: name, version: parseInt(version) };
 }
 
+//opacity 0 ~ 1
+HTMLElement.prototype.fadeIn = function(opacity = 0, duration = 0.6) {
+    if (this.hidden) {
+        this.hidden = false;
+    }
+    if (this.style.display == 'none') {
+        this.style.display = '';
+    }
 
-$root.prototype.fadeIn = function(opacity = 0) {
-    this.objects.forEach(element => {
-        if (element.hidden) {
-            element.hidden = false;
-        }
-        if (element.style.display == 'none') {
-            element.style.display = '';
-        }
-
-        if (element.style.opacity != '' && element.style.opacity < 1) {
-            Animation('timing-function: ease; duration: 0.6s; from-opacity: ' + (opacity) + '%; to-opacity: 100%; fill-mode: forwards;')
-                .apply(element)
-                .resetOnStop()
-                .on('stop', function() {
-                    element.style.opacity = 1;
-                })
-                .play();
-        }
-    });
-}
-
-$root.prototype.fadeOut = function(opacity = 0) {
-    this.objects.forEach(element => {
-        if (element.style.display != 'none' && !element.hidden && (element.style.opacity == '' || element.style.opacity > 0)) {
-            Animation('timing-function: ease; duration: 0.6s; from-opacity: 100%; to-opacity: ' + opacity + '%; fill-mode: forwards;')
-            .apply(element)
+    if (this.style.opacity != '' && this.style.opacity < 1) {
+        Animation('timing-function: ease; duration: ' + duration + 's; from-opacity: ' + ($parseFloat(opacity, 0) * 100) + '%; to-opacity: 100%; fill-mode: forwards;')
+            .apply(this)
             .resetOnStop()
-            .on('stop', function() {            
-                element.style.opacity = opacity / 100;
-                if (opacity == 0 && element.style.position == 'absolute') {
-                    element.style.display = 'none';
-                }
-            }).play();
-        }
-    });
+            .on('stop', function(element) {
+                element.style.opacity = 1;
+            })
+            .play();
+    }    
+    return this;
 }
 
-$root.prototype.slideIn = function(from = 'left') {
+//opacity 0 ~ 1
+HTMLElement.prototype.fadeOut = function(opacity = 0, duration = 0.6) {
+    opacity = $parseFloat(opacity, 0) * 100;
+
+    if (this.style.display != 'none' && !this.hidden && (this.style.opacity == '' || this.style.opacity > 0)) {
+        Animation('timing-function: ease; duration: ' + duration + 's; from-opacity: 100%; to-opacity: ' + opacity + '%; fill-mode: forwards;')
+        .apply(this)
+        .resetOnStop()
+        .on('stop', function(element) {            
+            element.style.opacity = opacity / 100;
+            if (opacity == 0 && element.style.position == 'absolute') {
+                element.style.display = 'none';
+            }
+        }).play();
+    }
+
+    return this;
+}
+
+HTMLElement.prototype.slideIn = function(from = 'left') {
     let start = 'x(-120).y(0)';
     if (from == 'right') {
         start = 'x(120).y(0)';
     }
     else if (from == 'up') {
-        start = 'x(0).y(100)';
+        start = 'x(0).y(-100)';        
     }
     else if (from == 'down') {
-        start = 'x(0).y(-100)';
+        start = 'x(0).y(100)';
     }
-    this.objects.forEach(element => {
-        element.hidden = false;
-        Animation('timing-function: ease; duration: 0.6s; from: ' + start + ' 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;').apply(element).play();
-    });
+    
+    this.hidden = false;
+    Animation('timing-function: ease; duration: 0.6s; from: ' + start + ' 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;').apply(this).play();
+
+    return this;
 }
 
-$root.prototype.slideOut = function(to) {
+HTMLElement.prototype.slideOut = function(to = 'left', remove = false) {
     let end = 'x(-120).y(0)';
     if (to == 'right') {
         end = 'x(120).y(0)';
@@ -805,47 +733,101 @@ $root.prototype.slideOut = function(to) {
     else if (to == 'down') {
         end = 'x(0).y(100)';
     }
-    this.objects.forEach(element => {
-        Animation('timing-function: ease; duration: 0.6s; from: x(0).y(0) 100% 100%; to: ' + end + ' 100% 0%; fill-mode: forwards;')
-        .apply(element)
-        .on('stop', function() {
+
+    Animation('timing-function: ease; duration: 0.6s; from: x(0).y(0) 100% 100%; to: ' + end + ' 100% 0%; fill-mode: forwards;')
+    .apply(this)
+    .on('stop', function(element) {
+        if (remove) {
+            element.remove();
+        }
+        else {
             element.hidden = true;
+        }            
+    }).play();
+
+    return this;
+}
+
+Message = {
+    red: function(message) {
+        return new Message.Entity(message, 'red');
+    },
+    green: function(message) {
+        return new Message.Entity(message, 'green');
+    },
+    blue: function(message) {
+        return new Message.Entity(message, 'blue');
+    },
+    yellow: function(message) {
+        return new Message.Entity(message, 'yellow');
+    },
+    orange: function(message) {
+        return new Message.Entity(message, 'orange');
+    }
+}
+
+Message.Entity = function(message, color) {
+    this.message = message;
+    this.color = color;
+}
+
+Message.Entity.prototype.show = function(seconds = 0) {
+    if (this.message != '') {
+        let box = $s('#__MessageBox');
+        if (box.hidden) {
+            box.show();
+        }
+
+        let element = $create('DIV', { className: 'message-piece message-' + this.color, innerHTML: this.message }, { }, { sign: 'PIECE' });
+        box.insertAdjacentElement('afterBegin', element);
+
+        element.slideIn('up');
+        if (seconds > 0) {
+            Message.$hide(element, seconds);
+        }
+    }
+}
+
+Message.$hide = function(target, seconds = 0) {
+    if (target.hasAttribute('sign')) {
+        if (target.timer == undefined) {
+            if (seconds > 0) {
+                target.timer = window.setTimeout(function() {
+                    Message.$play(target);
+                }, seconds * 1000);
+            }
+            else {
+                Message.$play(target);
+            }
+        }
+        else {
+            window.clearTimeout(target.timer);
+            Message.$play(target);
+        }
+    }
+    else if (target.children.length == 0) {
+        target.hidden = true;
+    }
+}
+
+Message.$play = function(target) {
+    let to = 'x(0).y(60)';
+    if (target.nextElementSibling != null) {
+        to = 'x(120).y(0)';
+    }
+    Animation('timing-function: ease; duration: 0.8s; from: x(0).y(0) 100% 100%; to: ' + to + ' 100% 0%; fill-mode: forwards;')
+        .apply(target)
+        .on('stop', function() {            
+            if (target.parentNode.children.length == 1) {
+                target.parentNode.hidden = true;
+            }
+            target.remove();            
         }).play();
-    });  
 }
 
-/*
-@keyframes sunrise {
-    0%|from {
-            bottom: 0;
-        left: 340px;
-        background: #f00;
-    }
-    33% {
-        bottom: 340px;
-        left: 340px;
-        background: #ffd630;
-    }
-    66% {
-        bottom: 340px;
-        left: 40px;
-        background: #ffd630;
-    }
-    100%|to {
-        bottom: 0;
-        left: 40px;
-        background: #f00;
-    }
-}
-
-#sun.animate {
- animation-name: sunrise;
- animation-duration: 10s|2000ms;
- animation-timing-function: ease|ease-in|ease-out|linear|;
- animation-iteration-count: 1|infinite;
- animation-direction: normal|alternate|reverse|alternate-reverse;
- animation-delay: 5s|ms; 延时，可以为负
- animation-play-state: running|paused;
- animation-fill-mode: forwards|backwards;
-}
-*/
+document.on('ready', function() {
+    document.body.appendChild($create('DIV', { id: '__MessageBox' }, { position: 'fixed', top: '60px', width: '500px', left: '0px', right: '0px', margin: '0px auto' }));
+    $s('#__MessageBox').on('click', function(ev) {
+        Message.$hide(ev.target);
+    });
+});

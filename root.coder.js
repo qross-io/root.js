@@ -8,18 +8,9 @@ class Coder {
         }
 
         this.textArea = textArea;
-        this.$readOnly = textArea.getAttribute('readonly');
-        if (this.$readOnly == null) {
-            this.$readOnly = textArea.getAttribute('read-only');
-        }
-        if (this.$readOnly == null) {
-            this.$readOnly = 'false';
-        }
-        else if (this.$readOnly == '') {
-            this.$readOnly = 'true';
-        }
+        this.$readOnly = textArea.getAttribute('readonly') ?? textArea.getAttribute('read-only') ?? 'false';
         if (this.$readOnly != 'nocursor') {
-            this.$readOnly = this.$readOnly.toBoolean();
+            this.$readOnly = this.$readOnly.toBoolean(false, this);
         }
 
         this.options = {
@@ -154,7 +145,7 @@ class Coder {
 
         this.nodeName = 'CODER';
         this.tagName = 'CODER';
-        document.tags.add('CODER');
+        this.nodeType = 0;
         document.components.set(this.name, this);       
 
         //save
@@ -183,12 +174,12 @@ class Coder {
                                        { marginTop: '-35px', padding: '5px 10px', textAlign: 'right', position: 'relative',
                                          borderRadius: '3px', fontSize: '0.625rem', display: 'none', 
                                          display: 'none', float: 'right' });
-        $x(this.frame).insertBehind(this.hintSpan);
+        this.frame.insertAdjacentElement('afterEnd', this.hintSpan)
 
         if (textArea.hidden) {
             this.frame.hidden = true;    
         }
-        textArea.setAttribute('always', 'hidden');
+        textArea.setAttribute('hidden', 'always');
         textArea.hidden = true;
         this.frame.id = this.name + '_Code';
         textArea.setAttribute('relative', `#${this.name}_Code,#${this.name}_Hint`);
@@ -316,7 +307,7 @@ Coder.mineTypes = {
 }
 
 Coder.prototype.on = function(eventName, func) {
-    Event.bind(this.name, eventName, func);
+    Event.bind(this, eventName, func);
     return this;
 }
 
@@ -398,19 +389,13 @@ Coder.save = function(cm) {
                     function(data) {
                         this.textArea.value = this.value;
                         this.hintText = this.successText == '' ? this.savedText.$p(this, data) : this.successText.$p(this, data);
-                        //Event.execute(this.name, 'onsave+success', data);
                     }, 
                     function(data) {
                         this.errorText = this.failureText.$p(this, data);
-                        //Event.execute(this.name, 'onsave+failure', data);
                     },
                     function(error) {
                         this.errorText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-                        //Event.execute(this.name, 'onsave+exception', error);
-                    },
-                    function() {
-                        //Event.execute(this.name, 'onsave+completion');
-                    });               
+                    });
             }
             else {
                 coder.textArea.value = coder.value;
@@ -463,6 +448,6 @@ Coder.initializeAll = function() {
     }
 }
 
-$finish(function() {
+document.on('post', function() {
     Coder.initializeAll();
 });

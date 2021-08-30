@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Input</title>
+    <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.model.js"></script>
+    <script type="text/javascript" src="/root.select.js"></script>
+    <style type="text/css">
+        .KE { background-color: #FF0000; }
+        </style>
+    </head>
+<body style="padding: 50px;">
+
+<select data="1 to 10" value="1">
+    <option if="@item > 5">@item</option>
+</select>
+
+<div if="5 < 2">Hello</div>
+<div else-if="5 > 7">World</div>
+<div else>N/A</div>
+
+<input id="CheckBox1" type="checkbox" onchange-checked="alert('Hello')" onchange-unchecked="alert('World')" />
+
+<script type="text/javascript">
+HTMLInputElement.prototype['onchange-checked'] = null;
+HTMLInputElement.prototype['onchange-unchecked'] = null;
+
+HTMLInputElement.prototype.execute = function(eventName, ...args) {
+    let logic = this[eventName];
+    if (logic != null) {
+        if (typeof (logic) == 'function') {
+            logic.call(this, ...args);
+        }
+        else if (typeof (logic) == 'string') {
+            eval('_ = function() {' + logic + '}').call(this, ...args);
+        }
+    }
+}
+
+document.querySelectorAll('input[type=checkbox]').forEach(checkbox => {
+    checkbox['onchange-checked'] = checkbox.getAttribute('onchange-checked');
+    checkbox['onchange-unchecked'] = checkbox.getAttribute('onchange-unchecked');
+    checkbox.addEventListener('change', function(ev) {
+        if (this.checked) {
+            this.execute('onchange-checked', ev);
+        }
+        else {
+            this.execute('onchange-unchecked', ev);
+        }
+    });
+});
+</script>
+
+</body>
+</html>

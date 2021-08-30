@@ -49,6 +49,33 @@
 
 <hr/>
 
+
+<model name="jobs" data="select distinct job_id from qross_tasks"></model>
+<model name="tasks" data="select id, task_time from qross_tasks where job_id=$(#JobID) limit 10"></model>
+<span data>@jobs|job_id|[0]</span>
+<input id="JobID" type="text" value="1" />
+<button onclick-="reload: #tasks">RELOAD</button>
+ 
+<select id="TS" data="@tasks" type="button" value+="@tasks|id|[0]">
+    <option value="@[id]">@[task_time]</option>
+</select>
+<template name="ST" as="list" data="@tasks">
+    <div>@[id] - @[task_time]</div>
+</template>
+
+<select id="A" data="select id, project_name from qross_projects" onchange-="reload: #B">
+    <option value="@[id]">@[project_name]</option>
+</select>
+<select id="B" await="#A" data="select id, title from qross_jobs where project_id=$(#A)">
+    <option value="@[id]">@[title]</option>
+</select>
+ <select id="C" await="#A,#B" data="select id, task_time from qross_tasks where job_id=$(#B) limit 10" reload-on="reload, change: #B">
+    <option value="@[id]">@[task_time]</option>
+</select>
+onreload-="reload: #C" onchange-="reload: #C"
+
+<hr/>
+
 <p>
 <i class="iconfont icon-formatpainter"></i> HELLO WORLD
 </p>

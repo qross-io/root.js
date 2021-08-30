@@ -7,10 +7,15 @@
 
 HTMLElement.prototype.editor = null;
 HTMLElement.prototype.edit = function(ev) {
-    if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6'.$includes(this.nodeName)) {
+    if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6,TD,TH'.$includes(this.nodeName)) {
         if (this.editor.editable && !this.editor.editing && this.editor.execute('onedit', this.editor, ev)) {
             this.editor.editing = true;
-            Editor[this.editor.typeName].edit(this.editor, this);
+            if (this.editor.editInPrompt) {
+                Editor[this.editor.typeName].editInPrompt(this.editor, this);
+            }
+            else {
+                Editor[this.editor.typeName].edit(this.editor, this);
+            }            
         }
     }
 }
@@ -20,28 +25,36 @@ class Editor {
     constructor(elementOrSettings) {
 
         this.controllerAttributes = new Object();
+        this.bindings = [];
 
         $initialize(this)
             .with(elementOrSettings)
             .declare({
-
                 editable$: true,
-                inputType: 'text|textarea|integer|decimal|percent|select', //linktext|star|starbutton
+                editorType: null, //linktext|star|starbutton
+                type: this.editorType ?? 'text', //text|textarea|integer|number|select
                 allowEmpty: false,
 
                 kilo: false,
                 placeHolder: '',
 
-                showEditIcon: true,
-                editIcon: 'icon-edit',
-                showButtons: false, //button, link, icon, button-link,  button-icon
+                editButtonStyle: 'text|none|button',
+                editButtonIcon: 'icon-edit',
+                editButtonText: '',
+                editButtonClass: '',
+                confirmButtonClass: '',
+                confirmButtonStyle: 'button|none|text',
+                confirmButtonIcon: '',
                 confirmButtonText: 'OK',
-                cancelButtonText: 'Cancel',
-                confirmButtonClass: 'small-compact-button blue-button',
-                cancelButtonClass: 'editor-link-button',
+                confirmButtonClass: '',
+                cancelButtonStyle: 'text|none|button',
+                cancelButtonIcon: '',
+                cancelButtonText: 'Cancel',                
+                cancelButtonClass: '',
 
+                editInPrompt: false,
                 promptText: '',
-                promptTitle: '',            
+                promptTitle: '',
 
                 onedit: null, //function(element, ev) { }; //开始编辑之前触发, 支持return
                 oncancel: null, //function(ev) { } 取消之前触发，支持return
@@ -53,29 +66,15 @@ class Editor {
                 'onchange+completion': null,
 
                 //select - { text: value, text: value, text: value }  | #select
+                _map: null,
                 options: function(options) {
-                    switch(this.editorType) {
+                    if (options == null) {
+                        options = this._map;
+                    }
+                    switch(this.type) {
                         case 'select':
                             if (typeof(options) == 'string') {
-                                if (options.includes('&')) {
-                                    return options.toMap('&', '=');
-                                }
-                                else if (options.isObjectString()) {
-                                    return Json.eval(options)                                
-                                }
-                                else if (options.startsWith('#')) {
-                                    let select = $s(options);
-                                    if (select != null && select.nodeName == 'SELECT') {
-                                        options = new Object();
-                                        for (let i = 0; i < select.options.length; i++) {
-                                            options[select.options[i].text] = select.options[i].value;
-                                        }
-                                    }    
-                                    return options;                                
-                                }
-                                else {
-                                    return options.$trim('[', ']').toMap(',');
-                                }
+                                return options.toMap();                                
                             }
                             else if (options == null) {
                                 return { 'EMPTY': 'EMPTY' };                            
@@ -89,19 +88,34 @@ class Editor {
                 }
             })
             .elementify(element => {
+                if (this.type == 'select') {
+                    this.typeName = 'SELECT';
+                }
+                else if (this.type == 'textarea') {
+                    this.typeName = 'TEXTAREA';
+                }
+
                 this.element = element;
+                if (element.nodeName == 'COL') {
+                    this.editButtonStyle = 'none';
+                    this.confirmButtonStyle = 'none';
+                    this.cancelButtonStyle = 'none';
+                }
                 element.getAttributeNames().forEach(attr => {
                     if (/^(input|select|textarea)-/i.test(attr)) {
-                        attr = attr.substring(5);
-                        if (attr.startsWith('-')) {
-                            attr = attr.substring(1);
-                        }
-                        if (attr == 'class') {
-                            attr = 'className';
-                        }
-                        this.controllerAttributes[attr.toCamel()] = element.getAttribute('attr');
+                        this.controllerAttributes[attr.takeAfter('-').toCamel()] = element.getAttribute(attr);
                     }
-                })
+                });
+
+                if (this.kilo) {
+                    if (!'number,integer,float'.includes(this.type)) {
+                        this.kilo = false;
+                    }
+                }
+
+                this['edit-on'] = this.element.getAttribute('edit-on') || 'click';
+                this.element.removeAttribute('edit-on');
+                Event.interact(this, element);
             });        
     }
 
@@ -111,28 +125,13 @@ class Editor {
 
     set editable (editable) {
         this.editable$ = editable;
-    }
-
-    get editing () {
-        return this.$editing;
-    }
-
-    set editing (editing) {
-        if (this.showEditIcon) {
-            this.element.nextElementSibling.hidden = editing;
-        }
-        if (!editing) {
-            this.controller = null;
-        }
-        this.$editing = editing;
-    }
-
-    get typeName() {
-        return this.inputType.toUpperCase();
+        if (this.editButton != null) {
+            this.editButton.hidden = false;
+        }        
     }
 
     get value() {
-        return this.controller?.value || this.element.textContent;
+        return this.controller?.value ?? this.element.textContent;
     }
 }
 
@@ -146,13 +145,18 @@ String.prototype.concatValue = function(value) {
     }
 }
 
+Editor.prototype.typeName = 'INPUT';
 //保存配置的元素, 可编辑的元素
 Editor.prototype.element = null;
 Editor.prototype.controller = null;
 /// <value type="Boolean">是否正在编辑</value>
-Editor.prototype.$editing = false;
+Editor.prototype.editing = false;
 /// <value type="Boolean">是否正在更新</value>
 Editor.prototype.updating = false;
+
+Editor.prototype.editButton = null;
+//Editor.prototype.confirmButton = null;
+//Editor.prototype.cancelButton = null;
 
 Editor.prototype.getAttribute = function(name) {
     if (name.startsWith('input-') || name.startsWith('select-') || name.startsWith('textarea-')) {
@@ -163,29 +167,82 @@ Editor.prototype.getAttribute = function(name) {
     }    
 }
 
-Editor.prototype.initialize = function() {
+Editor.getButton = function(style, icon, text, className) {
+    let content = '';    
+    let button = null;
 
-    if (this.element.textContent == '') {
-        this.setPlaceHolder(this.element);
-    }
-
-    if (this.showEditIcon) {
-        if (/\.(jpg|jpeg|png|gif)$/i.test(this.editIcon)) {
-            this.element.insertAdjacentHTML('afterEnd', `<img src="${this.editIcon}" align="absmiddle" class="editor-icon-edit" style="margin-left: 5px;" />`);
+    if (icon != '') {
+        if (/\.(jpg|jpeg|png|gif)$/i.test(icon)) {
+            content = `<img src="${icon}" align="absmiddle" class="editor-icon-edit" />`;
         }
         else {
-            this.element.insertAdjacentHTML('afterEnd', `<i class="iconfont ${this.editIcon} editor-icon-edit" style="margin-left: 5px;"></i>`);
+            content = `<i class="iconfont ${icon} editor-icon-edit"></i>`;
         }
-
-        $x(this.element.nextElementSibling).on('click', function(ev) {            
-            this.previousElementSibling.edit(ev);
-        });
-    }
-    else if (this.element.getAttribute('edit-on') == null) {
-        this.element.setAttribute('edit-on', 'click');
     }
 
-    Event.interact(this.element, this.element);
+    if (text != '') {
+        if (content != '') {
+            content += ' ' + text;
+        }
+        else {
+            content = text;
+        }
+    }
+    
+    if (content != '') {
+        if (style == 'button') {       
+            button = $create('BUTTON', { innerHTML: content, className: className }, { marginLeft: '6px' });
+        }
+        else if (style == 'text') {
+            button = $create('A', { innerHTML: content, href: 'javascript:void(0)', className: className }, { marginLeft: '6px' });
+        }
+    }
+
+    return button;
+}
+
+Editor.prototype.apply = function(...elements) {
+
+    elements.forEach(element => {
+        if (typeof(element) == 'string') {
+            $a(element).forEach(e => {
+                this.bindings.push(e);
+            });
+        }
+        else {
+            this.bindings.push(element);
+        }
+    });    
+
+    if (this.bindings.length == 0 && this.element.nodeName != 'COL') {
+        console.warn('No element to apply editor, please check "bindings" property.');
+    }
+
+    this.bindings.forEach(binding => {
+        if (binding != null && !binding.hasAttribute('editor-bound')) {
+            binding.editor = this;            
+            binding.setAttribute('editor-bound', '');
+
+            if (binding.textContent == '') {
+                this.setPlaceHolder(binding);
+            }
+
+            if (this.editButtonStyle != 'none') {
+                this.editButton = Editor.getButton(this.editButtonStyle, this.editButtonIcon, this.editButtonText, this.editButtonClass);
+                if (this.editButton != null) {
+                    binding.insertAdjacentElement('afterEnd', this.editButton);
+                    this.editButton.on('click', function(ev) {
+                        binding.edit(ev);
+                    });
+                }
+                this.editButton.hidden = !this.editable;
+            }
+
+            Event.watch(binding, 'edit-on', this['edit-on']);
+
+            Editor[this.typeName].initialize(this, binding);
+        }
+    });
 }
 
 Editor.prototype.setPlaceHolder = function(element) {
@@ -197,7 +254,7 @@ Editor.prototype.setPlaceHolder = function(element) {
 
     if (this.placeHolder != '') {
         element.innerHTML = '';
-        $x(element).append('SPAN', { innerHTML: this.placeHolder }, { color: '#808080' }, { 'sign': 'placeholder' });
+        element.appendChild($create('SPAN', { innerHTML: this.placeHolder }, { color: '#808080' }, { 'sign': 'placeholder' }));
     }
     else {
         element.innerHTML = '&nbsp;';
@@ -206,74 +263,108 @@ Editor.prototype.setPlaceHolder = function(element) {
 
 Editor.prototype.initializeControllerAttributes = function(controller) {
     for (let name in this.controllerAttributes) {
-        if (controller[name] !== undefined) {
-            controller[name] = this.controllerAttributes[name];
+        let actual = name != 'class' ? name : 'className';
+        if (controller[actual] !== undefined) {
+            controller[actual] = this.controllerAttributes[name];
         }
         else {
-            controller.setAttribute(name, this.controllerAttributes[name]);
+            controller.setAttribute(actual, this.controllerAttributes[name]);
         }
     }
 }
 
 Editor.prototype.appendButtons = function(element) {
-    let confirmButton = $create('BUTTON', { innerHTML: this.confirmButtonText, className: this.confirmButtonClass }, { marginLeft: '5px' });
-    confirmButton.onclick = function(ev) {
-        element.editor.update();
-        ev.stopPropagation();
+    let confirmButton = Editor.getButton(this.confirmButtonStyle, this.confirmButtonIcon, this.confirmButtonText, this.confirmButtonClass || 'small-compact-button blue-button');
+    if (confirmButton != null) {
+        confirmButton.onclick = function(ev) {
+            element.editor.update(element);
+            ev.stopPropagation();
+        }
+        element.appendChild(confirmButton);
+    } 
+
+    let cancelButton = Editor.getButton(this.cancelButtonStyle, this.cancelButtonIcon, this.cancelButtonText, this.cancelButtonClass || 'editor-link-button');
+    if (cancelButton != null) {
+        cancelButton.onclick = function(ev) {
+            element.editor.cancel(element, ev);
+            ev.stopPropagation();
+        }
+        element.appendChild(cancelButton);
     }
-    element.appendChild(confirmButton);
-
-    let cancelButton = $create('A', { innerHTML: this.cancelButtonText, href: 'javascript:void(0)', className: this.cancelButtonClass }, { marginLeft: '8px' });
-    cancelButton.onclick = function(ev) {
-        element.editor.cancel();
-        ev.stopPropagation();
-    }
-    element.appendChild(cancelButton);
 }
 
-Editor.prototype.update = function(ev) {    
-    Editor[this.typeName].update(this, this.element);    
+Editor.prototype.update = function(element, ev, after) {    
+    Editor[this.typeName].update(this, element, after);
 }
 
-Editor.prototype.cancel = function(ev) {    
-    Editor[this.typeName].cancel(this, this.element);
+Editor.prototype.cancel = function(element, ev) {    
+    Editor[this.typeName].cancel(this, element);
 }
 
-Editor.TEXT = {
-
-    editInPrompt: function(editor, element) {
-        if (editor.promptText != '') {
-            if ($root.prompt != null) {
-                $root.prompt()
-                    .on('open', function() {
-                        
-                    })
-                    .on('confirm', function() {
-
-                    })
-                    .on('cancel', function() {
-
-                    })
-                    .on('close', function() {
-
-                    })
-            }
-            else {
-                let after = window.prompt(editor.promptText);
-                if (after != null) {
-                    editor.update(element.textContent, after);
-                }
-                else {
-                    editor.cancel();
-                }                
-            }
+Editor.INPUT = {
+    initialize: function(editor, element) {
+        if (element.innerHTML == '') {
+            editor.setPlaceHolder(element);
+        }
+        else if (editor.kilo) {
+            element.innerHTML = element.innerHTML.toFloat(0).kilo();
         }
     },
 
+    editInPrompt: function(editor, element) {
+        let value = element.textContent;
+        if (editor.kilo) {
+            value = value.replaceAll(',', '');
+        }
+        if ($root.prompt != null) {                
+            $root.prompt(editor.promptText, {
+                    ...editor.controllerAttributes,
+                    type: editor.type,
+                    value: value,
+                    defaultValue: value
+                }, 
+                {
+                    "text": editor.confirmButtonText,
+                    "class": editor.confirmButtonClass,
+                    "icon": editor.confirmButtonIcon
+                }, {
+                    "text": editor.cancelButtonText,
+                    "class": editor.cancelButtonClass,
+                    "icon": editor.cancelButtonIcon
+                }, editor.promptTitle)
+                .on('confirm', function(ev) {
+                    editor.controller = $s('#PromptTextBox');
+                    if (editor.controller.status == 1) {
+                        editor.update(element, ev);
+                    }
+                    return false;
+                })
+                .on('cancel', function(ev) {
+                    editor.cancel(element);
+                })
+                .on('close', function(ev) {
+                    if (editor.editing) {
+                        editor.cancel(element);
+                    }                    
+                })
+        }
+        else {
+            let after = window.prompt(editor.promptText, value);
+            if (after != null) {
+                editor.update(element, null, after);
+            }
+            else {
+                editor.cancel(element);
+            }                
+        }        
+    },
+
     edit: function (editor, element) {
-         
         let before = element.querySelector('SPAN[sign=placeholder]') == null ? element.textContent : '';
-        let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, autosize: true });
+        if (editor.kilo) {
+            before = before.replaceAll(',', '');
+        }
+        let textBox = $create('INPUT', { type: editor.type, value: before, defaultValue: before });
         editor.initializeControllerAttributes(textBox);
         textBox.initializeInputable?.();
         editor.controller = textBox;
@@ -282,45 +373,59 @@ Editor.TEXT = {
         textBox.onkeydown = function (ev) {
             // Enter
             if (ev.keyCode == 13) {
-                editor.update();
+                editor.update(element, ev);
                 return false;
             }
             // ESC
             else if (ev.keyCode == 27) {
-                editor.cancel();
+                editor.cancel(element, ev);        
                 return false;
             }
-        }
-
-        if (!editor.showButtons) {
-            textBox.onblur = function (ev) {
-                editor.update();
+            else if (editor.type == 'integer') {
+                return HTMLInputElement.Key?.isInteger(ev, this) ?? true;
+            }
+            else if (editor.type == 'float') {
+                return HTMLInputElement.Key?.isFloat(ev, this) ?? true;
+            }
+            else if (this.type == 'number') {
+                return HTMLInputElement.Key?.isNumber(ev, this) ?? true;
             }
         }
 
-        textBox.size = textBox.value.$length(3) + 2;
-        textBox.onkeyup = function (ev) {
-            this.size = this.value.$length(3) + 2;
+        if (editor.editButtonStyle != 'none') {
+            element.nextElementSibling.hidden = true;
         }
+
+        if (editor.confirmButtonStyle == 'none') {
+            textBox.onblur = function (ev) {
+                editor.update(element, ev);
+            }
+        }
+
+        // textBox.size = textBox.value.$length(3) + 2;
+        // textBox.onkeyup = function (ev) {
+        //     this.size = this.value.$length(3) + 2;
+        // }
 
         element.innerHTML = '';
         element.appendChild(textBox);
 
-        if (editor.showButtons) {
+        if (editor.confirmButtonStyle != 'none') {
             editor.appendButtons(element);
         }
 
         textBox.focus();
     },
 
-    update: function(editor, element) {
+    update: function(editor, element, after) {
         if (editor.controller != null && editor.controller.value != editor.controller.defaultValue) {
-            
-            let after = editor.controller.value;
+            if (after == undefined) {
+                after = editor.controller.value;
+            }            
             if (editor.editing && editor.execute('onchange', after)) {
                 //update
                 if (editor['onchange+'] != null) {
-                    editor.disabled = true;
+                    editor.controller.disabled = true;
                     editor.updating = true;
     
                     $FIRE(editor, 'onchange+',
@@ -329,21 +434,44 @@ Editor.TEXT = {
                                 editor.setPlaceHolder(element);
                             }
                             else {
-                                element.innerHTML = after;
+                                element.innerHTML = editor.kilo ? after.toFloat().kilo() : after;
                             }
+                            if (editor.editButtonStyle != 'none') {
+                                element.nextElementSibling.hidden = false;
+                            }
+                            editor.editing = false;
+                            $s('#PromptPopup')?.close?.();
                         }, 
                         function(data) {
-                            element.innerHTML = before;
-                        },
-                        function(error) {
-                            Callout(error).position('up', element).show();
                             editor.controller.disabled = false;
                             editor.controller.focus();
+                            let text = editor.controller.failureText.$p(editor.controller, data);
+                            if (text != '') {
+                                if (editor.editInPrompt && $root.prompt != null) {
+                                    $s('#PromptTextBox').status = $input.status.unexpected;
+                                    $s('#PromptTextBox').hintText = text;
+                                }
+                                else {
+                                    Callout(text).position(element, 'up').show();
+                                }
+                            }
+                        },
+                        function(error) {                            
+                            editor.controller.disabled = false;
+                            editor.controller.focus();
+                            let text = editor.controller.exceptionText.$p(editor.controller, error) || `Exception: ${error}`;
+                            if (editor.editInPrompt && $root.prompt != null) {
+                                $s('#PromptTextBox').status = $input.status.exception;
+                                $s('#PromptTextBox').hintText = text;
+                            }
+                            else {
+                                Callout(text).position(element, 'up').show();
+                            }                            
                         },
                         function() {
                             editor.updating = false;
-                            editor.editing = false;
-                        }
+                        },
+                        element
                     );
                 }
                 else {
@@ -352,32 +480,191 @@ Editor.TEXT = {
                         editor.setPlaceHolder(element);
                     }
                     else {
-                        element.innerHTML = after;
+                        element.innerHTML = editor.kilo ? after.toFloat().kilo() : after;
+                    }
+
+                    if (editor.editButtonStyle != 'none') {
+                        element.nextElementSibling.hidden = false;
                     }
     
-                    editor.execute('onchange+completion', after);
                     editor.editing = false;
                 }
             }
-            else {
+        }
+        else {
+            if (!editor.editInPrompt) {
+                editor.cancel(element);
+            }
+        }
+    },    
+    cancel: function(editor, element) {
+        //cancel                    
+        if (editor.editing && !editor.updating && editor.execute('oncancel')) {
+            editor.editing = false;
+
+            if (!editor.editInPrompt) {
+                if (editor.controller.defaultValue == '') {
+                    editor.setPlaceHolder(element);
+                }
+                else {
+                    element.innerHTML = editor.kilo ? editor.controller.defaultValue.toFloat().kilo() : editor.controller.defaultValue;
+                }
+                editor.controller = null;
+                
+                if (editor.editButtonStyle != 'none') {
+                    element.nextElementSibling.hidden = false;
+                }
+            }
+        }
+    }
+}
+
+Editor.SELECT = {
+    initialize: function(editor, element) {
+        //auto convert value to text
+        let value = element.textContent.trim();
+        for (let name in editor.options) {
+            if (value == name || value == editor.options[name]) {
+                element.setAttribute('text', name);
+                element.setAttribute('value', editor.options[name]);
+                element.innerHTML = name;
+                break;
+            }
+        }
+        if (!element.hasAttribute('value')) {
+            element.setAttribute('text', value);
+            element.setAttribute('value', value);
+        }
+    },
+
+    edit: function(editor, element) {
+        let before = element.textContent.trim();
+        let select = $create('SELECT', { className: editor.selectClass });
+        for (let name in editor.options) {
+            select.options[select.options.length] = new Option(name, editor.options[name]);
+            if (name == before || editor.options[name] == element.getAttribute('value')) {
+                select.options[select.options.length - 1].selected = true;
+            }
+        }
+        editor.initializeControllerAttributes(select);
+        //editor.controllerAttributes.type != null)  扩展 SELECT 的样式在这意义不大 原生 type="select-one"，需要 getAttribute('type')
+        editor.controller = select;
+
+        select.onkeydown = function (ev) {
+            if (ev.keyCode == 27) {
+                editor.cancel(element, ev);
                 return false;
             }
         }
+
+        if (editor.editButtonStyle != 'none') {
+            element.nextElementSibling.hidden = true;
+        }
+
+        if (editor.confirmButtonStyle == 'none') {
+            select.onchange = function (ev) {
+                editor.update(element, ev);
+            }
+
+            select.onblur = function (ev) {
+                //cancel
+                if (editor.editing && !editor.updating) {
+                    element.innerHTML = element.getAttribute('text');                        
+                    editor.editing = false;
+                }
+            }
+        }
+        
+        element.innerHTML = '';
+        element.appendChild(select);
+
+        if (editor.confirmButtonStyle != 'none') {
+            editor.appendButtons(element);
+        }
+
+        select.focus();
+    },
+
+    update: function(editor, element) {
+        if (editor.controller != null && editor.controller.value != element.getAttribute('value')) {
+            //update
+            let beforeText = element.getAttribute('text');
+            let beforeValue = element.getAttribute('value');
+            let afterText = editor.controller.options[editor.controller.selectedIndex].text;
+            let afterValue = editor.controller.value;
+            if (editor.editing && editor.execute('onchange', afterValue)) {
+                element.setAttribute('text', afterText);
+                element.setAttribute('value', afterValue);
+                if (editor['onchange+'] != null) {
+                    editor.controller.disabled = true;
+                    editor.updating = true;
+
+                    $FIRE(editor, 'onchange+',
+                        function(data) {
+                            element.innerHTML = ''; //must set empty first
+                            if (afterText == '') {
+                                editor.setPlaceHolder(element);
+                            }
+                            else {                                
+                                element.innerHTML = afterText;
+                            }
+                            if (editor.editButtonStyle != 'none') {
+                                element.nextElementSibling.hidden = false;
+                            }
+                        }, 
+                        function(data) {
+                            Callout('Failed: ' + data).position(element, 'up').show();
+                            element.setAttribute('text', beforeText);
+                            element.setAttribute('value', beforeValue);
+                            element.innerHTML = '';
+                            element.innerHTML = element.getAttribute('text');
+                        },
+                        function(error) {
+                            Callout('Exception: ' + error).position(element, 'up').show();
+                            editor.controller.disabled = false;
+                            editor.controller.focus();
+                        },
+                        function() {
+                            editor.updating = false;
+                            editor.editing = false;
+                        },
+                        element
+                    );
+                }
+                else {
+                    element.innerHTML = ''; //must set empty first
+                    if (afterText == '') {
+                        editor.setPlaceHolder(element);
+                    }
+                    else {                                
+                        element.innerHTML = afterText;
+                    }
+                    editor.execute('onchange+completion', value, element);
+                    editor.editing = false;
+                }
+            }
+        }
         else {
-            editor.cancel();
+            editor.cancel(element);
         }
     },
 
     cancel: function(editor, element) {
-        //cancel                    
+
         if (editor.editing && !editor.updating && editor.execute('oncancel')) {
-            if (editor?.controller.defaultValue == '') {
+            editor.editing = false;
+
+            if (element.getAttribute('text') == '') {
                 editor.setPlaceHolder(element);
             }
             else {
-                element.innerHTML = editor.controller.defaultValue;
+                element.innerHTML = element.getAttribute('text');
             }
-            editor.editing = false;
+            editor.controller = null;
+            
+            if (editor.editButtonStyle != 'none') {
+                element.nextElementSibling.hidden = false;
+            }
         }
     }
 }
@@ -396,7 +683,7 @@ Editor.TEXTAREA = function (editor, element) {
         element.innerHTML = textToHtml(element.textContent);
     }
 
-    $x(element).bind(editor.editOn, function (ev) {
+    element.on(editor.editOn, function (ev) {
         //edit
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
 
@@ -533,290 +820,7 @@ Editor.TEXTAREA = function (editor, element) {
     });
 }
 
-Editor['integer'] = function (editor, element) {
-
-    let value = element.textContent.trim().toInt(editor.minValue);
-    if (editor.minValue != '') {
-        if (value < editor.minValue) {
-            value = editor.minValue;
-        }
-    }
-    if (editor.maxValue != '') {
-        if (value > editor.maxValue) {
-            value = editor.maxValue;
-        }
-    }
-    element.innerHTML = editor.kilo ? value.kilo() : value;
-    if (element.innerHTML == '') {
-        editor.setPlaceHolder(element);
-    }
-
-    $x(element).bind(editor.editOn, function (ev) {
-
-        //edit
-        if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-
-            editor.editing = true;
-
-            let before = element.querySelector('SPAN[sign=placeholder]') == null ?  element.textContent.toInt(editor.minValue) : '';
-            let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
-            if (editor.maxLength > 0) {
-                textBox.maxLength = editor.maxLength;
-            }
-
-            //添加事件不好使，只能直接指定
-            textBox.onkeydown = function (ev) {
-                // Enter
-                if (ev.keyCode == 13) {
-                    this.blur();
-                    return false;
-                }
-                // ESC
-                else if (ev.keyCode == 27) {
-                    this.value = this.defaultValue;
-                    this.blur();
-                    return false;
-                }
-                else {
-                    return Editor.Key.isEdit(ev) || Editor.Key.isInteger(ev);
-                }
-            }
-
-            textBox.onblur = function (ev) {
-                if (this.value != this.defaultValue) {
-                    //update
-                    let after = this.value.trim();
-                    if (editor.minLength > 0 && after.length < editor.minLength) {
-                        editor.execute('onfail', this.value);
-                        this.focus();
-                        return false;
-                    }
-                    if (editor.minValue != '') {
-                        after = after.toInt(editor.minValue);
-                        if (after < editor.minValue) {
-                            after = editor.minValue;
-                        }
-                    }
-                    if (editor.maxValue != '') {
-                        after = after.toInt(0);
-                        if (after > ediotr.maxValue) {
-                            after = editor.maxValue;
-                        }
-                    }
-                    this.value = after;
-
-                    if (editor.editing && editor.execute('onchange', after)) {
-                        //update
-                        if (editor.action != '') {
-                            this.disabled = true;
-                            $cogo(editor.action.concatValue(after), element, after)
-                                .then(data => {
-                                    if (editor.execute('onchange+success', data, after)) {
-                                        element.innerHTML = (editor.kilo ? after.kilo() : after);
-                                        if (element.innerHTML == '') { 
-                                            editor.setPlaceHolder(element);
-                                        }
-
-                                        editor.execute('onchange+completion', after);
-                                    }
-                                    else {
-                                        textBox.disabled = false;
-                                        textBox.focus();
-                                    }
-                                })
-                                .catch(error => {
-                                    Callout(error).position(this).show();
-                                    editor.execute('onchange+failure', error);
-                                    textBox.disable = true;
-                                    textBox.focus();
-                                })
-                                .finally(() => {
-                                    editor.updating = false;
-                                    editor.editing = false;
-                                });
-                            
-                            this.updating = true;
-                        }
-                        else {
-                            element.innerHTML = editor.kilo ? after.kilo() : after;
-                            if (element.innerHTML == '') { 
-                                editor.setPlaceHolder(element);
-                            }
-
-                            editor.execute('onchange+completion', after);
-
-                            editor.editing = false;
-                        }
-                    }
-                    else {
-                        return false;
-                    }
-                }
-                else {
-                    //cancel
-                    if (editor.editing && !editor.updating && editor.execute('oncancel', ev)) {
-                        element.innerHTML = editor.kilo ? this.defaultValue.kilo() : this.defaultValue;
-                        if (element.innerHTML == '') { 
-                            editor.setPlaceHolder(element);
-                         }
-                        editor.editing = false;
-                    }
-                }
-            }
-
-            textBox.size = textBox.value.$length(4);
-            textBox.onkeyup = function (ev) {
-                this.size = this.value.$length(4);
-            }
-
-            element.innerHTML = '';
-            element.appendChild(textBox);
-
-            textBox.focus();
-        }
-    }); 
-}
-
-Editor['decimal'] = function (editor, element) {
-
-    let value = element.textContent.trim().toFloat(editor.minValue);
-    if (editor.minValue != '') {
-        if (value < editor.minValue) {
-            value = editor.minValue;
-        }
-    }
-    if (editor.maxValue != '') {
-        if (value > editor.maxValue) {
-            value = editor.maxValue;
-        }
-    }
-    element.innerHTML = editor.kilo ? value.kilo() : value;
-
-    $x(element).bind(editor.editOn, function (ev) {
-        //edit
-        if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
-
-            editor.editing = true;
-
-            let before = element.textContent.toFloat(editor.minValue);
-            let textBox = $create('INPUT', { type: 'text', value: before, defaultValue: before, className: editor.inputClass });
-            if (editor.maxLength > 0) {
-                textBox.maxLength = editor.maxLength;
-            }
-
-            textBox.onkeydown = function (ev) {
-                // Enter
-                if (ev.keyCode == 13) {
-                    this.blur();
-                    return false;
-                }
-                // ESC
-                else if (ev.keyCode == 27) {
-                    this.value = this.defaultValue;
-                    this.blur();
-                    return false;
-                }
-                else {
-                    return Editor.Key.isEdit(ev) || Editor.Key.isDecimal(ev, this.value);
-                }
-            }
-
-            textBox.onblur = function (ev) {
-                if (this.value != this.defaultValue) {
-                    //update
-                    let after = this.value.trim();
-                    if (editor.minLength > 0 && after.length < editor.minLength) {
-                        editor.execute('onfail', this.value);
-                        this.focus();
-                        return false;
-                    }
-                    if (editor.minValue != '') {
-                        after = after.toFloat(editor.minValue);
-                        if (after < editor.minValue) {
-                            after = editor.minValue;
-                        }
-                    }
-                    if (editor.maxValue != '') {
-                        after = after.toFloat(0);
-                        if (after > ediotr.maxValue) {
-                            after = editor.maxValue;
-                        }
-                    }
-                    this.value = after;
-                    
-                    if (editor.editing && editor.execute('onchange', after)) {
-                        //update
-                        if (editor.action != '') {
-                            this.disabled = true;
-                            $cogo(editor.action.concatValue(after), element, after)
-                                .then(data => {
-                                    if (editor.execute('onchange+success', data, after)) {
-                                        element.innerHTML = (editor.kilo ? after.kilo() : after);
-                                        if (element.innerHTML == '') { 
-                                            editor.setPlaceHolder(element);
-                                        }
-
-                                        editor.execute('onchange+completion', after);
-                                    }
-                                    else {
-                                        textBox.disabled = false;
-                                        textBox.focus();
-                                    }
-                                })
-                                .catch(error => {
-                                    Callout(error).position(this).show();
-                                    editor.execute('onchange+failure', error);
-                                    textBox.disable = true;
-                                    textBox.focus();
-                                })
-                                .finally(() => {
-                                    editor.updating = false;
-                                    editor.editing = false;
-                                });                            
-
-                            this.updating = true;
-                        }
-                        else {
-                            element.innerHTML = editor.kilo ? after.kilo() : after;
-                            if (element.innerHTML == '') { 
-                                editor.setPlaceHolder(element);
-                            }
-
-                            editor.execute('onchange+completion', after);
-
-                            editor.editing = false;
-                        }
-                    }
-                    else {
-                        return false;
-                    }
-                }
-                else {
-                    //cancel
-                    if (editor.editing && !editor.updating && editor.execute('oncancel', ev)) {
-                        element.innerHTML = editor.kilo ? this.defaultValue.kilo() : this.defaultValue;
-                        if (element.innerHTML == '') {
-                            editor.setPlaceHolder(element);
-                        }
-                        editor.editing = false;
-                    }
-                }
-            }
-
-            textBox.size = textBox.value.$length(4);
-            textBox.onkeyup = function (ev) {
-                this.size = this.value.$length(4);
-            }
-
-            element.innerHTML = '';
-            element.appendChild(textBox);
-
-            textBox.focus();
-        }
-    });
-}
-
-Editor['percent'] = function (editor, element) {
+Editor.PERCENT = function (editor, element) {
 
      //will lost precision if use /100
     function percent(value) {
@@ -917,7 +921,7 @@ Editor['percent'] = function (editor, element) {
         element.innerHTML = (editor.kilo ? value.kilo() : value) + '%';
     }
 
-    $x(element).bind(editor.editOn, function (ev) {
+    element.on(editor.editOn, function (ev) {
         //edit
         if (editor.editable && !editor.editing && editor.execute('onedit', element, ev)) {
 
@@ -1031,108 +1035,6 @@ Editor['percent'] = function (editor, element) {
     });
 }
 
-Editor['select'] = function (editor, element) {
-
-    //auto convert value to text
-    let value = element.textContent.trim();
-    for (let name in editor.options) {
-        if (value == name || value == editor.options[name]) {
-            element.setAttribute('value', editor.options[name]);
-            element.innerHTML = name;
-            break;
-        }
-    }
-    if (element.getAttribute('value') == null) {
-        element.setAttribute('value', value);
-    }
-
-    $x(element).bind(editor.editOn, function (ev) {
-        if (editor.editable && !editor.editing) {
-            
-            let before = element.textContent.trim();
-            if (editor.execute('onedit', element, ev)) {
-                editor.editing = true;
-
-                let select = $create('SELECT', { className: editor.selectClass });
-                for (let name in editor.options) {
-                    select.options[select.options.length] = new Option(name, editor.options[name]);
-                    if (name == before || editor.options[name] == element.getAttribute('value')) {
-                        select.options[select.options.length - 1].selected = true;
-                    }
-                }
-                element.setAttribute('text', before); //for cancel
-
-                select.onkeydown = function (ev) {
-                    if (ev.keyCode == 27) {
-                        this.blur();
-                        return false;
-                    }
-                }
-                select.onchange = function (ev) {
-                    //update
-                    let afterText = this.options[this.selectedIndex].text;
-                    let afterValue = this.value;
-                    if (editor.editing && editor.execute('onchange', afterValue, element)) {
-                        if (editor.action != '') {
-                            this.disabled = true;
-                            $cogo(editor.action.concatValue(afterValue), element, afterValue)
-                                .then(data => {
-                                    if (editor.execute('onchange+success', data, afterValue, element)) {
-                                        element.setAttribute('value', afterValue);
-                                        element.innerHTML = ''; //must set empty first
-                                        element.innerHTML = afterText;
-
-                                        editor.execute('onchange+completion', afterValue, element);
-                                    }
-                                    else {
-                                        select.disabled = false;
-                                        select.focus();
-                                    }
-                                })
-                                .catch(error => {
-                                    Callout(error).position(this).show();
-                                    editor.execute('onchange+failure', status, statusText);
-                                    select.disable = true;
-                                    select.focus();
-                                })
-                                .finally(() => {
-                                    editor.updating = false;
-                                    editor.editing = false;
-                                });                            
-
-                            editor.updating = true;
-                        }
-                        else {
-                            element.setAttribute('value', afterValue);
-                            element.innerHTML = ''; //must set empty first
-                            element.innerHTML = afterText;
-
-                            editor.execute('onchange+completion', value, element);
-
-                            editor.editing = false;
-                        }
-                    }
-                    else {
-                        return false;
-                    }
-                }
-
-                select.onblur = function (ev) {
-                    //cancel
-                    if (editor.editing && !editor.updating) {
-                        element.innerHTML = element.getAttribute('text');                        
-                        editor.editing = false;
-                    }
-                }
-                
-                element.innerHTML = '';
-                element.appendChild(select);
-                select.focus();
-            }
-        }
-    });
-}
-
 Editor.reapplyAll = function() {
     for (let component of document.components.values()) {
         if (component.tagName == 'EDITOR') {
@@ -1152,20 +1054,15 @@ Editor.reapplyAll = function() {
 Editor.initializeAll = function () {
 
     // <editor bindings="selector" />
-    $a('editor').forEach(editor => {
-        $a(editor.getAttribute('bindings')).forEach(element => {
-            element.editor = new Editor(element);
-            element.editor.initialize();
-        });
-    });
-
-    //initialize from element
-    $a('[editable]').forEach(element => {
-        element.editor = new Editor(element);
-        element.editor.initialize();            
+    // <tag editable />
+    $a('editor,[editable]').forEach(element => {
+        if (element.nodeName != 'COL' && !element.hasAttribute('root-editor')) {
+            element.setAttribute('root-editor', '');
+            new Editor(element).apply(element.getAttribute('bindings') ?? element);        
+        }
     });
 }
 
-$finish(function () {
+document.on('post', function () {
     Editor.initializeAll();
 });

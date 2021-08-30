@@ -6,6 +6,8 @@
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.table.js"></script>
+    <script type="text/javascript" src="/root.input.js"></script>
+    <script type="text/javascript" src="/root.editor.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/iconfont.css" rel="stylesheet" type="text/css" />
     <style type="text/css">
@@ -14,51 +16,39 @@
     </style>
 </head>
 <body>
-<div id="D" style="display: none;">
+<div id="D">
     HELLO WORLD
 </div>
 
-<table data="" primary-key="hello,world">
+<span id="E" editable type="float" kilo>123456789000</span>
+
+<input type="float" />
+
+<table id="$a" data="">
     <colgroup>
         <col class="red">
     </colgroup>
 </table>
 <script type="text/javascript">
-LogFormat = function(log) {
-    let str = [];
-    let dt = [];
-    let address = [];
-    return log.replace(/<\/[^>]+>/g, '')
-            .replace(/<\d+\.\d+\.\d+\.\d+(\.\d+\.\d+)?:\d+>/g, $1 => {
-                address.push($1);
-                return  '~address#' + (address.length - 1) + '#';
-            })
-            .replace(/</g, '&lt;').replace(/>/g, '&gt;')
-            .replace(/"[^"]*"/g, $1 => {
-                str.push($1);
-                return '~str#' + (str.length - 1) + '#';
-            })
-            .replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{3})?/g, $1 => {
-                dt.push($1);
-                return '~date#' + (dt.length - 1) + '#';
-            })
-            .replace(/\\r\\n|\\n|\\r/g, '<br/>')
-            .replace(/\\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')    
-            .replace(/([^\da-z#])(\d+)([^\da-z#])/g, ($1, $2, $3, $4) => {
-                if ($2 != '#' && $4 != '#') {
-                    return $2 + '<span class="NUMBER">' + $3 +'</span>' + $4;
-                }
-                else {
-                    return $1;
-                }
-            })    
-            .replace(/-\d+|-?\d+\.\d+/, $1 => '<span class="NUMBER">' + $1 +'</span>')
-            .replace(/~str#(\d+)#/g, ($1, $2) => '<span class="STRING">' + str[$2.toInt()] + '</span>')
-            .replace(/~date#(\d+)#/g, ($1, $2) => '<span class="DATETIME">' + dt[$2.toInt()] + '</span>')
-            .replace(/~address#(\d+)#/g, ($1, $2) => '<span class="ADDRESS">' + address[$2.toInt()] + '</span>');
+class Test extends HTMLElement {
+    constructor() {
+        this.p1 = 1;
+        this.on1 = null;        
+    }
 }
 
-console.log(LogFormat('  <192.168.3.67:7700> Keeper beat!'));
+Test.prototype.on3 = null;
+Test.prototype.func = function() {};
+
+Object.defineProperties(Test.prototype, {
+    'on2': {
+        get() {
+            return 'hello';
+        }
+    }
+});
+
+Object.getOwnPropertyNames(Test.prototype).forEach(a => console.log(a));
 </script>
 </body>
 </html>

@@ -6,7 +6,7 @@ class Tab {
         .declare({
 			name: 'Tab_' + document.components.size,
 			bindings: '',
-			excludes: '', //0, n
+			excludes: '', //0, -1
 			defaultClass: '',
 			selectedClass: '',
 
@@ -57,9 +57,12 @@ class Tab {
 							}
 						}
 					}
-					else {			
-						e = e.replace(/n|l/g, this.bindings.length - 1);
-						this.bindings[eval(e)] = null;
+					else {
+						e = parseInt(e);
+						if (e < 0) {
+							e = this.bindings.length + e;
+						}
+						this.bindings[e] = null;
 					}
 				}
 
@@ -96,11 +99,6 @@ $tab = function(name) {
 
 Tab.prototype.selectedElement = null;
 
-Tab.prototype.on = function(eventName, func) {
-	Event.bind(this.name, eventName, func);
-	return this;
-}
-
 //用某个元素的属性当值, 当使用子元素的样式切换时会用到
 String.prototype.$css = function(element) {
     let css = this.toString();
@@ -124,14 +122,14 @@ Tab.prototype.change = function(element, trigger = true) {
 		element.className = this.selectedClass.$css(element);
 		this.selectedElement = element;
 
-		let hide = element.getAttribute('hide');
+		let hide = element.getAttribute('to-hide') || element.getAttribute('tohide');
 		if (hide != null) {
-			$x(hide).hide();
+			$a(hide).forEach(a => a.hide());
 		}
 		
-		let show = element.getAttribute('show');
+		let show = element.getAttribute('to-show') || element.getAttribute('to-show');
 		if (show != null) {
-			$x(show).show();
+			$a(show).forEach(a => a.show());
 		}
 
 		this.element.setAttribute('value', $value(element));
@@ -158,7 +156,7 @@ Tab.prototype.bind = function() {
 			element.className = tab.defaultClass;
 		}
 
-		$x(element).on('click', function(ev) {
+		element.on('click', function(ev) {
 			if (ev.button == 0) {
 				tab.change(element);
 
@@ -195,6 +193,6 @@ Tab.initializeAll = function () {
 	}	
 };
 
-$finish(function() {
+document.on('post', function() {
 	Tab.initializeAll();	
 });

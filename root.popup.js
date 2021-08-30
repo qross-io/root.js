@@ -4,52 +4,6 @@
 // root.popup.js
 // popup in window
 
-/**********
-
-	<Popup ID="String" Element="ElementID" Position="*" Offset="x.y" Modal="true|false" Hidings="ElementID1,ElementID2,..." OpenButton="ElementID" CloseButton="ElementID" ConfirmButton="ElementID" CancelButton="ElementID" DragBar="ElementID" MaskColor="Color" MaskOpacity="0-100" />
-	
-
-2019/4/2
-增加属性
-
-    animation=""
-    opening-animation=""
-    closing-animation=""
-
-    opening-from-position="-150.0,150,0,0.150,0.-150"
-    opening-to-position="0.0"
-    opening-from-opacity="0"
-    opening-to-opacity="100"    
-    opening-from-scale="0"
-    opening-to-scale="100"
-    opening-duration="1s|800ms"
-
-    closing-from-position="-150.0"
-    closing-to-position="0.0"
-    closing-from-opacity="0"
-    closing-to-opacity="100"    
-    closing-from-scale="0"
-    closing-to-scale="100"
-    closing-duration="1s|800ms"
-
-2018/8/6 重写
-简化结构，整合root.js, 删减了大量代码
-适应ES6
-修改多个属性和方法
-不再使用Popup标签
-PopupMask静态化
-
-2013/1/27
-删除fade, duration
-visible不再是显式属性, 不需要再设置
-增加animation动画属性
-去掉对老版浏览器的支持
-增加id属性
-删减了多段代码
-事件名称第2个单词首字母大写
-position和offset属性标准化
-**********/
-
 /// <global type="Popup">页面上正在打开的 Popup 对象</global>
 document.popup = null;
 
@@ -111,10 +65,10 @@ Popup = function (element) {
 
         source: null,
 
-        openButton: '$x',
-        closeButton: '$x',
-        confirmButton: '$x',
-        cancelButton: '$x',
+        openButton: '$s',
+        closeButton: '$s',
+        confirmButton: '$s',
+        cancelButton: '$s',
 
         animation: 'timing-function: ease; duration: 0.8s; from: random(x(0).y(-150),x(0).y(150),x(-150).y(0),x(150).y(0)) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;',
         openingAnimation: '',
@@ -135,29 +89,31 @@ Popup = function (element) {
         closingDuration: '0.8s', //1s, 800ms
 
         //animationStyle: '', //预设的动画样式
-        display: 'window|sidebar|menu', //window/sidebar/menu
-        reference: '$x', //
+        popup: 'window|sidebar|menu', //window/sidebar/menu
+        reference: '$s', //
 
         modal: true,
-        hidings: '$x',
+        hidings: '$a',
         disableScrolling: true,
 
         onopen: null,
         onclose: null,
         onconfirm: null,
         oncancel: null,
+        onshow: null,
+        onhide: null,
         onlocate: null,
 
         maskColor: '#999999',
         maskOpacity: 3, 
 
-        visible: false
+        visibility: 'hidden|visible'
     })
     .elementify(element => {
         this.element = element;
 
         //将对象初始化
-        this.element.style.display = 'none';
+        this.element.hidden = true;
         this.element.style.position = 'absolute';
         this.element.style.zIndex = '1001';
         this.element.style.visibility = 'hidden';
@@ -166,17 +122,17 @@ Popup = function (element) {
         this.element.setAttribute('root', 'POPUP');
     });
 
-    if (this.openButton.isEmpty()) {
-        this.openButton = $x('#' + this.name + '_OpenButton');
+    if (this.openButton == null) {
+        this.openButton = $s('#' + this.name + '_OpenButton');
     }
-    if (this.closeButton.isEmpty()) {
-        this.closeButton = $x('#' + this.name + '_CloseButton');
+    if (this.closeButton == null) {
+        this.closeButton = $s('#' + this.name + '_CloseButton');
     }
-    if (this.confirmButton.isEmpty()) {
-        this.confirmButton = $x('#' + this.name + '_ConfirmButton');
+    if (this.confirmButton == null) {
+        this.confirmButton = $s('#' + this.name + '_ConfirmButton');
     }
-    if (this.cancelButton.isEmpty()) {
-            this.cancelButton = $x('#' + this.name + '_CancelButton');
+    if (this.cancelButton == null) {
+            this.cancelButton = $s('#' + this.name + '_CancelButton');
         }
     
     if (this.openingAnimation == '') {
@@ -187,14 +143,14 @@ Popup = function (element) {
     }
 
     let popup = this;
-    this.openButton.bind('click', ev => popup.open(ev));
-    this.closeButton.bind('click', ev => popup.close(ev));
-    this.confirmButton.bind('click', ev => popup.confirm(ev));
-    this.cancelButton.bind('click', ev => popup.cancel(ev));
+    this.openButton?.on('click', ev => popup.open(ev));
+    this.closeButton?.on('click', ev => popup.close(ev));
+    this.confirmButton?.on('click', ev => popup.confirm(ev));
+    this.cancelButton?.on('click', ev => popup.cancel(ev));
      
     Event.interact(this, this.element);
 
-    if (this.visible) {
+    if (this.visibility == 'visible') {
         this.open();
     }
 }
@@ -214,7 +170,7 @@ Popup.prototype.locate = function(ev) {
 	/// <param name="ev" type="EventArgs"></param>
     
     //自动调整边栏的宽高
-    if (this.display == 'sidebar') {
+    if (this.popup == 'sidebar') {
         if (this.position.x == 'center') {
             //上中下边栏全宽
             let width = window.innerWidth;
@@ -258,7 +214,7 @@ Popup.prototype.locate = function(ev) {
 }
 
 Popup.prototype.$getOpeningAnimation = function(ev) {
-    if (this.display == 'sidebar') {
+    if (this.popup == 'sidebar') {
         //sidebar的自定义动画无效
         if (this.position.x == 'center') {
             if (this.position.y == 'top') {
@@ -293,7 +249,7 @@ Popup.prototype.$getOpeningAnimation = function(ev) {
 }
 
 Popup.prototype.$getClosingAnimation = function(ev) {
-    if (this.display == 'sidebar') {
+    if (this.popup == 'sidebar') {
         //sidebar的自定义动画无效
         if (this.position.x == 'center') {
             if (this.position.y == 'top') {
@@ -343,7 +299,7 @@ Popup.prototype.show = function(quick, ev) {
     }
 
 	//隐藏影响popup显示的元素
-    this.hidings.hide();
+    this.hidings.forEach(e => e.hide());
 
     //禁用滚动
     if (this.disableScrolling) {
@@ -356,7 +312,7 @@ Popup.prototype.show = function(quick, ev) {
 	}
 	
     //显示
-	this.element.style.display = '';
+	this.element.hidden = false;
 	this.locate(ev);
 	this.element.style.visibility = 'visible';		
 	if(!quick) {
@@ -368,7 +324,7 @@ Popup.prototype.show = function(quick, ev) {
     }
 	
 	//保存状态
-	this.visible = true;
+	this.visibility = 'visible';
 	document.popup = this;
 }
 
@@ -376,7 +332,7 @@ Popup.prototype.hide = function(quick, ev) {
 	/// <summary>隐藏</summary>
 	/// <param name="quick" type="Boolean">是否快速隐藏</param>
 
-	if(this.visible) {
+	if(this.visibility == 'visible') {
 		//是否快速隐藏
 	    if (quick == null) {
 	        quick = (window.Animation == null || Animation.Entity == null || this.animation == '');
@@ -390,7 +346,7 @@ Popup.prototype.hide = function(quick, ev) {
                     .apply(this.element)
                     .on('stop', function () {
                         popup.element.style.visibility = 'hidden';
-                        popup.element.style.display = 'none';
+                        popup.element.hidden = true;
                         //启用滚动
                         document.body.style.overflow = 'auto';
                     }).play(ev);
@@ -398,7 +354,7 @@ Popup.prototype.hide = function(quick, ev) {
 		}
 		else {		
 			//立即隐藏
-			this.element.style.display = 'none';
+			this.element.hidden = true;
             this.element.style.visibility = 'hidden';
                             
             //启用滚动
@@ -413,10 +369,10 @@ Popup.prototype.hide = function(quick, ev) {
 		}
 		
 		//显示popup打开时隐藏的元素
-        this.hidings.show();
+        this.hidings.forEach(e => e.show());
 
 		document.popup = null;
-		this.visible = false;
+		this.visibility = 'hidden';
 	}
 }
 
@@ -424,6 +380,7 @@ Popup.prototype.open = function(ev) {
     if(document.popup == null || document.popup.id != this.id) {
 		if(this.execute('onopen', ev)) {
 			this.show(null, ev);			
+            this.execute('onshow', ev);
 		}
     }
     return this;
@@ -433,6 +390,7 @@ Popup.prototype.close = function(ev) {
     if(document.popup == null || document.popup.id == this.id) {
 		if(this.execute('onclose', ev)) {
 			this.hide(null, ev);
+            this.execute('onhide', ev);
 		}
     }
     return this;
@@ -464,7 +422,7 @@ Popup.prototype.getPositionX = function (x, ev) {
         return x;
     }
     else if (typeof (x) == 'string') {
-        if (this.display != 'menu') {
+        if (this.popup != 'menu') {
             switch(x) {
                 case 'event':
                     x = this.getEventX(ev);
@@ -483,13 +441,13 @@ Popup.prototype.getPositionX = function (x, ev) {
         else {
             switch(x) {
                 case 'left':
-                    x = this.reference.left();
+                    x = this.reference.left;
                     break;
                 case 'center':
-                    x =  this.reference.left() + this.reference.width() / 2 - $x(this.element).width() / 2;
+                    x =  this.reference.left + this.reference.width / 2 - this.element.width / 2;
                     break;
                 case 'right':
-                    x = this.reference.left() + this.reference.width() - $x(this.element).width();
+                    x = this.reference.left + this.reference.width - this.element.width;
                     break;
             }
         }
@@ -509,7 +467,7 @@ Popup.prototype.getPositionY = function (y, ev) {
         return y;
     }
     else if (typeof (y) == 'string') {
-        if (this.display != 'menu') {
+        if (this.popup != 'menu') {
             switch(y) {
                 case 'event':
                     y = this.getEventY(ev);
@@ -528,10 +486,10 @@ Popup.prototype.getPositionY = function (y, ev) {
         else {
             switch(y) {
                 case 'top':
-                    y = this.reference.top() - $x(this.element).height();
+                    y = this.reference.top - this.element.height;
                     break;
                 case 'bottom':
-                    y = this.reference.top() + this.reference.height();
+                    y = this.reference.top + this.reference.height;
                     break;
             }
         }
@@ -545,24 +503,24 @@ Popup.prototype.getPositionY = function (y, ev) {
 
 Popup.prototype.getEventX = function (ev) {
     /// <summary>获得事件的x坐标</summary>
-    return Math.round($root.scrollLeft() + (ev == null ? 0 : ev.clientX));
+    return Math.round($root.scrollLeft + (ev == null ? 0 : ev.clientX));
 }
 
 Popup.prototype.getEventY = function (ev) {
     /// <summary>获得事件的y坐标</summary>
-    return Math.round($root.scrollTop() + (ev == null ? 0 : ev.clientY));
+    return Math.round($root.scrollTop + (ev == null ? 0 : ev.clientY));
 }
 
 Popup.prototype.getOffsetLeft = function (p) {
     /// <summary>获得x轴的坐标位置</summary>
 
-    let v = $root.scrollLeft(); //left
+    let v = $root.scrollLeft; //left
     if (p == 'center') {
         //document.documentElement.clientWidth
-        v = (window.innerWidth - this.element.offsetWidth) / 2 + $root.scrollLeft();
+        v = (window.innerWidth - this.element.offsetWidth) / 2 + $root.scrollLeft;
     }
     else if (p == 'right') {
-        v = window.innerWidth - this.element.offsetWidth + $root.scrollLeft();
+        v = window.innerWidth - this.element.offsetWidth + $root.scrollLeft;
     }
     return Math.round(v);
 }
@@ -570,13 +528,13 @@ Popup.prototype.getOffsetLeft = function (p) {
 Popup.prototype.getOffsetTop = function (p) {
     /// <summary>获得y轴的坐标位置</summary>
 
-    let v = $root.scrollTop(); //top
+    let v = $root.scrollTop; //top
     if (p == 'middle') {
         //document.documentElement.clientHeight
-        v = (window.innerHeight - this.element.offsetHeight) / 2 + $root.scrollTop();
+        v = (window.innerHeight - this.element.offsetHeight) / 2 + $root.scrollTop;
     }
     else if (p == 'bottom') {
-        v = window.innerHeight - this.element.offsetHeight + $root.scrollTop();
+        v = window.innerHeight - this.element.offsetHeight + $root.scrollTop;
     }
     return Math.round(v);
 }
@@ -604,15 +562,15 @@ PopupMask.show = function(color, opacity) {
     /// <summary>显示 Mask<summary>
     PopupMask.resize();
 
-    $x('#PopupMask')
+    $s('#__PopupMask')
         .show()
-        .style('visibility', 'visible')
-        .style('backgroundColor', color)
-        .style('opacity', opacity / 10);
+        .setStyle('visibility', 'visible')
+        .setStyle('backgroundColor', color)
+        .setStyle('opacity', opacity / 10);
 
     if (window.Animation != null && Animation.Entity != null) {
         Animation('timing-function: ease; duration: 0.5s; from:x(0).y(0) 100% 20%; to:x(0).y(0) 100% ' + (opacity * 10) + '%; fill-mode: forwards;')
-         .apply('#PopupMask')
+         .apply('#__PopupMask')
          .play();
     }
 }
@@ -622,15 +580,15 @@ PopupMask.hide = function(opacity) {
     /// <summary>隐藏 Mask<summary>
     if (window.Animation != null && Animation.Entity != null) {
         Animation('timing-function: ease; duration: 0.5s; from:x(0).y(0) 100% ' + (opacity * 10) + '%; to:x(0).y(0) 100% 0%; fill-mode: forwards;')
-                 .apply('#PopupMask')
+                 .apply('#__PopupMask')
                  .on('stop', function() {
-                                 $x('#PopupMask').style('visibility', 'hidden').hide();
+                                 $s('#__PopupMask').setStyle('visibility', 'hidden').hide();
                               })
                  .play();
     }
     else {
-        $x('#PopupMask')
-        .style('visibility', 'hidden')
+        $s('#__PopupMask')
+        .setStyle('visibility', 'hidden')
         .hide()
     }
 }
@@ -646,90 +604,150 @@ PopupMask.resize = function() {
         sy = document.body.scrollHeight;
     }
 
-    $x('#PopupMask')
-        .style('width', sx - 1 + 'px')
-        .style('height', sy - 1 + 'px');
+    $s('#__PopupMask')
+        .setStyle('width', sx - 1 + 'px')
+        .setStyle('height', sy - 1 + 'px');
 }
 
-$root.alert = function(message, confirmButtonText = 'OK', title = 'Message', ev = null) {
+$root.alert = function(message, confirmButton, title, ev) {
     if ($s('#AlertPopup') == null) {
         let div = $create('DIV', { 'id': 'AlertPopup', className: 'popup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
         div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="AlertPopupTitle"></span>' }));
+        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="AlertPopupTitle">Message</span>' }));
         div.appendChild($create('DIV', { id: 'AlertContent', className: 'popup-title' }, { textAlign: 'center', color: 'var(--primary)' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="AlertPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText + '">' }));
+        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="AlertPopup_ConfirmButton" type="button" class="normal-button prime-button"> OK </button' }));
         document.body.appendChild(div);
 
         Popup.apply($s('#AlertPopup'));
     }
 
-    $x('#AlertContent').html(message == null ? 'null' : message);
-    $x('#AlertPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
-    $x('#AlertPopupTitle').html(title);
-    $popup('AlertPopup').clearEvents().open(ev);
+    if (title != null) {
+        $s('#AlertPopupTitle').html = title;
+    }
+
+    message ??= '';
+    if (typeof (message) == 'string') {
+        message = { 'text': message };
+    }
+    $s('#AlertContent').setHTML(message.text).setClass(message.class ?? '.');
+
+    if (confirmButton != null) {
+        if (typeof(confirmButton) == 'string') {
+            confirmButton = { text: confirmButton };
+        }
+        $s('#AlertPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
+    }
+
+    return $popup('AlertPopup').clearEvents().open(ev);
 }
 
-$root.confirm = function(message, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Confirm', ev = null) {
+$root.confirm = function(message, confirmButton, cancelButton, title, ev = null) {
     if ($s('#ConfirmPopup') == null) {
         let div = $create('DIV', { 'id': 'ConfirmPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
         div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="ConfirmPopupTitle"></span>' }));
+        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-message"></i> &nbsp; <span id="ConfirmPopupTitle">Confirm</span>' }));
         div.appendChild($create('DIV', { id: 'ConfirmContent', className: 'popup-title' }, { textAlign: 'center' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<input id="ConfirmPopup_ConfirmButton" type="button" class="normal-button prime-button" value="' + confirmButtonText +'"> &nbsp; &nbsp; <input id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button" value="' + cancelButtonText + '">' }));
+        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="ConfirmPopup_ConfirmButton" type="button" class="normal-button prime-button"> OK </button> &nbsp; &nbsp; <button id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button"> Cancel </button>' }));
         document.body.appendChild(div);
 
-        let w = Math.max($x('#ConfirmPopup_ConfirmButton').width(), $x('#ConfirmPopup_CancelButton').width());
-        $x('#ConfirmPopup_ConfirmButton').width(w);
-        $x('#ConfirmPopup_CancelButton').width(w);
+        let w = Math.max($s('#ConfirmPopup_ConfirmButton').width, $s('#ConfirmPopup_CancelButton').width);
+        $s('#ConfirmPopup_ConfirmButton').width = w;
+        $s('#ConfirmPopup_CancelButton').width = w;
 
         Popup.apply($s('#ConfirmPopup'));
     }
 
-    $x('#ConfirmContent').html(message == null ? 'null' : message);
-    $x('#ConfirmPopupTitle').html(title);
-    $x('#ConfirmPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
-    $x('#ConfirmPopup_CancelButton').value(' ' + cancelButtonText + ' ');
+    if (title != null) {
+        $s('#ConfirmPopupTitle').html = title;
+    }
+
+    message ??= '';
+    if (typeof (message) == 'string') {
+        message = { 'text': message };
+    }
+    $s('#ConfirmContent').setHTML(message.text).setClass(message.class ?? '.');
+
+    if (confirmButton != null) {
+        if (typeof(confirmButton) == 'string') {
+            confirmButton = { text: confirmButton };
+        }
+        $s('#ConfirmPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
+    }
+
+    if (cancelButton != null) {
+        if (typeof(cancelButton) == 'string') {
+            cancelButton = { text: cancelButton };
+        }
+        $s('#ConfirmPopup_ConfirmButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
+    }
+
     return $popup('ConfirmPopup').clearEvents().open(ev);
 }
 
-$root.prompt = function(message, inputType = 'text', inputOptions = null, confirmButtonText = 'OK', cancelButtonText = 'Cancel', title = 'Prompt', ev = null) {
+$root.prompt = function(message, input, confirmButton, cancelButton, title, ev) {
     if ($s('#PromptPopup') == null) {
         let div = $create('DIV', { 'id': 'PromptPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
         div.appendChild($create('DIV', { id: 'PromptPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="PromptPopupTitle"></span>' }));
+        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-edit"></i> <span id="PromptPopupTitle">Prompt</span>' }));
         div.appendChild($create('DIV', { id: 'PromptContent', className: 'popup-title' }));
         div.appendChild($create('DIV', { id: 'PromptInput', className: 'popup-content' }));
-        div.appendChild($create('DIV', { id: 'PromptMessaage', className: 'popup-content', innerHTML: '<span id="PromptMessage" class="error"></span>' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="PromptPopup_ConfirmButton" watch="#PromptTextBox" class="normal-button prime-button">' + confirmButtonText +'</button> &nbsp; &nbsp; <input id="PromptPopup_CancelButton" type="button" class="normal-button gray-button" value="' + cancelButtonText + '">' }));
+        div.appendChild($create('DIV', { className: 'popup-message', innerHTML: '<div id="PromptMessage"></div>' }));
+        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="PromptPopup_ConfirmButton" watch="#PromptTextBox" class="normal-button prime-button">OK</button> &nbsp; &nbsp; <input id="PromptPopup_CancelButton" type="button" class="normal-button gray-button" value="Cancel">' }));
         document.body.appendChild(div);
 
-        let w = Math.max($x('#PromptPopup_ConfirmButton').width(), $x('#PromptPopup_CancelButton').width());
-        $x('#PromptPopup_ConfirmButton').width(w);
-        $x('#PromptPopup_CancelButton').width(w);
+        let w = Math.max($s('#PromptPopup_ConfirmButton').width, $s('#PromptPopup_CancelButton').width);
+        $s('#PromptPopup_ConfirmButton').width = w;
+        $s('#PromptPopup_CancelButton').width = w;
 
         Popup.apply($s('#PromptPopup'));
     }
 
-    $x('#PromptContent').html(message == null ? 'null' : message);
-    $x('#PromptPopupTitle').html(title);
-    $x('#PromptPopup_ConfirmButton').value(' ' + confirmButtonText + ' ');
-    $x('#PromptPopup_CancelButton').value(' ' + cancelButtonText + ' ');
-
-    let input = $create('INPUT', { id: 'PromptTextBox', type: inputType, size: 50, hint: '#PromptMessage' });
-    if (inputOptions != null) {
-        for (let name in this.inputOptions) {
-            if (input[name] !== undefined) {
-                input[name] = inputOptions[name];
-            }
-            else {
-                input.setAttribute(name, inputOptions[name]);
-            }
-        }
+    if (title != null) {
+        $s('#PromptPopupTitle').html = title;
     }
-    input.initializeInputable?.();
-    $x('#PromptInput').html('').append(input);
 
-    return $popup('PromptPopup').clearEvents().open(ev);
+    message ??= '';
+    if (typeof (message) == 'string') {
+        message = { 'text': message };
+    }
+    $s('#PromptContent').setHTML(message.text).setClass(message.class ?? '.');
+
+    input ??= 'text';
+    if (typeof(input) == 'string') {
+        input = { 'type': input };
+    }
+    let textBox = $create('INPUT', { id: 'PromptTextBox', size: 50, hint: '#PromptMessage' });
+    for (let name in input) {
+        if (textBox[name] !== undefined) {
+            textBox[name] = input[name];
+        }
+        else {
+            textBox.setAttribute(name, inputOptions[name]);
+        }
+    }    
+    textBox.initializeInputable?.();
+    $s('#PromptInput').innerHTML = '';
+    $s('#PromptInput').appendChild(textBox);
+
+    if (confirmButton != null) {
+        if (typeof(confirmButton) == 'string') {
+            confirmButton = { text: confirmButton };
+        }
+        $s('#PromptPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
+    }
+    $s('#PromptPopup_ConfirmButton').initialize?.();
+   
+    if (cancelButton != null) {
+        if (typeof(cancelButton) == 'string') {
+            cancelButton = { text: cancelButton };
+        }
+        $s('#PromptPopup_CancelButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
+    }
+
+    return $popup('PromptPopup').clearEvents().on('show', function() {
+        $s('.popup-message').width = $s('.popup-message').width;
+        textBox.focus();
+    }).open(ev);
 }
 
 $root.prompt.getInputValue = function() {
@@ -748,9 +766,9 @@ Popup.apply = function (element) {
 
 Popup.initializeAll = function () {
 
-    $x('BODY').append('<div id="PopupMask" style="background-color:#666666; z-index:1000; position:absolute; visibility:hidden; display:none; left:0; top:0;">&nbsp;</div>');
+    document.body.insertAdjacentHTML('beforeEnd', '<div id="__PopupMask" style="background-color:#666666; z-index:1000; position:absolute; visibility:hidden; left:0; top:0;" hidden>&nbsp;</div>');
 
-    $x(window).on('resize', Popup.resize);
+    window.on('resize', Popup.resize);
 
     PopupMask.resize();
 
@@ -759,9 +777,9 @@ Popup.initializeAll = function () {
     });
 }
 
-$finish(function () {
-    Popup.initializeAll();
-    $x(window).on('message', function(ev) {
+document.on('post', function () {
+    Popup.initializeAll();    
+    window.on('message', function(ev) {
         switch(ev.data) {
             case 'CLOSE-POPUP': 
                 if (document.popup != null) {

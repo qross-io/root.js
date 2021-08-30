@@ -47,10 +47,10 @@ DateTimePicker.prototype.apply = function() {
         this.value = DateTime.today() + ' 00:00:00';
     }
     if (this.nodeName != 'INPUT') {
-        $x(this.element).insertBehind($create('A', { 'id': id + 'Popup_OpenButton', href: 'javascript:void(0)', innerHTML: '<i class="iconfont icon-calendar"></i>'}));
+        this.element.insertAdjacentElement('afterEnd', $create('A', { 'id': id + 'Popup_OpenButton', href: 'javascript:void(0)', innerHTML: '<i class="iconfont icon-calendar"></i>'}));
     }    
 
-    document.body.appendChild($create('DIV', { 'id': id + 'Popup', className: 'popup'}, { }, { popup: 'yes', display: 'sidebar', position: 'right' }));
+    document.body.appendChild($create('DIV', { 'id': id + 'Popup', className: 'popup'}, { }, { popup: 'sidebar', position: 'right' }));
     $s('#' + id + 'Popup').innerHTML = `
         <div id="${id}Popup_CloseButton" class="popup-close-button"><i class="iconfont icon-close"></i></div>
         <div class="popup-bar"><i class="iconfont icon-calendar"></i> &nbsp; <span id="${id}PopupTitle">${this.title}</span></div>
@@ -69,13 +69,13 @@ DateTimePicker.prototype.apply = function() {
     this.element.getAttributeNames()
         .forEach(attr => {
             if (attr.toLowerCase().startsWith('calendar-') && attr.toLowerCase() != 'calendar-mode') {
-                $x(calendar).attr(attr.replace(/^calendar-/i, ''), this.element.getAttribute(attr));
+                $s(calendar).set(attr.replace(/^calendar-/i, ''), this.element.getAttribute(attr));
             }
             else if (attr.toLowerCase().startsWith('clock-')) {
-                $x(clock).attr(attr.replace(/^clock-/i, ''), this.element.getAttribute(attr));
+                $s(clock).set(attr.replace(/^clock-/i, ''), this.element.getAttribute(attr));
             }
             else if (attr.toLowerCase().startsWith('popup-')) {
-                $x(popup).attr(attr.replace(/^popup-/i, ''), this.element.getAttribute(attr));
+                $s(popup).set(attr.replace(/^popup-/i, ''), this.element.getAttribute(attr));
             }
         });
 
@@ -110,6 +110,6 @@ DateTimePicker.initializeAll = function() {
     }
 }
 
-$finish(function() {
+document.on('post', function() {
     DateTimePicker.initializeAll();    
 });

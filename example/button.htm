@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <title>Button</title>
     <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.model.js"></script>
     <script type="text/javascript" src="/root.animation.js"></script>
-    <script type="text/javascript" src="/root.button.js"></script>
     <script type="text/javascript" src="/root.input.js"></script>
+    <script type="text/javascript" src="/root.button.js"></script>
     <script type="text/javascript" src="/root.popup.js"></script>
     <script type="text/javascript" src="/root.editor.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
@@ -18,25 +19,57 @@
 </head>
 <body>
 
-<div id="F" class="center" 1="2" -A="A" _="B" 中="文">
-    <button type="execute">TEST</button>
-</div>
+<model name="students" data='[{ "name": "Tom", "age": 18 }, { "name": "Jerry", "age": 19 }, { "name": "Ted", "age": 17}]'>
+    <set $="#Youngest">The youngest students is: @:[0][name]. He is only @:[0].age!!</set>
+    <set $="#Oldest">The oldest students is: @:[-1].name!. He is only @:[-1][age]!</set>
+    <set $="#Avg" value="~{ @students|age|!.avg().round(2) }"></set>
+</model>
+<span id="Youngest"></span>
+<span id="Oldest"></span>
+<input id="Avg" type="text" />
+<template var="student" as="list" data="@students">
+    <div>@student.name: @[age]</div>
+</template>
+
+<div html+>@students[0].name: @students|age|[0]</div>
+<span data>$(#CC):$(#BB)</span>
+<input value+="$(#CC):$(#BB)" />
+<hr/>
+
+&#64; <input id="CC" type="checkbox" value+="hello" value="world" /> 
 
 <span editable show-buttons="yes" edit-on="click" underline="dashed">HELLO WORLD</span>
 
+<div>
+    <select id="BB" multiple>
+        <option selected>A1</option>
+        <option>A2</option>
+        <option>A3</option>
+        <option>A4</option>
+    </select>
+</div>
+
 <form>
-    <input id="I" type="text" required-text="" set="value.replace('x', 'X')" get="value.replace('a', 'A')" />
+    <input id="I" type="text" />
     <button id="B" type="switch" onclick="return false;" callout="right" value="no" invalid-text="禁止点击。" onclick-disabled="alert(this.value)" onclick-enabled="alert(this.text)">ABC</button>
     <button id="P">Prompt</button>
 </form>
  <script type="text/javascript">
-
 Object.defineProperty(HTMLDivElement.prototype, 'color', {
     get() {
         return this.getAttribute('color');
     },
     set(color) {
         this.setAttribute('color', color);
+    }
+});
+
+Object.defineProperty(HTMLInputElement.prototype, 'value', {
+    get() {
+        return this.getAttribute('value');
+    },
+    set(value) {
+        this.setAttribute('value', value);
     }
 });
 

@@ -1,0 +1,54 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>自定义标签 Toggle</title>    
+</head>
+<body>
+<toggle></toggle>
+
+<script type="text/javascript">
+class Toggle extends Button {
+    constructor(element) {
+        this.enabledText = element.getAttribute('enabled-text');
+        this.disabledText = element.getAttribute('disabled-text');
+
+        this.enabledValue = element.getAttribute('enabled-value') ?? element.getAttribute('enabledValue') ?? '';
+        this.disabledValue = element.getAttribute('disabled-value') ?? element.getAttribute('disabledValue') ?? '';
+
+        this.enabledClass = element.getAttribute('enabled-class');
+        this.disabledClass = element.getAttribute('disabled-class');
+
+        this.onclick = null;
+        this['onclick-enabled'] = null;
+        this['onclick-disabled'] = null;
+
+        this.element = element;
+        this.button = null;
+    }
+
+    get text() {
+        return this.element.getAttribute('text');
+    }
+
+    get value() {
+        return this.element.getAttribute('value');
+    }
+}
+
+
+Toggle.prototype.enable = function() {
+
+}
+
+Toggle.prototype.disable = function() {
+    
+}
+
+Toggle.prototype.initialize = function() {
+    
+}
+</script>
+</body>
+</html>

@@ -22,7 +22,7 @@
 $enhance(HTMLTableElement.prototype)
     .declare({
         name: 'Table_' + document.components.size,
-        excludes: '', //0, n
+        excludes: '', //0, -1
 
         captionClass: '', //caption
         headerClass: 'header-row', //thead
@@ -43,6 +43,7 @@ $enhance(HTMLTableElement.prototype)
         //editingCellClass: '',
 
         data: '',
+        await: '',
         autoRefresh: false,
         interval: 0,  //ms
         terminal: 'false',
@@ -53,7 +54,7 @@ $enhance(HTMLTableElement.prototype)
         onrowfocus: null, //function(row) { },
         onrowblur: null, //function(row) { },
         onrowdblclick: null, //function(row) { },
-        onrowremove: null, //function(row) { },
+        onrowdelete: null, //function(row) { },
         onload: null, //function() { },
         onreload: null, //function() { },
         onmeet: null,
@@ -61,11 +62,16 @@ $enhance(HTMLTableElement.prototype)
         onfilter: null, //function() {},
         onsort: null, //function() {},
         onfiltercancel: null, //function() {}
+
+        successText: '',
+        failureText: '',
+        exceptionText: '',
         
         reloadOnFilterOrSorting: false, //如果为true, 则到后端请求数据, 如果为false, 则仅在前端过滤和筛选
         reloadOnFilter: false,
         reloadOnSort: false
     })
+    .extend('onrowdblclick+')
     .define({
         'value': {
             get () {            
@@ -112,23 +118,29 @@ HTMLTableElement.prototype.initialize = function() {
         this.loaded = true;
 
         this.execute('onload');
+
+        this.__formatCellData(); //初始化列的值 map
     }
     else {
-        this.load();
+        if (this.await == '') {
+            this.load();
+        }
+        else {
+            Event.await(this, this.await);
+        }
     }
 
     let table = this;
-    $x(this)
-        .bind('mouseover', function (ev) { table.hover(ev); })
-        .bind('mouseout', function (ev) { table.leave(ev); })
-        .bind('mousedown', function (ev) { table.active(ev); })
-        .bind('mouseup', function (ev) { table.focus(ev); })
-        .bind('dblclick', function (ev) { table.dblclick(ev); });
+    this.on('mouseover', function (ev) { table.hover(ev); })
+        .on('mouseout', function (ev) { table.leave(ev); })
+        .on('mousedown', function (ev) { table.active(ev); })
+        .on('mouseup', function (ev) { table.focus(ev); })
+        .on('dblclick', function (ev) { table.dblclick(ev); });
 
     if (this.autoRefresh && this.interval > 0) {
         let refresher = window.setInterval(
             function() {            
-                if (table.terminal.placeModelData().$p(table).eval(table)) {
+                if (table.terminal.toBoolean(false, table)) {
                     window.clearInterval(refresher);                
                 }
                 else {
@@ -136,7 +148,7 @@ HTMLTableElement.prototype.initialize = function() {
                 }
                 
                 if (table.meet != null) {
-                    if (table.meet.placeModelData().$p(table).eval(table)) {
+                    if (table.meet.toBoolean(false, table)) {
                         table.execute('onmeet');
                     }
                     else {
@@ -197,17 +209,33 @@ HTMLTableElement.prototype.focus = function (ev) {
 HTMLTableElement.prototype.dblclick = function (ev) {
     let row = this.__bubbleRow(ev);
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow) {
-        this.execute('onrowdblclick', row.tr);
+        if (this.execute('onrowdblclick', row.tr)) {
+            if (this['onrowdblclick+'] != null) {
+                $FIRE(this, 'onrowdblclick+', 
+                    function(data) {
+                        window.Message?.green(this.successText.$p(this, data)).show(4);                        
+                    },
+                    function(data) {                        
+                        window.Message?.red(this.failureText.$p(this, data)).show();
+                    },
+                    function(error) {
+                        window.Message?.red(this.exceptionText.$p(this, error) || `Exeption: ${error}`).show();
+                    },
+                    null,
+                    row.tr
+                );
+            }
+        };
     }
 }
 
-HTMLTableElement.prototype.remove = function(row) {
-    if (row == null) {
+HTMLTableElement.prototype.delete = function(row) {
+    if (row == null || !(row instanceof HTMLTableRowElement)) {
         row = this.focusRow;
     }
 
     if (row != null) {
-        if (this.execute('onrowremove', row)) {
+        if (this.execute('onrowdelete', row)) {
             row.remove();
             this.__initializeAllRows();
         }        
@@ -252,7 +280,7 @@ HTMLTableElement.prototype.__initializeAllRows = function() {
     }
 
     if (this.excludes != '') {
-        this.excluded = new Set(this.excludes.replace(/[nl]/ig, rows - 1).split(',').map(e => eval(e)));
+        this.excluded = new Set(this.excludes.split(',').map(e => parseInt(e)).filter(e => !isNaN(e)).map(e => e < 0 ? rows + e : e));
     }
 }
 
@@ -327,10 +355,10 @@ HTMLTableElement.prototype.__initializeSettings = function () {
             //以下是需要整合的代码        
             let th = this.tHead.rows[0].cells[col.index];
             //let span = $create('SPAN', {}, { borderRight: '2px solid var(--primary)', borderBottom: '2px solid var(--primary)', width: '5px', height: '5px', display: 'inline-block', transform: 'rotate(45deg)', margin: '0px 0px 2px 6px' });
-            let ficn = $create('I', { className: 'iconfont icon-filter f14' }, { marginLeft: '5px' });
-            let sicn = $create('I', { className: 'iconfont icon-sousuo f14' }, { marginLeft: '-20px' });
-            let cicn = $create('I', { className: 'iconfont icon-quxiao f14' }, { marginLeft: '5px' });
-            let input = $create('INPUT', { value: th.getAttribute('filter') != null ? th.getAttribute('filter') : '', size: th.textContent.$length(4) }, { borderWidth: '0px', fontWeight: 'inherit', backgroundColor: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', color: '#666666' });
+            let ficn = $create('I', { className: 'iconfont icon-filter f14' }, { marginLeft: '5px', marginTop: '2px' });
+            let sicn = $create('I', { className: 'iconfont icon-sousuo f14' }, { marginLeft: '-20px', marginTop: '2px' });
+            let cicn = $create('I', { className: 'iconfont icon-quxiao f14' }, { marginLeft: '5px', marginTop: '2px' });
+            let input = $create('INPUT', { value: th.getAttribute('filter') != null ? th.getAttribute('filter') : '', size: th.textContent.$length(4) }, { borderWidth: '0px', fontWeight: 'inherit', backgroundColor: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', color: '#666666', padding: '4px' });
 
             th.title = th.textContent;
             th.appendChild(ficn);
@@ -352,7 +380,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                 let text = this.value;
                 if (changed) {
                     //do filter
-                    //在table上保存当前过滤词, 目的是data属性可用
+                    //在table上保存当前过滤词, 目的是 data 属性可用
                     table.setAttribute(col.name, text);
                     //清除所有通过数据源加载的行
                     if (table.reloadOnFilterOrSorting) {
@@ -360,10 +388,8 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                     }
                     //过滤剩下的行
                     //在tr上增加filter-meet="(column-name)(column-name)"和filter-miss="(column-name)"属性
-                    if (table.tBodies[0].children.length > 0) {
-                        for (let i = table.tBodies[0].children.length - 1; i >= 0; i--) {
-                            let tr = table.tBodies[0].children[i];
-                            //清除过滤词
+                    table.tBodies[0].querySelectorAll('tr')
+                        .forEach(tr => {//清除过滤词
                             if (text == '') {
                                 DataTable.clearFilter(tr, col.name);
                                 table.execute('onfiltercancel');
@@ -414,8 +440,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                                     tr.style.display = 'none';
                                 }
                             }
-                        }
-                    }
+                        });
 
                     table.execute('onfilter');
 
@@ -458,9 +483,10 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                     table.clear();
                 }
 
-                for (let i = table.tBodies[0].children.length - 1; i >= 0; i--) {
-                    DataTable.clearFilter(table.tBodies[0].children[i], col.name);                    
-                }
+                table.tBodies[0].querySelectorAll('tr')
+                    .forEach(tr => {
+                        DataTable.clearFilter(tr, col.name);
+                    });
                 
                 table.execute('onfiltercancel');
 
@@ -518,7 +544,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                                 ['$' + sorting]('score') //do sort
                                 .map(item => item.row);
 
-                let order = Array.from(data).$asc();
+                let order = Array.from(data).asc();
                 for (let i = 0; i < data.length; i++) {
                     if (data[i] > order[i]) { //只有大于一种情况
                         table.tBodies[0].insertBefore(table.rows[data[i]], table.rows[order[i]]);
@@ -555,30 +581,30 @@ HTMLTableElement.prototype.__initializeSettings = function () {
     }
 }
 
-HTMLTableElement.prototype.__formatCellData = function(row) {
-    for (let i = 0; i < this.cols.length; i++) {
-        let col = this.cols[i];
-        if (col.map != null) {            
-            let data = row.cells[col.index].innerHTML;
-            if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
-                row.cells[col.index].innerHTML = col.map[data];
-                row.cells[col.index].setAttribute('formatted', '');
-            }
-        }
+HTMLTableElement.prototype.__formatColumnData = function(col, row) {
+    let rows = row == null ? this.rows : [row];
+    for (let row of rows) {
+        let value = row.cells[col.index].innerHTML;
+        if (row.cells[col.index].getAttribute('formatted') == null && col.data[value] != null) {
+            row.cells[col.index].innerHTML = col.data[value];
+            row.cells[col.index].setAttribute('formatted', '');
+        }                
     }
 }
 
-HTMLTableElement.prototype.__formatAllCellData = function() {
+HTMLTableElement.prototype.__formatCellData = function(row) {
     //初始化列的值
     for (let i = 0; i < this.cols.length; i++) {
         let col = this.cols[i];
         if (col.map != null) {
-            for (let row of this.rows) {
-                let data = row.cells[col.index].innerHTML;
-                if (row.cells[col.index].getAttribute('formatted') == null && col.map[data] != null) {
-                    row.cells[col.index].innerHTML = col.map[data];
-                    row.cells[col.index].setAttribute('formatted', '');
-                }                
+            if (col.mapping == 'promise') {
+                col.promise?.then(data => {
+                    col.map = data;
+                    this.__formatColumnData(col, row);
+                });
+            }
+            else {
+                this.__formatColumnData(col, row);
             }
         }
     }
@@ -608,11 +634,7 @@ HTMLTableElement.prototype.appendOrRenew = function(index, data) {
         let tr = $create('TR');
         for (let i = 0; i < this.cols.length; i++) {
             let col = this.cols[i];
-            let content = col.template.placeItemData(data);
-            if (col.map != null && col.map[content] != null) {
-                content = col.map[content];
-            }
-            tr.appendChild($create('TD', { innerHTML: content, className: col.className.placeItemData(data) }));
+            tr.appendChild($create('TD', { innerHTML: col.template.placeItemData(data), className: col.className.placeItemData(data) }));
         }
         this.tBodies[0].appendChild(tr);
     }
@@ -620,14 +642,13 @@ HTMLTableElement.prototype.appendOrRenew = function(index, data) {
         let tr = this.tBodies[0].children[index];
         for (let i = 0; i < this.cols.length; i++) {
             let col = this.cols[i];
-            let content = col.template.placeItemData(data);
-            if (col.map != null && col.map[content] != null) {
-                content = col.map[content];
-            }
-            tr.cells[i].innerHTML = content;
+            tr.cells[i].innerHTML = col.template.placeItemData(data);
             tr.cells[i].className = col.className.placeItemData(data);
+            tr.cells[i].removeAttribute('formatted');
         }
     }
+
+    this.__formatCellData();
 }
 
 HTMLTableElement.prototype.load = function() {
@@ -645,13 +666,14 @@ HTMLTableElement.prototype.load = function() {
                     //第一次加载执行事件
                     this.execute('onload');
                     this.loaded = true;
+                    this.setAttribute('loaded', ''); //if
                 }
                 else {
                     //reload 执行事件
                     this.execute('onreload');
                 }
                 
-                this.__formatAllCellData(); //初始化列的值 map
+                this.__formatCellData(); //初始化列的值 map
             });   
     }
     else {
@@ -684,11 +706,14 @@ HTMLTableElement.prototype.load = function() {
                 //第一次加载执行事件
                 this.execute('onload');
                 this.loaded = true;
+                this.setAttribute('loaded', ''); //if
             }
             else {
                 //reload 执行事件
                 this.execute('onreload');
             }
+
+            this.__formatCellData(); //初始化列的值 map
         });
     }
 }
@@ -705,9 +730,9 @@ $enhance(HTMLTableColElement.prototype)
         name: '',
         editable: false,
         filterable: false,
-        filterStyle: Enum('INPUT', 'LIST'), //PC模式下是下拉菜单, MOBILE模式下是弹出框
+        filterStyle: 'input|list', //PC模式下是下拉菜单, MOBILE模式下是弹出框
         sortable: false,
-        sortingStyle: Enum('LINK', 'LIST'),
+        sortingStyle: 'link|list',
         type: 'text|integer|float|percent', //未实现
         percision: 2, //未实现
         template: function(value) {
@@ -722,40 +747,78 @@ $enhance(HTMLTableColElement.prototype)
             else {
                 return '';
             }            
-        },
-        map: function(value) {
-            return value != null ? value.toMap() : null;
-        },
-        index: -1
+        }
+    })
+    .define({
+        'map': {
+            get() {
+                if (this.mapping == null) {
+                    this.map = this.getAttribute('map');                    
+                }
+                
+                if (this.mapping == 'promise') {
+                    return this.promise;
+                }
+                else if (this.mapping == 'data') {
+                    return this.data;
+                }
+                else {
+                    return null;
+                }
+            },
+            set(value) {
+                if (value != null) {
+                    if (typeof(value) == 'string') {
+                        if (value.isCogoString()) {
+                            this.promise = $cogo(value, this);
+                            this.mapping = 'promise';
+                        }
+                        else if (value.startsWith('@')) {
+                            this.data = value.placeModelData();
+                        }
+                        else {
+                            this.data = value.toMap();
+                            this.mapping = 'data';
+                        }                        
+                    }
+                    else if (value instanceof Array) {
+                            //前两个字段分别是 key 和 value
+                            this.data = new Object();
+                            for (let row of value) {
+                                let i = 0;
+                                for (let k in row) {
+                                    this.data[k] = row[k];
+                                    i ++;
+                                    if (i > 1) {
+                                        break;
+                                    }
+                                }
+                            }
+                    }
+                    else {
+                        this.data = value;
+                        this.mapping = 'data';
+                    }
+                }
+                else {
+                    this.mapping = '';                                    
+                }                             
+            }
+        }
     });
 
-    //this.defaultClass = col.getAttribute('defaultClass') || '';
-    //this.hoverClass = col.getAttribute('hoverClass') || '';
-    //this.activeClass = col.getAttribute('activeClass') || '';
-    //this.focusClass = col.getAttribute('focusClass') || '';
-
-    //this.hoverCellClass = col.getAttribute('hoverCellClass') || '';
-    //this.activeCellClass = col.getAttribute('activeCellClass') || '';
-    //this.focusCellClass = col.getAttribute('focusCellClass') || '';
-    //this.editingCellClass = col.getAttribute('editingCellClass') || '';
-
-    //通过 table[name=1,2,3] 来设置初始过滤器
-    //无选项的filterable 编辑文本来进行过滤
-    //有选项的filterable 下拉菜单进行过滤
-    //this.filterOptions = col.getAttribute("filterOptions") || '';
-    //通过 table[name=az,za] 来设置初始初始排序
-    //this.sortingOptions = col.getAttribute("sortingOptions") || { 'asc' : 'az', 'desc': 'za' };
-    //search 即通过编辑表头文字来进行筛选
-
+HTMLTableColElement.prototype.promise = null;
+HTMLTableColElement.prototype.data = null;
+HTMLTableColElement.prototype.mapping = null; //字典类型
 HTMLTableColElement.prototype.filtering = false;
 HTMLTableColElement.prototype.sorting = false;
 HTMLTableColElement.prototype.editor = null;
+HTMLTableColElement.prototype.index = -1;
 
-$finish(function () {
+document.on('post', function () {
     for (let table of $a('table[data]')) {
-        // root 设置为 button 表示组件已初始化
-        if (table.getAttribute('root') == null) {
-            table.setAttribute('root', 'TABLE');
+        if (!table.hasAttribute('root-table')) {
+            table.setAttribute('root-table', '');
             table.initialize();
         }
     }

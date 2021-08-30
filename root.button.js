@@ -30,7 +30,7 @@ $enhance(HTMLButtonElement.prototype)
 
         hint: null,
         callout: null,
-        alert: null,
+        message: null,
 
         disableOnClick: true,
         enableOnSuccess: true,
@@ -78,10 +78,10 @@ $enhance(HTMLButtonElement.prototype)
             set (text) {                
                 if (this.hintSpan != null) {
                     this.hintSpan.innerHTML = text;
-                    if (this.status == 1) {
+                    if (this.status == $button.status.success) {
                         this.hintSpan.className = this.validTextClass;
                     }
-                    else if (this.status == 2) {
+                    else if (this.status == $button.status.acting) {
                         this.hintSpan.className = this.textClass;
                     }
                     else {
@@ -90,19 +90,16 @@ $enhance(HTMLButtonElement.prototype)
                     this.hintSpan.hidden = text == '';
                 }
                 
-                if (this.status < 2) {
-                    if (text != '' && this.callout != null) {
-                        Callout(text).position(this, this.callout).show();
-                    }
+                if (this.status < $button.status.acting) {
+                    if (text != '') {
+                        if (this.callout != null) {
+                            Callout(text).position(this, this.callout).show();
+                        }
 
-                    if (text != '' && this.alert != null) {
-                        if ($root.alert != null) {
-                            $root.alert(text, this.confirmButtonText);
+                        if (this.message != null) {
+                            window.Message?.[this.status != $button.status.success ? 'red' : 'green'](text).show(this.message.toFloat(0));
                         }
-                        else {
-                            window.alert(text);
-                        }
-                    }
+                    }                    
                 }
             }
         },
@@ -135,13 +132,36 @@ $enhance(HTMLButtonElement.prototype)
                 }
                 return this._options;
             }
+        },
+        'enabled': {
+            get () {                
+                return !this.disabled;
+            },
+            set (enabled) {
+                if (typeof(enabled) != 'boolean') {
+                    enabled = $parseBoolean(enabled, true, this);
+                }
+                this.disabled = !enabled;
+                if (this.type != 'switch') {
+                    this.className = this.disabled ? this.disabledClass : this.enabledClass;                
+                }
+            }
         }
     });
 
+$button = {
+    status: {
+        "acting": 2,
+        "success": 1,
+        "failure": 0,
+        "exception": -1
+    }
+}
+
 HTMLButtonElement.prototype.onclick_ = null; // onclick 的值
 HTMLButtonElement.prototype._options = null;
-//1 success 0 failure -1 exception 2 action
-HTMLButtonElement.prototype.status = 1;
+//1 success 0 failure -1 exception 2 acting
+HTMLButtonElement.prototype.status = $button.status.success;
 HTMLButtonElement.prototype.relatived = 0;
 HTMLButtonElement.prototype.satisfied = 0;
 HTMLButtonElement.prototype.relations = null;
@@ -153,7 +173,7 @@ HTMLButtonElement.prototype.enable = function() {
     }
 
     if (this.type == 'confirm') {
-        $x(this).slideIn('up');
+        this.slideIn('up');
     }
 }
 
@@ -216,11 +236,11 @@ HTMLButtonElement.prototype.go = function() {
     this.text = this.clickText.$p(this);
 
     if (this['onclick+'] != null) {
-        this.status = 2;
+        this.status = $button.status.acting;
         this.hintText = this.actionText.$p(this);
         $FIRE(this, 'onclick+',
             function(data) {
-                this.status = 1;
+                this.status = $button.status.success;
                 this.hintText = this.successText.$p(this, data);            
                 if (this.href != '') {
                     this.text = this.jumpingText.$p(this, data);
@@ -232,13 +252,13 @@ HTMLButtonElement.prototype.go = function() {
                 }
             }, 
             function(data) {
-                this.status = 0;
+                this.status = $button.status.failure;
                 this.hintText = this.failureText.$p(this, data);            
                 this.text = this.defaultText;
                 this.enable();
             },
             function(error) {
-                this.status = -1;            
+                this.status = $button.status.exception;            
                 this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
                 this.text = this.defaultText;
                 this.enable();
@@ -289,13 +309,16 @@ HTMLButtonElement.prototype.initialize = function() {
     }
 
     if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
-        if (this.hint != null || this.callout == null) {
+        if (this.hint != null || (this.callout == null && this.alert == null && this.message == null)) {
             if (this.hintSpan == null) {
-                if (this.hint != '') {
+                if (this.hint != null && this.hint != '') {
                     this.hintSpan = $s(this.hint);
+                    if (this.hintSpan == null) {
+                        throw new Error('Wrong Selector: ' + this.hint);
+                    }
                 }
                 else {
-                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
+                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { marginLeft: '30px' });
                     this.insertAdjacentElement('afterEnd', this.hintSpan);
                 }
             }
@@ -303,7 +326,7 @@ HTMLButtonElement.prototype.initialize = function() {
     }
 
     if (this.type == 'switch') {
-        if (this.value == '' || this.value == this.options[0].value) {
+        if (this.text == this.options[0].value || this.value == this.options[0].value || this.text == this.options[0].text) {
             this.className = this.enabledClass;
             this.text = this.options[0].text;
             this.value = this.options[0].value;            
@@ -314,11 +337,11 @@ HTMLButtonElement.prototype.initialize = function() {
             this.value = this.options[1].value;
         }
 
-        $x(this).on('click', function(ev) {
+        this.on('click', function(ev) {
             if (Event.fire(this, 'onclick_'), ev) {
                 if (this['onclick+'] != null) {
                     if (this.disableOnClick) {
-                        this.disable();
+                        this.disabled = true;
                     }                    
                     this.switch();
                     $FIRE(this, 'onclick+', 
@@ -334,7 +357,7 @@ HTMLButtonElement.prototype.initialize = function() {
                             this.switch();
                         },
                         function() {
-                            this.enable();
+                            this.disabled = false;
                         });
                 }
                 else {
@@ -369,16 +392,16 @@ HTMLButtonElement.prototype.initialize = function() {
         this.style.position = 'absolute';
         this.style.marginLeft = (- this.offsetWidth / 2) + 'px';
 
-        $x(this).on('click', function() {
-            $x(button).slideOut('down');
-            $x(confirm).slideIn('left');
-            $x(cancel).slideIn('right');
+        this.on('click', function() {
+            button.slideOut('down');
+            confirm.slideIn('left');
+            cancel.slideIn('right');
         });
 
-        $x(confirm).on('click', function(ev) {
+        confirm.on('click', function(ev) {
 
-            $x(confirm).slideOut('left');
-            $x(cancel).slideOut('right');
+            confirm.slideOut('left');
+            cancel.slideOut('right');
 
             if (Event.fire(button, 'onclick_'), ev) {
                 if (button['onclick+'] != null) {
@@ -409,10 +432,10 @@ HTMLButtonElement.prototype.initialize = function() {
             }            
         });
 
-        $x(cancel).on('click', function() {
-            $x(confirm).slideOut('left');
-            $x(cancel).slideOut('right');
-            $x(button).slideIn('up');
+        cancel.on('click', function() {
+            confirm.slideOut('left');
+            cancel.slideOut('right');
+            button.slideIn('up');
 
             Event.execute(button, 'onclick-cancel');            
         });
@@ -445,7 +468,7 @@ HTMLButtonElement.prototype.initialize = function() {
             this.disable();
         }
 
-        $x(this).on('click', function(ev) {
+        this.on('click', function(ev) {
             if (Event.fire(this, 'onclick_'), ev) {
                 if (this.confirmText != '') {
                     if ($root.confirm != null) {
@@ -469,12 +492,19 @@ HTMLButtonElement.prototype.initialize = function() {
         });
     }
     else if (this.getAttribute('href') != null) {
-        $x(this).bind('click', function() {
+        this.on('click', function() {
             window.location.href = this.href.$p(this);
         });
     }
 
     Event.interact(this, this);
+
+    if (this.hasAttribute('disabled')) {
+        this.disabled = $parseBoolean(this.getAttribute('disabled'), false, this);
+    }
+    else if (this.hasAttribute('enabled')) {
+        this.enabled = $parseBoolean(this.getAttribute('enabled'), true, this);
+    }
 }
 
 HTMLButtonElement._observed = 0;
@@ -522,14 +552,15 @@ HTMLButtonElement.observe = function() {
 HTMLButtonElement.initializeAll = function(container) {
     for (let button of $n(container, 'button')) {
         // root 设置为 button 表示组件已初始化
-        if (button.getAttribute('root') == null) {
-            button.setAttribute('root', 'BUTTON');
-            if (document.models != null) {
-                Model.boostPropertyValue(button);
-            }
+        if (!button.hasAttribute('root-button')) {
+            button.setAttribute('root-button', '');            
+            window.Model?.boostPropertyValue(button);            
 
-            if (button.getAttribute('onclick+') != null || button.getAttribute('watch') != null || button.getAttribute('type') != null || button.getAttribute('href') != null) {
+            if (button.hasAttribute('onclick+') || button.hasAttribute('watch') || button.hasAttribute('type') || button.hasAttribute('href')) {
                 button.initialize();
+            }
+            else {
+                Event.interact(button, button);
             }
         }
     }
@@ -537,6 +568,6 @@ HTMLButtonElement.initializeAll = function(container) {
     HTMLButtonElement.observe();
 }
 
-$finish(function () {
+document.on('post', function () {
     HTMLButtonElement.initializeAll();
 });

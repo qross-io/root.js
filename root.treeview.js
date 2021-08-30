@@ -47,7 +47,7 @@ TreeView Tag Example
                     <treenode/>
                     <treenode/>
                 </treenode>
-            <elsif test=''>
+            <else-if test=''>
                 <treenode></treenode>
             <else>
                 ......
@@ -87,6 +87,7 @@ class TreeView {
             target: '',
 
             data: '',
+            await: '',
             template: '$root', //root template
 
             imagesBaseUrl: $root.home + 'images/', //图片存放目录
@@ -799,8 +800,7 @@ TreeView.prototype.apply = function(container) {
     this.container = container;
 }
 
-TreeView.prototype.load = function() {
-
+TreeView.prototype.initialize = function() {
     if (this.container == null) {
         throw new Error("Must speciefy a DIV element to contains TreeView's content.");
     }
@@ -818,6 +818,16 @@ TreeView.prototype.load = function() {
     }
 
     Event.interact(this, this.element);
+
+    if (this.await == '') {
+        this.load();
+    }
+    else {
+        Event.await(this, this.await);
+    }
+}
+
+TreeView.prototype.load = function() {
 
     //如果已经加载则不再执行beforeLoad事件
     if (this.loaded ? true : this.execute('onBeforeLoad')) {
@@ -1550,7 +1560,9 @@ class TreeNode {
             this.$visible = true;
         }
         
-        $x(this.primeDiv, this.childrenDiv, this.capDiv, this.gapDiv, this.lapDiv).show(this.$visible);
+        $a(this.primeDiv, this.childrenDiv, this.capDiv, this.gapDiv, this.lapDiv).forEach(e => {
+            e.visible = this.$visible;
+        });
     }
 
     get selected() {
@@ -1778,7 +1790,7 @@ TreeNode.prototype.populate = function() {
     }
     this.iconCell = td;
     tr.appendChild(td);
-    $x(this.iconCell).bind('click', function(ev) {
+    this.iconCell.bind('click', function(ev) {
         treeNode.treeView.execute('onNodeIconClick', treeNode);
     });
 
@@ -2001,7 +2013,7 @@ TreeNode.prototype.populate = function() {
     //为节点对象添加事件
 
     //鼠标划入:为了避免和optionBox冲突
-    $x(this.majorElement).bind('mouseover', function (ev) {
+    this.majorElement.on('mouseover', function (ev) {
         if (treeNode.treeView.execute('onNodeHover', treeNode)) {
             if (!treeNode.selected) {
                 this.className = treeNode.hoverClass;
@@ -2013,7 +2025,7 @@ TreeNode.prototype.populate = function() {
     });
 
     //鼠标划出
-    $x(this.majorElement).bind('mouseout', function () {
+    this.majorElement.on('mouseout', function () {
         this.className = (!treeNode.selected ? treeNode.className : treeNode.selectedClass);
     });
 
@@ -2065,7 +2077,7 @@ TreeNode.prototype.populate = function() {
         }
         else {
             td.innerHTML = this.text;
-            $x(this.majorElement).on('click', function() {
+            this.majorElement.on('click', function() {
                 if (treeNode.target == '_blank') {
                     window.open(treeNode.link.$p(treeNode));
                 }
@@ -2192,16 +2204,16 @@ TreeNode.prototype.load = function (repopulate) {
                     //移除"加载中"节点
                     this.treeView.$removeLoadingNode(this);
                 }
-    
+
+                if (this.treeView.loaded) {
+                    Model.initializeForOrIf('TREENODE.LOADED');
+                }
+
                 this.$populateChildren();
     
                 this.loading = false;
                 this.loaded = true;
     
-                if (this.treeView.loaded) {
-                    Model.initializeForOrIf('TREENODE.LOADED');
-                }
-
                 //当没有子节点时, 处理burl为blank
                 if (this.children.length == 0) { 
                     this.unburl(); 
@@ -3390,6 +3402,31 @@ TreeNode.prototype.hide = function() {
     this.visible = false;
 }
 
+TreeNode.prototype.if = function(exp) {
+    let result = exp;
+    if (typeof(exp) == 'string') {
+        result = eval('result = function() {return ' + exp + '}').call(this);
+    }
+    else if (typeof(exp) == 'function') {
+        result = exp.call(this, this);
+    }
+
+    return result ? this : null;
+}
+
+TreeNode.prototype.increase = function(increment = 1) {
+    let value = this.tip.toFloat(NaN);
+    if (!isNaN(value)) {
+        value = value + increment;
+        this.tip = (this.tip.match(/^[^\d\.-]*/)?.[0] ?? '') + value + (this.tip.match(/[^\d\.-]*$/)?.[0] ?? '')
+    }
+    return this;
+}
+
+TreeNode.prototype.decrease = function(decrement = 1) {
+    return this.increase(-decrement);
+}
+
 TreeNode.prototype.$completeExpanding = function (triggerEvent) {
     /// <summary>完成展开</summary>
     /// <param name="triggerEvent" type="Boolean">是否触发事件, 默认触发</param>
@@ -4344,10 +4381,10 @@ TreeView.$setPaddingOrSpacingLines = function (node, table) {
 
 TreeView.initializeAll = function() {
     document.querySelectorAll('treeview').forEach(treeView => {
-        new TreeView(treeView).load();
+        new TreeView(treeView).initialize();
     });
 
-    $x(document).bind('click', function (ev) {
+    document.body.on('click', function (ev) {
 
         let target = ev.target;
 
@@ -4379,7 +4416,7 @@ TreeView.initializeAll = function() {
     });
 
     //添加键盘事件
-    $x(document).bind('keyup', function (ev) {
+    document.body.on('keyup', function (ev) {
         let treeView = TreeView.activeTreeView;
         if (treeView != null) {
             //启用了键盘导航, 有节点被选择, 节点被有被编辑
@@ -4500,7 +4537,7 @@ TreeView.initializeAll = function() {
     });
 }
 
-$finish(function() {
+document.on('post', function() {
     TreeView.initializeAll();
 })
 
