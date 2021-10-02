@@ -6,15 +6,17 @@
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.model.js"></script>
+    <script type="text/javascript" src="/root.select.js"></script>
+    <script type="text/javascript" src="/root.treeview.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/treeview.css" rel="stylesheet" type="text/css" />
     <style type="text/css">
     </style>
 </head>
 <body style="padding: 50px;">
+   
 
-    <t>123</t>
-
-    <select>
+    <select id="S" type="buton">
         <option>text</option>
         <option selected="0">value</option>
     </select>
@@ -29,9 +31,33 @@
 </div>
 <button>ABC</button>
 
-<hello>world</hello>
+<treeview id="TV">
+    <treenode text="hello">
+        <treenode>子节点 1</treenode>
+        <treenode>子节点 2</treenode>
+    </treenode>
+    <treenode>world</treenode>
+</treeview>
+
+<div id="con">
+    没什么卵用的文字
+    <span slot="main1">坑位123</span>
+    <span slot="main2">坑位234</span>
+    没什么卵用的文字 
+</div>
+
+<template id="tpl">tpl begin
+    <slot name="main1"></slot>
+    <slot name="main2"></slot>
+    tpl end
+</template>
 
 <script type="text/javascript">
+var host = document.querySelector('#con');
+var root = host.attachShadow({mode:'open'});
+var con = document.getElementById("tpl").content.cloneNode(true);
+root.appendChild(con);
+
 let O = function() {
     this.value = 1;
 }
@@ -53,9 +79,12 @@ HTMLButtonElement.prototype.log = function() {
     console.log('BUTTON');
 }
 
-window.onload = function() {
-    alert(1);
+class HTMLTreeViewElement extends HTMLElement {
+
 }
+
+window.customElements.define('tree-view', HTMLTreeViewElement);
+let tv = document.querySelector('#TV');
 </script>
 </body>
 </html>

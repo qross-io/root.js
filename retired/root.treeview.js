@@ -1,14 +1,79 @@
 ﻿//-----------------------------------------------------------------------
 // <TreeView> root.treeview.js
 //-----------------------------------------------------------------------
-// v8.0 Spruce
+// v7.0 Banyan
 //-----------------------------------------------------------------------
 // http://www.qross.cn
 // Any problem, question, idea or bug, please email to wu@qross.io
 //-----------------------------------------------------------------------
-// Created at 2021/09/20 12:03
+// Created at 2018/10/10 7:57
 
-class HTMLTreeViewElement {
+// Features
+// Load-on-demand by JSON dataSource
+// Powerful template and data mapping
+// Unlimited levels
+// Three-state checkBoxes
+// Node-text-editing enabled
+// Keyboard navigation and copy & paste enabled
+// Drag & drop supported
+// Internal node option buttons
+// Node text & tip supports html
+// Kinds properties, methods and events
+
+// Customizable node properties for transferring data
+// CSS style supported
+// Customizable images (node, expand, collapse, loading)
+
+/*
+TreeView Tag Example
+
+<treeview id= target='' showlines='' showburls='' checkBoxesVisible='yes/no' nodeEditingEnabled='' dragAndDropEnabled='' template="">
+    <treenode name='' template='default'></treenode>    
+    <template name="default">
+        <treenode name=''></treenode>
+        ...        
+        <for var='name' in='@data' path="/">
+            <if test=''>
+                <treenode selectable=false icon-class='' template='name' icon='' tip='' text='' link='' target='' data='' path=''>
+                    <icon class=''>
+                        <span editable='yes' datatype='switch'></span>
+                    </icon>
+                    <text class=''>
+                        <span editable='yes'></span>
+                    </text>
+                    <tip class=''>                    
+                    <tip>
+                    <gap class=""></gap>                    
+                    <treenode/>
+                    <treenode/>
+                </treenode>
+            <else-if test=''>
+                <treenode></treenode>
+            <else>
+                ......
+            </if>
+        </for>
+        ....
+        <treenode/>
+    </template>
+    <editor name="" elements="" selector="" action="" post=""></editor> 其实放在哪都可以
+    <editor></editor>
+</treeview>
+
+<optionbox display='selectbutton|checkbutton|right|follow|top'>
+    <option of='#nodeName'></option>
+    <separator of='name'/>
+    <option of='name'></option>
+<optionbox>
+
+//$tree('abc').on('load', func).execute();
+*/
+
+class HTMLTreeViewElement extends HTMLElement {
+
+}
+
+class TreeView {
 
     constructor(elementOrSettings) {
 
@@ -21,8 +86,9 @@ class HTMLTreeViewElement {
             //显示TreeView的元素ID
             name: 'TreeView_' + document.components.size,
 
+            //节点文本链接的默认目标
             linkStyle: 'text|node',
-            target: '',  //节点文本链接的默认目标
+            target: '',
 
             data: '',
             await: '',
@@ -32,9 +98,10 @@ class HTMLTreeViewElement {
             expandImageURL: ['burl_0a.gif', 'burl_0b.gif'], //指示节点可以被展开的图标, 一般是一个+号
             collapseImageURL: ['burl_1a.gif', 'burl_1b.gif'], //指标节点可以被闭合的图标, 一般是一个-号
             contentLoadingImageURL: 'spinner.gif', //正在载入状态图标, 在展开load-on-demand节点时显示
-            nonExpandableImageURL: 'blank.gif',
+            noExpandImageURL: 'blank.gif',
 
-            nodeCellStyle: 'text|row', //定义鼠标划过或选择节点时的样式范围, 可选TEXT, ROW
+            //定义鼠标划过或选择节点时的样式范围, 可选TEXT, ROW
+            nodeCellStyle: 'text|row',
             nodeIndent: 16, //每级TreeNode的缩进距离
             nodePadding: 2, //节点内对象(如文本、图标)与节点外框之间的距离
             nodeSpacing: 0, //两个同级节点之间的间距
@@ -42,6 +109,7 @@ class HTMLTreeViewElement {
 
             className: 'treeView-default-class', //TreeView样式
             nodeClass: 'treeNode-default-class', //普通状态下的节点样式
+            nodeFrameClass: '',
             nodeTextClass: '',
             nodeHoverClass: 'treeNode-default-hover-class', //鼠标划过节点的默认样式
             selectedNodeClass: 'treeNode-default-selected-class', //被选择状态下的节点样式
@@ -52,22 +120,22 @@ class HTMLTreeViewElement {
             nodeTipClass: '', //节点提醒文字样式, 默认无
             nodeCapClass: '', //节点上方元素的样式
             nodeGapClass: '', //节点和其子点之间的空隙元素的样式
-            nodeLapClass: '', //节点的子节点下方元素的样式
+            nodeLipClass: '', //节点的子节点下方元素的样式
             cutNodeClass: '', //剪切或移动中的节点样式, 默认无, 透明度 50%
             dropChildClass: '', //当拖动的节点Hover到可放置节点时 可放置节点的样式
             dropTargetClass: '', //外部拖放目标的默认样式
             dropTargetHoverClass: '', //外部拖放目标鼠标划过样式
 
-            burlsVisible: true, //是否显示节点展开和闭合图标
-            linesVisible: false, //是否显示分支线
-            iconsVisible: true, //是否显示节点图标
-            checkBoxesVisible: false, //是否显示复选框
+            burls: 'visible|hidden', //是否显示节点展开和闭合图标
+            lines: 'hidden|visible', //是否显示分支线
+            icons: 'hidden|visible', //是否显示节点图标
+            checkBoxes: 'hidden|visible', //是否显示复选框
 
             expandOnSelect: true, //是否在选择节点时展开子节点
             collapseOnSelect: false, //是否在选择节点时关闭子节点
 
             nodeEditingEnabled: false, //是否可以编辑节点文本
-            keyboardNavigationEnabled: true, //Navigate 启用键盘导航 → ← ↑ ↓ Enter Shift+E
+            keyboardEnabled: true, //Navigate 启用键盘导航 → ← ↑ ↓ Enter Shift+E
             keyboardCutCopyPasteEnabled: false, //启用键盘编辑 Ctrl+C, Ctrl+X, Ctrl+V
 
             dragAndDropEnabled: false, //启用拖放
@@ -90,36 +158,6 @@ class HTMLTreeViewElement {
             preloadDepth: 1, //默认加载的TreeNode深度, 1为根节点, 0为加载所有
             pathToSelect: '', //默认选择的项, 格式 n1.n2.n3
             pathsToCheck: [], //默认选中的项, 格式 n1.n2.n3,n1.n2.n4,...
-
-            onBeforeLoad: null, //function() { } //加载之前触发
-            onBeforeReload: null, //function() { }  //重新加载之前触发
-            onLoaded: null, //function () { }; //加载完成后触发
-            onReloaded: null, //function() { } //每次重新加载之后触发
-            onEveryLoaded: null, //function() { } //每次加载完成之后触发但不包含lazyLoad
-            onLazyLoaded: null, //function() { } //每次增量加载之后触发
-            onNodeExpanded: null, //function (expandedNode) { }; // 节点展开后触发 - expandedNode 刚刚被展开的节点
-            onNodeCollapsed: null, //function (colapsedNode) { }; // 节点关闭后触发 colapsedNode 刚刚被闭合的节点
-            onNodeLoaded: null, //function(loadedNode, data) { }; // 每次节点加载完之后触发 loadedNode 刚刚加载完数据的节点 data 加载返回的数据
-            onNodeHover: null, //function (hoverNode) { }; // 当鼠标划过节点时触发 hoverNode鼠标划过的那个节点, 支持 return
-            onNodeIconClick: null, //function(clickedNode) { }; // 节点图标被点击时触发  clickedNode被点击的那个节点
-            onNodeSelected: null, //function (selectedNode) { }; // 当选择节点改变后触发 selectedNode 刚刚被选择的那个节点
-            onSelectedNodeClick: null, //function (selectedNode) { }; // 当选中的节点被再次点击时触发
-            onNodeCheckChanged: null, //function (node) { }; // 当某个节点选中状态改变后触发 node 选中状态变化的那个节点
-            onNodeEdit: null, //function (editingNode) { }; // 当某个节点开始编辑时触发 node 正在编辑的那个节点
-            onNodeTextChanged: null, //function (editedNode) { }; //节点文本更改后触发 editedNode 被编辑的节点
-            onNodeCopied: null, //function (copiedNode) { }; 节点被复制后触发 - 键盘事件 copiedNode 被拷贝的节点
-            onNodeMoved: null, //function (movedNode) { }; 节点被移动后触发 - 键盘事件 copiedNode 被移动的节点
-            onNodeDragStart: null, //function (draggedNode) { }; 节点开始被拖拽时触发 droppingNode 被拖拽的节点
-            onNodeDragEnd: null, //function (draggedNode) { }; 节点结束被拖拽时触发 droppingNode 被拖拽的节点
-            onNodeDragOver: null, //function (droppingNode) { }; 节点拖放到其他节点上时触发 droppingNode 拖放划过的节点
-            onNodeDropped: null, //function (droppedNode) { }; // 节点被拖放后触发 - 鼠标事件 droppedNode 被拖放的节点
-            onNodeExternalDragOver: null, //function (target) {}; //节点被拖放到外部元素时，拖动进入目标元素时触发, target目标元素
-            onNodeExternalDragLeave: null, //function (target) {}; //节点被拖放到外部元素时，拖动离开目标元素时触发, target目标元素
-            onNodeExternalDropped: null, //function (target) { }; //节点被拖放到外部元素后触发 (可通过this.selectedNode得到被拖放的节点), target接受拖放的元素
-            onExternalElementDragOver: null, //function (overNode) { }; //外部元素拖动到节点后触发， overNode 正在拖放划过的节点
-            onExternalElementDropped: null, //function (droppedNode) { }; //外部元素拖放到节点后触发， droppedNode 接受拖放的节点
-            onNodeNavigate: null, //function (node) { }; //点击节点上的链接时触发, "javascript:"类不算链接  node 目标节点
-            onNodeRemove: null, //function (node) { }; // 在节点上删除前触发 node 目标节点
         })
         .elementify(element => {
             this.element = element;            
@@ -206,37 +244,9 @@ class HTMLTreeViewElement {
             //有可能当数据结构用
         });
      
-        this.children = new Array(); //所有根节点的集合
+        /// <value type="Array" elementType="TreeNode">所有根节点的集合</value>
+        this.children = new Array();
         this.events = new Map();
-    }
-
-    get hasChildNodes() {
-        if (this.loaded) {
-            return this.children.length > 0;
-        }
-        else {
-            return (this.data != '' || this.templateObject.nonEmpty());
-        }
-    }
-
-    get childNodes() {
-        return this.children;
-    }
-
-    get text() {
-        return this.selectedNode?.text || null;
-    }
-
-    get value() {
-        return this.selectedNode?.value || null;
-    }
-
-    get path() {
-        return this.selectedNode?.path || null;
-    }
-
-    get checkedNodes() {
-        return this.getCheckedNodes();
     }
 }
 
@@ -251,49 +261,159 @@ $tree = function(name) {
 }
 
 //保存配置信息的元素
-HTMLTreeViewElement.prototype.element = null;
+TreeView.prototype.element = null;
 //显示内容的容器元素
-HTMLTreeViewElement.prototype.container = null;
+TreeView.prototype.container = null;
 //Template 模板对象
-HTMLTreeViewElement.prototype.templateObject = null;
+TreeView.prototype.templateObject = null;
 
-//HTMLTreeViewElement.prototype.children = [];
+//TreeView.prototype.children = [];
 /// <value type="TreeNode">第一个根节点</value>
-HTMLTreeViewElement.prototype.firstChild = null;
+TreeView.prototype.firstChild = null;
 /// <value type="TreeNode">最后一个根节点</value>
-HTMLTreeViewElement.prototype.lastChild = null;
+TreeView.prototype.lastChild = null;
 
-/// <value type="Boolean">标识 TreeView 是否已经被加载</value>
-HTMLTreeViewElement.prototype.loaded = false;
+/// <value type="Boolean">标识TreeView是否已经被加载</value>
+TreeView.prototype.loaded = false;
 
 /// <value type="TreeNode">选择的节点项</value>
-HTMLTreeViewElement.prototype.selectedNode = null;
+TreeView.prototype.selectedNodes = null;
 
-/// <value type="Array" elementType="TreeNode">在HTMLTreeViewElement.getCheckedNodes, HTMLTreeNodeElement.prototype.__getCheckedNodes方法中使用的临时变量</value>
-HTMLTreeViewElement.prototype.__checkedNodes = null;
+/// <value type="TreeView.OptionBox">节点选项组</value>
+TreeView.prototype.optionBox = null;
+
+/// <value type="Array" elementType="TreeNode">在TreeView.getCheckedNodes, TreeNode.prototype.$getCheckedNodes方法中使用的临时变量</value>
+TreeView.prototype.$checkedNodes = null;
 
 /// <value type="TreeNode">正在编辑的节点</value>
-HTMLTreeViewElement.prototype.editingNode = null;
+TreeView.prototype.$editingNode = null;
 
-/// <value type="HTMLTreeViewElement.OptionBox">节点选项组</value>
-HTMLTreeViewElement.prototype.optionBox = null;
+//加载之前触发
+TreeView.prototype.onBeforeLoad = function() { }
 
-// 显示节点选项盒之前触发 node 目标节点
-HTMLTreeViewElement.prototype.onOptionBoxShow = null; //function (node) { };
+//重新加载之前触发
+TreeView.prototype.onBeforeReload = function() { }
 
-// 点击节点选项时触发 item 目标菜单项
-HTMLTreeViewElement.prototype.onNodeOptionClick = null; //function (item) { };
+//加载完成后触发
+TreeView.prototype.onLoaded = function () { };
 
+//每次重新加载之后触发
+TreeView.prototype.onReloaded = function() { }
 
-HTMLTreeViewElement.prototype.show = function () {
-    this.container.hidden = false;    
+//每次加载完成之后触发但不包含lazyLoad
+TreeView.prototype.onEveryLoaded = function() { }
+
+//每次增量加载之后触发
+TreeView.prototype.onLazyLoaded = function() { }
+
+// 节点展开后触发 - expandedNode 刚刚被展开的节点
+TreeView.prototype.onNodeExpanded = function (expandedNode) { };
+
+// 节点关闭后触发 colapsedNode 刚刚被闭合的节点
+TreeView.prototype.onNodeCollapsed = function (colapsedNode) { };
+
+// 每次节点加载完之后触发 loadedNode 刚刚加载完数据的节点 data 加载返回的数据
+TreeView.prototype.onNodeLoaded = function(loadedNode, data) { };
+
+// 当鼠标划过节点时触发 hoverNode鼠标划过的那个节点, 支持return
+TreeView.prototype.onNodeHover = function (hoverNode) { };
+
+// 节点图标被点击时触发  clickedNode被点击的那个节点
+TreeView.prototype.onNodeIconClick = function(clickedNode) { };
+
+/// <summary type="Function">当选择节点改变后触发</summary>
+/// <param name="selectedNode" type="TreeNode">刚刚被选择的那个节点</param>
+TreeView.prototype.onNodeSelected = function (selectedNode) { };
+
+// 当选中的节点被再次点击时触发
+TreeView.prototype.onSelectedNodeClick = function (selectedNode) { };
+
+/// <summary type="Function">当某个节点选中状态改变后触发</summary>
+/// <param name="node" type="TreeNode">选中状态变化的那个节点</param>
+TreeView.prototype.onNodeCheckChanged = function (node) { };
+
+/// <summary type="Function">当某个节点开始编辑时触发</summary>
+/// <param name="node" type="TreeNode">正在编辑的那个节点</param>
+TreeView.prototype.onNodeEdit = function (editingNode) { };
+
+/// <summary type="Funciton">节点文本更改后触发</summary>
+/// <param name="editedNode" type="TreeNode">被编辑的节点</param>
+TreeView.prototype.onNodeTextChanged = function (editedNode) { };
+
+/// <summary type="Function">节点被复制后触发 - 键盘事件</summary>
+/// <param name="copiedNode" type="TreeNode">被拷贝的节点</param>
+TreeView.prototype.onNodeCopied = function (copiedNode) { };
+
+/// <summary type="Function">节点被移动后触发 - 键盘事件</summary>
+/// <param name="copiedNode" type="TreeNode">被移动的节点</param>
+TreeView.prototype.onNodeMoved = function (movedNode) { };
+
+/// <summary type="Function">节点开始被拖拽时触发</summary>
+/// <param name="droppingNode" type="TreeNode">被拖拽的节点</param>
+TreeView.prototype.onNodeDragStart = function (draggedNode) { };
+
+/// <summary type="Function">节点结束被拖拽时触发</summary>
+/// <param name="droppingNode" type="TreeNode">被拖拽的节点</param>
+TreeView.prototype.onNodeDragEnd = function (draggedNode) { };
+
+/// <summary type="Function">节点拖放到其他节点上时触发</summary>
+/// <param name="droppingNode" type="TreeNode">拖放划过的节点</param>
+TreeView.prototype.onNodeDragOver = function (droppingNode) { };
+
+/// <summary type="Function">节点被拖放后触发 - 鼠标事件</summary>
+/// <param name="droppedNode" type="TreeNode">被拖放的节点</param>
+TreeView.prototype.onNodeDropped = function (droppedNode) { };
+
+//节点被拖放到外部元素时，拖动进入目标元素时触发, target目标元素
+TreeView.prototype.onNodeExternalDragOver = function (target) {};
+
+//节点被拖放到外部元素时，拖动离开目标元素时触发, target目标元素
+TreeView.prototype.onNodeExternalDragLeave = function (target) {};
+
+//节点被拖放到外部元素后触发 (可通过this.selectedNode得到被拖放的节点), target接受拖放的元素
+TreeView.prototype.onNodeExternalDropped = function (target) { };
+
+//外部元素拖动到节点后触发， overNode 正在拖放划过的节点
+TreeView.prototype.onExternalElementDragOver = function (overNode) { };
+
+//外部元素拖放到节点后触发， droppedNode 接受拖放的节点
+TreeView.prototype.onExternalElementDropped = function (droppedNode) { };
+
+/// <summary type="Funciton">点击节点上的链接时触发, "javascript:"类不算链接</summary>	
+/// <param name="node" type="TreeNode">目标节点</summary>	
+TreeView.prototype.onNodeNavigate = function (node) { };
+
+/// <summary type="Funciton">显示节点选项盒之前触发</summary>	
+/// <param name="node" type="TreeNode">目标节点</summary>	
+TreeView.prototype.onOptionBoxShow = function (node) { };
+
+/// <summary type="Funciton">点击节点选项时触发</summary>
+/// <param name="item" type="TreeViewNodeOption">目标菜单项</summary>
+TreeView.prototype.onNodeOptionClick = function (item) { };
+
+/// <summary type="Funciton">在节点上删除前触发</summary>	
+/// <param name="node" type="TreeNode">目标节点</summary>	
+TreeView.prototype.onNodeRemove = function (node) { };
+
+TreeView.prototype.enable = function () {
+    /// <summary>启用TreeView</summary>
+    //用一个mask实现
 }
 
-HTMLTreeViewElement.prototype.hide = function () {
-    this.container.hidden = true;
+TreeView.prototype.disable = function () {
+    /// <summary>禁用TreeView</summary>    
 }
 
-HTMLTreeViewElement.prototype.__renderChild = function(child, ref) {
+TreeView.prototype.hasChildNodes = function() {
+    if (this.loaded) {
+        return this.children.length > 0;
+    }
+    else {
+        return (this.data != '' || this.templateObject.nonEmpty());
+    }
+}
+
+TreeView.prototype.$renderChild = function(child, ref) {
     if (ref != null) {
         if (child.capDiv != null) {
             this.container.insertBefore(child.capDiv, ref);
@@ -322,7 +442,7 @@ HTMLTreeViewElement.prototype.__renderChild = function(child, ref) {
     }
 }
 
-HTMLTreeViewElement.prototype.appendChild = function (treeNode, editing) {
+TreeView.prototype.appendChild = function (treeNode, editing) {
     /// <summary>添加根节点</summary>
     
     //parentNode
@@ -348,14 +468,14 @@ HTMLTreeViewElement.prototype.appendChild = function (treeNode, editing) {
 
     //element不为空表示从节点生成
     if (this.children[length].element != null) {
-        this.__renderChild(this.children[length], this.children[length].element);
+        this.$renderChild(this.children[length], this.children[length].element);
     }
     else {
         if (length > 0 && this.container.lastElementChild.getAttribute('sign') == 'SPACING') {
-            this.__renderChild(this.children[length], this.container.lastElementChild);            
+            this.$renderChild(this.children[length], this.container.lastElementChild);            
         }
         else {
-            this.__renderChild(this.children[length]);
+            this.$renderChild(this.children[length]);
         }
     }    
 
@@ -378,8 +498,8 @@ HTMLTreeViewElement.prototype.appendChild = function (treeNode, editing) {
         this.children[length].nextSibling = null;
     }
 
-    //启用dragAndDrop 或者 spacing 大于 0 并且 linesVisible 时, 创建分隔DIV
-    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.linesVisible)) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.lines == 'visible')) {
         //before
         let divB = $create('DIV', { }, 
                     { height: this.children[length].spacing + 'px' }, 
@@ -394,12 +514,12 @@ HTMLTreeViewElement.prototype.appendChild = function (treeNode, editing) {
             this.children[length].childrenDiv.nextSibling.setAttribute('prev', this.children[length].name);
         }
 
-        if (this.linesVisible && this.children[length].spacing > 0) {
-            divB.appendChild(HTMLTreeViewElement.__populateLinesSpacing(this.children[length]));
+        if (this.lines == 'visible' && this.children[length].spacing > 0) {
+            divB.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
         }
 
         if (this.dragAndDropEnabled && this.dropSpacingEnabled) {
-            divB.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[0]));
+            divB.appendChild(TreeView.$populateDropLine(this.children[0]));
         }
 
         if (length == 0) {
@@ -414,16 +534,16 @@ HTMLTreeViewElement.prototype.appendChild = function (treeNode, editing) {
                             });
             this.container.appendChild(divA);
 
-            //no lines at last line
+            //lines == 'visible' - no lines at last line
 
             if (this.dragAndDropEnabled && this.dropSpacingEnabled) {
-                divA.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[0]));
+                divA.appendChild(TreeView.$populateDropLine(this.children[0]));
             }
         }       
     }
 
     //setLines
-    this.children[length].__setLines();
+    this.children[length].$setLines();
 
     if (editing != null) {
         treeNode.edit();
@@ -435,7 +555,7 @@ HTMLTreeViewElement.prototype.appendChild = function (treeNode, editing) {
 };
 
 //在最前面插入节点
-HTMLTreeViewElement.prototype.insertFront = function(treeNode) {
+TreeView.prototype.insertFront = function(treeNode) {
     if (this.firstChild != null) {
         this.insertBefore(treeNode, this.firstChild);            
     }
@@ -444,7 +564,7 @@ HTMLTreeViewElement.prototype.insertFront = function(treeNode) {
     }
 }
 
-HTMLTreeViewElement.prototype.insertBefore = function (treeNode, referenceNode) {
+TreeView.prototype.insertBefore = function (treeNode, referenceNode) {
     /// <summary>在referenceNode之前插入根节点</summary>
     /// <param name="treeNode" type="TreeNode">要添加的节点</param>
     /// <param name="referenceNode" type="TreeNode">参考节点</param>
@@ -489,8 +609,8 @@ HTMLTreeViewElement.prototype.insertBefore = function (treeNode, referenceNode) 
     this.children[index].nextSibling = referenceNode;
     referenceNode.previousSibling = this.children[index];
 
-    //启用dragAndDrop 或者 spacing大于0并且 linesVisible 时, 创建分隔DIV
-    if (this.dragAndDropEnabled || (this.children[index].spacing > 0 && this.linesVisible)) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if (this.dragAndDropEnabled || (this.children[index].spacing > 0 && this.lines == 'visible')) {
         //before 在节点之前添加间隔
         let divB = $create('DIV', { }, { height: this.children[length].spacing + 'px' }, 
         {
@@ -503,24 +623,24 @@ HTMLTreeViewElement.prototype.insertBefore = function (treeNode, referenceNode) 
         //更新下方spacing的prev
         this.children[index].childrenDiv.nextSibling.setAttribute('prev', this.children[index].name);
 
-        if (this.lineVisible && this.children[index].spacing > 0) {
-            divB.appendChild(HTMLTreeViewElement.__populateLinesSpacing(this.children[index]));
+        if (this.lines == 'visible' && this.children[index].spacing > 0) {
+            divB.appendChild(TreeView.$populateLinesSpacing(this.children[index]));
         }
 
         if (this.dragAndDropEnabled && this.dropSpacingEnabled) {
             //添加dropLine
-            divB.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[index]));
+            divB.appendChild(TreeView.$populateDropLine(this.children[index]));
         }
     }
 
-    this.children[index].__setLines();
+    this.children[index].$setLines();
 
     if (treeNode.$expanded) {
         treeNode.expand();
     }
 };
 
-HTMLTreeViewElement.prototype.insertAfter = function (treeNode, referenceNode) {
+TreeView.prototype.insertAfter = function (treeNode, referenceNode) {
     if (referenceNode.nextSibling != null) {
         this.insertBefore(treeNode, referenceNode.nextSibling);
     }
@@ -529,13 +649,13 @@ HTMLTreeViewElement.prototype.insertAfter = function (treeNode, referenceNode) {
     }
 }
 
-HTMLTreeViewElement.prototype.removeChild = function (treeNode) {
+TreeView.prototype.removeChild = function (treeNode) {
     /// <summary>删除根节点</summary>
     /// <param name="treeNode" type="TreeNode">要删除的节点</param>
 
     let index = treeNode.index;
 
-    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.linesVisible)) {
+    if ((this.dragAndDropEnabled && this.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.lines == 'visible')) {
         if (this.children.length == 1) {
             //删除下方的spacing
             this.container.removeChild(this.children[index].childrenDiv.nextSibling);
@@ -584,14 +704,14 @@ HTMLTreeViewElement.prototype.removeChild = function (treeNode) {
             }
             let treeView = this;
             div.ondrop = function (ev) {
-                let originalNode = HTMLTreeViewElement.clipBoard.treeNode;
+                let originalNode = TreeView.clipBoard.treeNode;
                 //let oTreeView = originalNode.treeView;
 
                 //克隆节点
                 let node = originalNode.clone();
 
                 //处理原节点
-                if (HTMLTreeViewElement.clipBoard.action == 'DRAGMOVE') {
+                if (TreeView.clipBoard.action == 'DRAGMOVE') {
                     //删除原节点
                     originalNode.remove(false);
                 }
@@ -607,10 +727,10 @@ HTMLTreeViewElement.prototype.removeChild = function (treeNode) {
                 node.select(false);
 
                 //执行事件
-                if (HTMLTreeViewElement.clipBoard.action == 'DRAGMOVE') {
+                if (TreeView.clipBoard.action == 'DRAGMOVE') {
                     treeView.execute('onNodeMoved', node);
                 }
-                else if (HTMLTreeViewElement.clipBoard.action == 'DRAGCOPY') {
+                else if (TreeView.clipBoard.action == 'DRAGCOPY') {
                     treeView.execute('onNodeCopied', node);
                 }
                 //拖放到根目录
@@ -654,12 +774,13 @@ HTMLTreeViewElement.prototype.removeChild = function (treeNode) {
     }
 
     if (this.children.length > 0 && index == this.children.length) {
-        this.lastChild.__setLines();
+        this.lastChild.$setLines();
     }
 };
 
-//删除所有根节点
-HTMLTreeViewElement.prototype.removeAll = function () {
+TreeView.prototype.removeAll = function () {
+    /// <summary>删除所有根节点</summary>
+
     if (this.selectedNode != null) {
         this.selectedNode.deselect();
     }
@@ -679,11 +800,11 @@ HTMLTreeViewElement.prototype.removeAll = function () {
     this.lastChild = null;
 }
 
-HTMLTreeViewElement.prototype.apply = function(container) {
+TreeView.prototype.apply = function(container) {
     this.container = container;
 }
 
-HTMLTreeViewElement.prototype.initialize = function() {
+TreeView.prototype.initialize = function() {
     if (this.container == null) {
         throw new Error("Must speciefy a DIV element to contains TreeView's content.");
     }
@@ -695,7 +816,7 @@ HTMLTreeViewElement.prototype.initialize = function() {
             .of(this, this.element)
             .setData(this.data)
             .on('lazyload', function() {
-                this.owner.__populateChildren();
+                this.owner.$populateChildren();
                 this.owner.execute('onLazyLoaded');
             })
     }
@@ -710,22 +831,22 @@ HTMLTreeViewElement.prototype.initialize = function() {
     }
 }
 
-HTMLTreeViewElement.prototype.load = function() {
+TreeView.prototype.load = function() {
 
     //如果已经加载则不再执行beforeLoad事件
     if (this.loaded ? true : this.execute('onBeforeLoad')) {
 
         //添加"加载中"节点
-        this.__appendLoadingNode();
+        this.$appendLoadingNode();
     
         this.templateObject
             .of(this, this.element)
             .setPage(0)            
             .load(function() {
                 //移除"加载中"节点
-                this.__removeLoadingNode();
+                this.$removeLoadingNode();
                 
-                this.__populateChildren();
+                this.$populateChildren();
 
                 if (this.children.length > 0) {
                     // expandDepth & expandTo
@@ -741,13 +862,13 @@ HTMLTreeViewElement.prototype.load = function() {
                     // done
                 }
                 else {
-                    this.__completeLoading();
+                    this.$completeLoading();
                 }
             });
     }
 }
 
-HTMLTreeViewElement.prototype.reload = function () {
+TreeView.prototype.reload = function () {
     /// <summary>从dataElement和dataSource重新加载所有节点</summary>
 
     if (this.execute('onBeforeReload')) {
@@ -765,55 +886,67 @@ HTMLTreeViewElement.prototype.reload = function () {
     }    
 }
 
-HTMLTreeViewElement.prototype.expandAll = function () {
+TreeView.prototype.expandAll = function () {
     /// <summary>展开所有</summary>
     for (let i = 0; i < this.children.length; i++) {
-        this.children[i].__expandAll();
+        this.children[i].$expandAll();
     }
 };
 
-HTMLTreeViewElement.prototype.expandAllNodeByNode = function () {
+TreeView.prototype.expandAllNodeByNode = function () {
     /// <summary>一个节点一个节点展开所有</summary>
-    if (this.firstChild != null) { this.firstChild.__expandNodeByNode(); }
+    if (this.firstChild != null) { this.firstChild.$expandNodeByNode(); }
 }
 
-HTMLTreeViewElement.prototype.collapseAll = function () {
+TreeView.prototype.collapseAll = function () {
     /// <summary>关闭所有</summary>
-    if (this.firstChild != null) { this.firstChild.__collapseAll(); }
+    if (this.firstChild != null) { this.firstChild.$collapseAll(); }
 };
 
-HTMLTreeViewElement.prototype.loadAll = function () {
+TreeView.prototype.loadAll = function () {
     /// <summary>加载所有</summary>
     for (let i = 0; i < this.children.length; i++) {
-        this.children[i].__loadAll();
+        this.children[i].$loadAll();
     }
 };
 
-HTMLTreeViewElement.prototype.loadAllNodeByNode = function () {
+TreeView.prototype.loadAllNodeByNode = function () {
     /// <summary>一个节点一个节点加载所有</summary>
-    if (this.firstChild != null) { this.firstChild.__loadNodeByNode(); }
+    if (this.firstChild != null) { this.firstChild.$loadNodeByNode(); }
 };
 
-HTMLTreeViewElement.prototype.checkAll = function () {
+TreeView.prototype.checkAll = function () {
     /// <summary>选中所有</summary>
 
-    if (this.checkBoxesVisible) {
+    if (this.checkBoxes == 'visible') {
         for (let i = 0; i < this.children.length; i++) {
             if (this.children[i].checked != 1) this.children[i].check(false);
         }
     }
+    // else if (this.checkBoxesVisible == 'SINGLE') {
+    //     for (let i = 0; i < this.children.length; i++) {
+    //         if (this.children[i].checked == 0) { this.children[i].check(false); }
+    //         if (this.children[i].hasChildNodes && this.children[i].loaded) { this.children[i].$checkAll(); }
+    //     }
+    // }
 };
 
-HTMLTreeViewElement.prototype.uncheckAll = function () {
+TreeView.prototype.uncheckAll = function () {
     /// <summary>取消选中所有</summary>
-    if (this.checkBoxesVisible) {
+    if (this.checkBoxes == 'visible') {
         for (let i = 0; i < this.children.length; i++) {
             if (this.children[i].checked != 0) { this.children[i].uncheck(false); }
         }
     }
+    // else if (this.checkBoxesVisible == 'SINGLE') {
+    //     for (let i = 0; i < this.children.length; i++) {
+    //         if (this.children[i].checked == 1) { this.children[i].uncheck(false); }
+    //         if (this.children[i].hasChildNodes && this.children[i].loaded) { this.children[i].$uncheckAll(); }
+    //     }
+    // }
 };
 
-HTMLTreeViewElement.prototype.expandTo = function (depth) {
+TreeView.prototype.expandTo = function (depth) {
     /// <summary>展开节点到指定的深度</summary>
     /// <param name="depth" type="integer">展开到指定的深度</param>
     if (depth > 1) {
@@ -830,13 +963,13 @@ HTMLTreeViewElement.prototype.expandTo = function (depth) {
     }
 }
 
-HTMLTreeViewElement.prototype.preloadTo = function (depth) {
+TreeView.prototype.preloadTo = function (depth) {
     /// <summary>预加载节点到指定的深度</summary>
     /// <param name="depth" type="integer">预加载到指定的深度</param>
 
     if (depth > 1) {
         if (this.firstChild != null) {
-            this.firstChild.__preloadTo(depth);
+            this.firstChild.$preloadTo(depth);
         }
     }
     else if (depth == 0) {
@@ -850,7 +983,7 @@ HTMLTreeViewElement.prototype.preloadTo = function (depth) {
     }
 }
 
-HTMLTreeViewElement.prototype.selectNodeByPath = function (path) {
+TreeView.prototype.selectNodeByPath = function (path) {
     /// <summary>根据路径选择一个节点</summary>
     /// <param name="path" type="String">节点完整路径</param>
 
@@ -872,10 +1005,10 @@ HTMLTreeViewElement.prototype.selectNodeByPath = function (path) {
             names.splice(0, 1);
             if (this.children[index].loaded) {
                 if (!this.children[index].expanded) { this.children[index].expand(false); }
-                this.children[index].__selectNodeByPath(names);
+                this.children[index].$selectNodeByPath(names);
             }
             else {
-                this.children[index].bind('onExpanded', function () { this.__selectNodeByPath(names); });
+                this.children[index].bind('onExpanded', function () { this.$selectNodeByPath(names); });
                 this.children[index].expand(false);
             }
             finished = false;
@@ -891,23 +1024,21 @@ HTMLTreeViewElement.prototype.selectNodeByPath = function (path) {
     }
 }
 
-HTMLTreeViewElement.prototype.checkNodesByPaths = function (paths) {
+TreeView.prototype.checkNodesByPaths = function (paths) {
     /// <summary>根据paths集合选中节点</summary>
     /// <param name="paths" type="Array" elementType="String">path数组, 格式['1.2', '1.3.4', ...]</param>
 
-    if (typeof (paths) == 'string') {
-        paths = paths.split(',');
-    }
+    if (typeof (paths) == 'string') paths = paths.split(',');
 
-    if (this.checkBoxesVisible && paths.length > 0) {
-        this.__checkNodeByPath(paths, paths[0]);
+    if (this.checkBoxesVisible != 'NONE' && paths.length > 0) {
+        this.$checkNodeByPath(paths, paths[0]);
     }
     else {
-        if (!this.loaded) { this.__completeLoading(); }
+        if (!this.loaded) { this.$completeLoading(); }
     }
 }
 
-HTMLTreeViewElement.prototype.getNodeByName = function (nodeName) {
+TreeView.prototype.getNodeByName = function (nodeName) {
     /// <summary>根据name获得节点, 要求节点已经被载入, 否则返回null</summary
     let primeDiv = $s(nodeName.startsWith('#') ? nodeName : '#' + nodeName);
     if (primeDiv != null) {
@@ -934,29 +1065,34 @@ HTMLTreeViewElement.prototype.getNodeByName = function (nodeName) {
     }
 }
 
-HTMLTreeViewElement.prototype.getCheckedNodes = function () {
+TreeView.prototype.$node = function(nodeName) {
+    return this.getNodeByName(nodeName);
+}
+
+TreeView.prototype.getCheckedNodes = function () {
     /// <summary>得到所有被checked的节点</summary>
-    if (this.checkBoxesVisible) {
-        this.__checkedNodes = [];
+
+    if (this.checkBoxesVisible != 'NONE') {
+        this.$checkedNodes = [];
         for (let i = 0; i < this.children.length; i++) {
-            if (this.children[i].checked == $treeNode.checkBox.checked) {
-                this.__checkedNodes.push(this.children[i]);
+            if (this.children[i].checked == 1) {
+                this.$checkedNodes.push(this.children[i]);
             }
-            if (this.children[i].checked == $treeNode.checkBox.indeterminate) {
-                this.children[i].__getCheckedNodes();
+            if (this.children[i].checked == 2 || this.checkBoxesVisible == 'SINGLE') {
+                this.children[i].$getCheckedNodes();
             }
         }
-        return this.__checkedNodes;
+        return this.$checkedNodes;
     }
     else {
-        return [];
+        return null;
     }
 }
 
-HTMLTreeViewElement.prototype.__appendLoadingNode = function (parentNode) {
+TreeView.prototype.$appendLoadingNode = function (parentNode) {
     /// <summary>获得"正在载入..."节点</summary>
 
-    let loading = new HTMLTreeNodeElement({
+    let loading = new TreeNode({
         name: 'loading__',
         text: 'Loading...',
         icon: this.contentLoadingImageURL,
@@ -972,7 +1108,7 @@ HTMLTreeViewElement.prototype.__appendLoadingNode = function (parentNode) {
     }
 }
 
-HTMLTreeViewElement.prototype.__removeLoadingNode = function (parentNode) {
+TreeView.prototype.$removeLoadingNode = function (parentNode) {
     /// <summary>移除"正在载入..."节点</summary>
     // (parentNode == null ? this.container : parentNode.childrenDiv)
     //     .querySelectorAll('div[name=loading__],div[for=loading__]')
@@ -989,7 +1125,7 @@ HTMLTreeViewElement.prototype.__removeLoadingNode = function (parentNode) {
     }
 }
 
-HTMLTreeViewElement.prototype.__completeLoading = function () {
+TreeView.prototype.$completeLoading = function () {
     /// <summary>完成load, 触发onLoaded事件</summary>
     Model.initializeForOrIf('TREEVIEW.LOADED');
     if (!this.loaded) {
@@ -1000,7 +1136,7 @@ HTMLTreeViewElement.prototype.__completeLoading = function () {
         if (this.dragAndDropEnabled) {
             // 从一个dropLine左右侧来回移动有时不会重置dropLine, 在TreeView上添加此事件是为了还原曾经激活的dropLine
             if (this.dropSpacingEnabled) {
-                this.container.ondragleave = function () { HTMLTreeViewElement.__restoreDropLine(); }
+                this.container.ondragleave = function () { TreeView.__restoreDropLine(); }
             }            
     
             let treeView = this;
@@ -1036,7 +1172,7 @@ HTMLTreeViewElement.prototype.__completeLoading = function () {
     this.execute('onEveryloaded');
 }
 
-HTMLTreeViewElement.prototype.__populateChildren = function() {
+TreeView.prototype.$populateChildren = function() {
     //装配根节点
     let treeNodes = [];
     for (let child of this.container.children) {
@@ -1046,12 +1182,12 @@ HTMLTreeViewElement.prototype.__populateChildren = function() {
     }
 
     for (let treeNode of treeNodes) {
-        this.appendChild(new HTMLTreeNodeElement(treeNode));
+        this.appendChild(new TreeNode(treeNode));
         treeNode.remove();
     }
 }
 
-HTMLTreeViewElement.prototype.__checkNodeByPath = function (paths, path) {
+TreeView.prototype.$checkNodeByPath = function (paths, path) {
     /// <summary>根据path选中项</summary>
     /// <param name="paths" type="Array" elementType="string">path数组</param>
     /// <param name="path" type="String">单个path</param>
@@ -1073,12 +1209,12 @@ HTMLTreeViewElement.prototype.__checkNodeByPath = function (paths, path) {
         if (names.length > 1) {
             names.splice(0, 1);
             if (this.children[index].loaded) {
-                this.children[index].__checkNodeByPath(paths, names);
+                this.children[index].$checkNodeByPath(paths, names);
             }
             else {
                 this.children[index].bind('onExpanded',
                     function () {
-                        this.__checkNodeByPath(paths, names);
+                        this.$checkNodeByPath(paths, names);
                     }
                 );
                 this.children[index].expand(false);
@@ -1091,7 +1227,7 @@ HTMLTreeViewElement.prototype.__checkNodeByPath = function (paths, path) {
             //查找下一个节点
             paths.splice(0, 1);
             if (paths.length > 0) {
-                this.__checkNodeByPath(paths, paths[0]);
+                this.$checkNodeByPath(paths, paths[0]);
             }
             else {
                 finished = true;
@@ -1101,7 +1237,7 @@ HTMLTreeViewElement.prototype.__checkNodeByPath = function (paths, path) {
 
     if (finished) {
         if (!this.loaded) {
-            this.__completeLoading();
+            this.$completeLoading();
         }
     }
 }
@@ -1113,15 +1249,7 @@ TreeNode 树形节点
 	
 **********/
 
-$treeNode = {
-    checkBox: {
-        unchecked: 0,
-        checked: 1,
-        indeterminate: 2
-    }
-}
-
-class HTMLTreeNodeElement {
+class TreeNode {
     /// <summary>构造函数</summary>
     constructor (elementOrSettngs) {
 
@@ -1132,7 +1260,7 @@ class HTMLTreeNodeElement {
         .with(elementOrSettngs)
         .burnAfterReading()
         .declare({
-            $name: HTMLTreeNodeElement.__parseName(), //节点的唯一标识, 传递节点引用
+            $name: TreeNode.$parseName(), //节点的唯一标识, 传递节点引用
             $text: 'html', //节点的文本，支持HTML
             $tip: 'html', //提醒文字, 显示在文本之后, 支持Html            
             $icon: 'html', //节点的默认图标
@@ -1156,6 +1284,7 @@ class HTMLTreeNodeElement {
             childrenPadding: -1, // 与子节点之间的距离, -1表示从TreeView继承
 
             className: '',  //节点的默认样式, 默认从TreeView继承
+            frameClass: '', //节点的框架样式, 默认从TreeView继承
             textClass: 'css', //文本部分的样式, 默认从TreeView继承
             hoverClass: '', //划过节点样式，默认从TreeView继承
             selectedClass: '', //节点选择时样式, 默认从TreeView继承
@@ -1171,9 +1300,9 @@ class HTMLTreeNodeElement {
             dropClass: '', //有节点被拖放到当前节点时的样式, 默认从TreeView继承
 
             selectable: true, //是否可以被选中
-            $draggable: true, //是否可以被拖动, HTMLTreeViewElement.dragAndDropEnabled启用时生效
-            droppable: true, //是否可以把拖动的节点放置为其子节点, HTMLTreeViewElement.dragAndDropEnabled启用时生效
-            editable: true, //节点是否可编辑, HTMLTreeViewElement.nodeEditingEnabled启用时生效
+            $draggable: true, //是否可以被拖动, TreeView.dragAndDropEnabled启用时生效
+            droppable: true, //是否可以把拖动的节点放置为其子节点, TreeView.dragAndDropEnabled启用时生效
+            editable: true, //节点是否可编辑, TreeView.nodeEditingEnabled启用时生效
             $visible: true, //节点是否可见
 
             $expanded: false, //是否在呈现时展开
@@ -1210,23 +1339,11 @@ class HTMLTreeNodeElement {
 
         this.leaves = new Array();
 
-        this.children = new Array(); //获取当前节点子节点的集合
-        this.$treeView = null; //TreeNode 所属的TreeView
+        /// <value type="Array" elementType="TreeNode">获取当前节点子节点的集合</value>
+        this.children = new Array();
+        /// <value type="TreeView">指定TreeNode所属的TreeView</value>
+        this.$treeView = null;
     }
-
-    get childNodes() {
-        return this.children;
-    }
-
-    //指示节点是否有子节点
-    get hasChildNodes() {
-        if (this.loaded) {
-            return this.children.length > 0;        
-        }
-        else {
-            return (this.element != null && this.element.querySelector('treenode') != null) || (this.templateObject != null && this.templateObject.nonEmpty()) || this.data != '';
-        }
-    };
 
     get treeView() {
         return this.$treeView;
@@ -1242,6 +1359,7 @@ class HTMLTreeNodeElement {
             childrenPadding: 'childrenPadding',
 
             className: 'nodeClass',
+            frameClass: 'nodeFrameClass',
             textClass: 'nodeTextClass',
             hoverClass: 'nodeHoverClass',
             selectedClass: 'selectedNodeClass',
@@ -1270,7 +1388,7 @@ class HTMLTreeNodeElement {
     }
 
     set name(name) {        
-        name = $s('#' + name) == null ? name : HTMLTreeNodeElement.__parseName();
+        name = $s('#' + name) == null ? name : TreeNode.$parseName();
         this.$name = name;
         this.primeDiv.id = name;
         this.primeDiv.setAttribute('name', name);
@@ -1305,8 +1423,8 @@ class HTMLTreeNodeElement {
 
     set link(link) {
         this.$link = link;
-        if (this.linkAnchor != null) {
-            this.linkAnchor.href = link;
+        if (this.linkElement != null) {
+            this.linkElement.href = link;
         }
         else {
             let treeNode = this;
@@ -1325,7 +1443,7 @@ class HTMLTreeNodeElement {
             if (!this.textCell.draggable) {
                 a.draggable = false;
             }
-            this.linkAnchor = a;
+            this.linkElement = a;
         }
     }
 
@@ -1405,7 +1523,7 @@ class HTMLTreeNodeElement {
     }
 
     get tipClass() {
-        return this.__inherit('$tipClass', 'nodeTipClass');        
+        return this.$inherit('$tipClass', 'nodeTipClass');        
     }
 
     set tipClass(tipClass) {
@@ -1466,84 +1584,71 @@ class HTMLTreeNodeElement {
     set checked(bool) {
         this.$checked = bool;
     }
-
-    get isFirst() {
-        return this.index == 0;
-    }
-
-    get isLast() {
-        if (this.parentNode == null) {
-            return this.index == this.treeView.children.length - 1;
-        }
-        else {
-            return this.index == this.parentNode.children.length - 1;
-        }
-    }
 }
 
 // 保存节点配置的元素
-HTMLTreeNodeElement.prototype.element = null;
+TreeNode.prototype.element = null;
 // Template模板对象, 每个节点一个模板对象
-HTMLTreeNodeElement.prototype.templateObject = null;
+TreeNode.prototype.templateObject = null;
 
 /// <value type="Element">TreeNode DIV, 用于节点更新</value>
-HTMLTreeNodeElement.prototype.primeDiv = null;
+TreeNode.prototype.primeDiv = null;
 /// <value type="Element">TreeNode的节点元素, 根据nodeCellStyle设定</value>
-HTMLTreeNodeElement.prototype.majorElement = null; //majorElement
+TreeNode.prototype.majorElement = null; //majorElement
 /// <value type="Element">TreeNode Table, TABLE</value>
-HTMLTreeNodeElement.prototype.tableElement = null;
+TreeNode.prototype.tableElement = null;
 /// <value type="Element">TreeNode ChildNodes, DIV</value>
-HTMLTreeNodeElement.prototype.childrenDiv = null;
+TreeNode.prototype.childrenDiv = null;
 /// <value type="Element">TreeNode Burl IMG, IMG</value>
-HTMLTreeNodeElement.prototype.burlImage = null;
+TreeNode.prototype.burlImage = null;
 /// <value type="Element">TreeNode CheckBox IMG, IMG</value>
-HTMLTreeNodeElement.prototype.checkBoxElement = null;
+TreeNode.prototype.checkBoxElement = null;
 /// <value type="Element">TreeNode Icon所在的单元格</value>
-HTMLTreeNodeElement.prototype.iconCell = null;
+TreeNode.prototype.iconCell = null;
 /// <value type="Element">TreeNode Text, TD</value>l
-HTMLTreeNodeElement.prototype.textCell = null;
+TreeNode.prototype.textCell = null;
 /// <value type="Element">TreeNode Link, A</value>
-HTMLTreeNodeElement.prototype.linkAnchor = null;
+TreeNode.prototype.linkElement = null;
 /// <value type="Element">TreeNode Tip, TD</value>
-HTMLTreeNodeElement.prototype.tipCell = null;
+TreeNode.prototype.tipCell = null;
 /// <value type="Element">TreeNode CAP, DIV</value>
-HTMLTreeNodeElement.prototype.capDiv = null;
+TreeNode.prototype.capDiv = null;
 /// <value type="Element">TreeNode GAP, DIV</value>
-HTMLTreeNodeElement.prototype.gapDiv = null;
+TreeNode.prototype.gapDiv = null;
 /// <value type="Element">TreeNode LAP, DIV</value>
-HTMLTreeNodeElement.prototype.lapDiv = null;
+TreeNode.prototype.lapDiv = null;
 
 /// <value type="TreeNode">获取子节点中的第一个子节点</value>
-HTMLTreeNodeElement.prototype.firstChild = null;
+TreeNode.prototype.firstChild = null;
 /// <value type="TreeNode">获取子节点中的最后一个子节点</value>
-HTMLTreeNodeElement.prototype.lastChild = null;
+TreeNode.prototype.lastChild = null;
 /// <value type="TreeNode">获取上一个同辈节点</value>
-HTMLTreeNodeElement.prototype.previousSibling = null;
+TreeNode.prototype.previousSibling = null;
 /// <value type="TreeNode">获取下一个同辈节点</value>
-HTMLTreeNodeElement.prototype.nextSibling = null;
+TreeNode.prototype.nextSibling = null;
 /// <value type="TreeNode">获取当前节点的父节点, null 为一级节点</value>
-HTMLTreeNodeElement.prototype.parentNode = null;
+TreeNode.prototype.parentNode = null;
 
 /// <value type="String">从根节点到当前节点的路径</value>
-HTMLTreeNodeElement.prototype.path = '';
+TreeNode.prototype.path = '';
 /// <value type="Integer">获得节点的当前深度, 1为根节点</value>
-HTMLTreeNodeElement.prototype.depth = 1;
+TreeNode.prototype.depth = 1;
 /// <value type="Integer">获得节点在当前集合中的位置, 从0开始</value>
-HTMLTreeNodeElement.prototype.index = 0;
+TreeNode.prototype.index = 0;
 
 
 /// <value type="Boolean">判断节点是否正在加载</value>
-HTMLTreeNodeElement.prototype.loading = false;
+TreeNode.prototype.loading = false;
 /// <value type="Boolean">判断子节点是否已经加载完成</value>
-HTMLTreeNodeElement.prototype.loaded = false;
+TreeNode.prototype.loaded = false;
 /// <value type="Boolean">判断节点是否正在展开</value>
-HTMLTreeNodeElement.prototype.expanding = false;
+TreeNode.prototype.expanding = false;
 /// <value type="Boolean">判断节点是否处于展开状态</value>
-HTMLTreeNodeElement.prototype.expanded = false;
+TreeNode.prototype.expanded = false;
 /// <value type="Boolean">判断节点是否正在被编辑</value>
-HTMLTreeNodeElement.prototype.editing = false;
+TreeNode.prototype.editing = false;
 
-HTMLTreeNodeElement.prototype.__inherit = function(nodeProperty, treeProperty) {
+TreeNode.prototype.$inherit = function(nodeProperty, treeProperty) {
     if (this[nodeProperty] == null || this[nodeProperty] == '' || this[nodeProperty] == -1) {
         return this.treeView[treeProperty];
     }
@@ -1552,27 +1657,37 @@ HTMLTreeNodeElement.prototype.__inherit = function(nodeProperty, treeProperty) {
     }
 }
 
-HTMLTreeNodeElement.prototype.of = function(parentNode) {
+TreeNode.prototype.of = function(parentNode) {
     this.parentNode = parentNode;
     return this;
 }
 
-HTMLTreeNodeElement.prototype.appendTo = function(parentNode) {
+TreeNode.prototype.appendTo = function(parentNode) {
     parentNode.appendChild(this);
     return this;
 }
 
-HTMLTreeNodeElement.prototype.insertToBefore = function(parentNode, referenceNode) {
+TreeNode.prototype.insertToBefore = function(parentNode, referenceNode) {
     parentNode.insertBefore(this, referenceNode);
     return this;
 }
 
-HTMLTreeNodeElement.prototype.insertToAfter = function(parentNode, referenceNode) {
+TreeNode.prototype.insertToAfter = function(parentNode, referenceNode) {
     parentNode.insertAfter(this, referenceNode);
     return this;
 }
 
-HTMLTreeNodeElement.prototype.populate = function() {
+/// <value type="Boolean">指示节点是否有子节点</value>
+TreeNode.prototype.hasChildNodes = function() {
+    if (this.loaded) {
+        return this.children.length > 0;        
+    }
+    else {
+        return (this.element != null && this.element.querySelector('treenode') != null) || (this.templateObject != null && this.templateObject.nonEmpty()) || this.data != '';
+    }
+};
+
+TreeNode.prototype.populate = function() {
     
     //(re)build primeDiv only
 
@@ -1588,7 +1703,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
     //spacing
     if (this.spacing > 0) {
         //大于0且启用拖放或者显示树线时, 在添加或删除节点时用DIV控制间隔
-        if ((!this.treeView.dragAndDropEnabled && !this.treeView.linesVisible) || (this.treeView.dragAndDropEnabled && !this.treeView.dropSpacingEnabled)) {
+        if ((!this.treeView.dragAndDropEnabled && this.treeView.lines == 'hidden') || (this.treeView.dragAndDropEnabled && !this.treeView.dropSpacingEnabled)) {
             div.style.marginTop = this.spacing + 'px';
             div.style.marginBottom = this.spacing + 'px';
         }
@@ -1616,16 +1731,16 @@ HTMLTreeNodeElement.prototype.populate = function() {
     }
 
     // burl + -
-    if (this.treeView.burlsVisible) {
+    if (this.treeView.burls == 'visible') {
         td = $create('TD', { align: 'center' }, { }, { sign: 'BURL' });
         img = $create('IMG', { align: 'absmiddle' }, { position: 'relative', top: '-2px' });
         this.burlImage = img;
         
-        if (this.hasChildNodes) {
+        if (this.hasChildNodes()) {
             this.burl();
         }
         else {
-            img.src = this.treeView.imagesBaseURL + this.treeView.nonExpandableImageURL;
+            img.src = this.treeView.imagesBaseURL + this.treeView.noExpandImageURL;
         }
         
         td.appendChild(img);
@@ -1634,7 +1749,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
 
     //checkbox
     if (this.treeView.checkBoxesVisible) {
-        this.checked = ((this.parentNode != null && this.parentNode.checked == $treeNode.checkBox.checked) ? $treeNode.checkBox.checked : $treeNode.checkBox.unchecked);
+        this.checked = ((this.parentNode != null && this.parentNode.checked == 1) ? 1 : 0);
 
         td = $create('TD', { align: 'center' }, { }, { sign: 'CHECKBOX' });
 
@@ -1651,7 +1766,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
             onmouseup: function (ev) {
                 if (ev.button == 1 || ev.button == 0) {
                     this.src = this.src.replace(/c\.gif$/i, 'b.gif');
-                    if (treeNode.checked == $treeNode.checkBox.unchecked) {
+                    if (treeNode.checked == 0) {
                         treeNode.check();
                     }
                     else {
@@ -1669,8 +1784,8 @@ HTMLTreeNodeElement.prototype.populate = function() {
 
     //icon
     //&& this.icon != ''
-    // iconsVisible
-    td = $create('TD', { align: 'center', className: this.iconClass }, { display: this.treeView.iconsVisible && this.icon != '' ? '' : 'none' }, { 'sign': 'ICON' });
+    // icons="visible"     
+    td = $create('TD', { align: 'center', className: this.iconClass }, { display: this.treeView.icons == 'visible' && this.icon != '' ? '' : 'none' }, { 'sign': 'ICON' });
     if (this.icon.isImageURL()) {
         td.appendChild($create('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseURL + this.icon }));
     }
@@ -1710,24 +1825,24 @@ HTMLTreeNodeElement.prototype.populate = function() {
             if (treeNode.expanded) { treeNode.collapse(false); }
 
             //拖放事件
-            HTMLTreeViewElement.clipBoard.treeNode = treeNode;
+            TreeView.clipBoard.treeNode = treeNode;
 
             //拖放数据
             let t = ev.dataTransfer;
 
             if (ev.shiftKey) {
                 t.effectAllowed = 'copy';
-                HTMLTreeViewElement.clipBoard.action = 'DRAGCOPY';
+                TreeView.clipBoard.action = 'DRAGCOPY';
             }
             else {
                 t.effectAllowed = 'move';
-                HTMLTreeViewElement.clipBoard.action = 'DRAGMOVE';
+                TreeView.clipBoard.action = 'DRAGMOVE';
             }
             //这里有什么用吗？没看到getData的地方 - 2015/1/19
             //t.setData('text/plain', '{treeView:"' + treeNode.treeView.id + '", action:"' + t.effectAllowed + '", treeNode:"' + treeNode.name + '"}');
 
             //克隆节点
-            //HTMLTreeViewElement.clipBoard.treeNode = treeNode.clone();
+            //TreeView.clipBoard.treeNode = treeNode.clone();
 
             if (t.effectAllowed == 'move') {
                 //被拖放节点样式
@@ -1753,7 +1868,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
 
                 let droppable = treeNode.droppable;
                 if (droppable) {
-                    let originalNode = HTMLTreeViewElement.clipBoard.treeNode;
+                    let originalNode = TreeView.clipBoard.treeNode;
 
                     //树内部或其他树的节点拖动
                     if (originalNode != null) {
@@ -1795,7 +1910,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
             }
 
             this.majorElement.ondrop = function (ev) {
-                let originalNode = HTMLTreeViewElement.clipBoard.treeNode;
+                let originalNode = TreeView.clipBoard.treeNode;
 
                 //节点拖放
                 if (originalNode != null) {
@@ -1803,15 +1918,15 @@ HTMLTreeNodeElement.prototype.populate = function() {
                     let onAppended = function (node) {
 
                         //结束拖放, 清空数据
-                        HTMLTreeViewElement.clipBoard.clear();
+                        TreeView.clipBoard.clear();
 
                         node.select(false);
 
                         //执行事件
-                        if (HTMLTreeViewElement.clipBoard.action == 'DRAGMOVE') {
+                        if (TreeView.clipBoard.action == 'DRAGMOVE') {
                             treeNode.treeView.execute('onNodeMoved', node);
                         }
-                        else if (HTMLTreeViewElement.clipBoard.action == 'DRAGCOPY') {
+                        else if (TreeView.clipBoard.action == 'DRAGCOPY') {
                             treeNode.treeView.execute('onNodeCopied', node);
                         }
                         //拖放到某一个节点
@@ -1824,13 +1939,13 @@ HTMLTreeNodeElement.prototype.populate = function() {
                     let node = originalNode.clone();
 
                     //处理原节点
-                    if (HTMLTreeViewElement.clipBoard.action == 'DRAGMOVE') {
+                    if (TreeView.clipBoard.action == 'DRAGMOVE') {
                         //删除原节点
                         originalNode.remove(false);
                     }
 
                     //在当前节点添加子节点          
-                    if (treeNode.hasChildNodes) {
+                    if (treeNode.hasChildNodes()) {
                         //有子节点, 未展开
                         if (!treeNode.expanded) {
                             treeNode.bind('onExpanded',
@@ -1838,7 +1953,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
                                     this.bind('onAppended', onAppended);
                                     this.appendChild(node);
                                 });
-                            HTMLTreeViewElement.clipBoard.$expanding = true;
+                            TreeView.clipBoard.$expanding = true;
                             treeNode.expand(false);
                         }
                         //有子节点, 已展开
@@ -1880,8 +1995,8 @@ HTMLTreeNodeElement.prototype.populate = function() {
 
         this.majorElement.ondragend = function (ev) {
             //恢复默认设置
-            if (HTMLTreeViewElement.clipBoard.action != '') {
-                if (!HTMLTreeViewElement.clipBoard.$expanding) { HTMLTreeViewElement.clipBoard.clear(); }
+            if (TreeView.clipBoard.action != '') {
+                if (!TreeView.clipBoard.$expanding) { TreeView.clipBoard.clear(); }
 
                 if (treeNode.cutClass != '') {
                     this.className = treeNode.selectedClass;
@@ -1962,7 +2077,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
             if (!td.draggable) {
                 a.draggable = false;
             }
-            this.linkAnchor = a;
+            this.linkElement = a;
         }
         else {
             td.innerHTML = this.text;
@@ -2037,9 +2152,9 @@ HTMLTreeNodeElement.prototype.populate = function() {
     div = $create('DIV', { }, { display: 'none' }, { sign: 'CHILDREN', 'for': this.name });
     let childrenPadding = this.childrenPadding; 
     if (childrenPadding > 0) {
-        if (this.treeView.linesVisible) {
-            div.appendChild(HTMLTreeViewElement.__populateChildrenPadding(this, 'top'));
-            div.appendChild(HTMLTreeViewElement.__populateChildrenPadding(this, 'bottom'));
+        if (this.treeView.lines == 'visible') {
+            div.appendChild(TreeView.$populateChildrenPadding(this, 'top'));
+            div.appendChild(TreeView.$populateChildrenPadding(this, 'bottom'));
         }
         else {
             div.style.paddingTop = childrenPadding + 'px';
@@ -2069,7 +2184,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
     return this.primeDiv;
 }
 
-HTMLTreeNodeElement.prototype.load = function (repopulate) {
+TreeNode.prototype.load = function (repopulate) {
     /// <summary>加载子节点项</summary>
     /// <param name="repopulate" type="Boolean">是否重新装配<param>
     this.loading = true;
@@ -2077,7 +2192,7 @@ HTMLTreeNodeElement.prototype.load = function (repopulate) {
     if (this.templateObject != null) {
         if (this.data != '') {
             //添加"加载中"节点
-            this.treeView.__appendLoadingNode(this);
+            this.treeView.$appendLoadingNode(this);
         }
 
         this.templateObject 
@@ -2086,19 +2201,19 @@ HTMLTreeNodeElement.prototype.load = function (repopulate) {
             .setPage(0)
             .setData(this.data) 
             .on('lazyload', function() {            
-                this.owner.__populateChildren();
+                this.owner.$populateChildren();
             })
             .load(function(data) {
                 if (this.data != '') {
                     //移除"加载中"节点
-                    this.treeView.__removeLoadingNode(this);
+                    this.treeView.$removeLoadingNode(this);
                 }
 
                 if (this.treeView.loaded) {
                     Model.initializeForOrIf('TREENODE.LOADED');
                 }
 
-                this.__populateChildren();
+                this.$populateChildren();
     
                 this.loading = false;
                 this.loaded = true;
@@ -2130,7 +2245,7 @@ HTMLTreeNodeElement.prototype.load = function (repopulate) {
     }
 };
 
-HTMLTreeNodeElement.prototype.reload = function (completely) {
+TreeNode.prototype.reload = function (completely) {
     /// <summary>重新加载</summary>
     /// <param name="completely" type="Boolean" defaultValue="true">true: 从__dataElement和dataSource重新加载; false: 从childNodes重新加载</param>
     this.loaded = false;
@@ -2158,7 +2273,7 @@ HTMLTreeNodeElement.prototype.reload = function (completely) {
     }
 }
 
-HTMLTreeNodeElement.prototype.toggle = function (triggerEvent) {
+TreeNode.prototype.toggle = function (triggerEvent) {
     /// <summary>将节点切换为展开或闭合状态</summary>
     if (!this.expanded) {
         //展开
@@ -2170,20 +2285,20 @@ HTMLTreeNodeElement.prototype.toggle = function (triggerEvent) {
     }
 };
 
-HTMLTreeNodeElement.prototype.expand = function (triggerEvent) {
+TreeNode.prototype.expand = function (triggerEvent) {
     /// <summary>展开节点</summary>
     if (this.treeView != null && !this.expanded) {
 
         this.expanding = true;
 
         //+-
-        if (this.treeView.burlsVisible) {
+        if (this.treeView.burls == 'visible') {            
             this.burlImage.src = this.burlImage.getAttribute('c');
             this.burlImage.setAttribute('current', 'c');
         }
         
         //icon
-        if (this.treeView.iconsVisible && this.expandedIcon != '') {
+        if (this.treeView.icons == 'visible' && this.expandedIcon != '') {
             if (this.icon.isImageURL()) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseURL + this.expandedIcon;
             }
@@ -2201,32 +2316,32 @@ HTMLTreeNodeElement.prototype.expand = function (triggerEvent) {
             this.bind('onLoaded', 
                 function () {
                     if (this.expanding) {
-                        this.__completeExpanding(triggerEvent); 
+                        this.$completeExpanding(triggerEvent); 
                     }
                 }).load();
         }
         else {
             //有子节点, 但是没有子节点元素, 在移动或复制后会出现这种情况
-            if (this.hasChildNodes && this.childrenDiv.innerHTML == '') { 
+            if (this.hasChildNodes() && this.childrenDiv.innerHTML == '') { 
                 this.reload(false); 
             }
 
-            this.__completeExpanding(triggerEvent);
+            this.$completeExpanding(triggerEvent);
         }
     }
 };
 
-HTMLTreeNodeElement.prototype.collapse = function (triggerEvent) {
+TreeNode.prototype.collapse = function (triggerEvent) {
     
     /// <summary>闭合节点</summary>
     if (this.treeView != null) {
         //+-
-        if (this.treeView.burlsVisible) {
+        if (this.treeView.burls == 'visible') {
             this.burlImage.src = this.burlImage.getAttribute('e');
             this.burlImage.setAttribute('current', 'e');
         }
         //icon
-        if (this.treeView.iconsVisible && this.expandedIcon != '' && this.icon != '') {
+        if (this.treeView.icons == 'visible' && this.expandedIcon != '' && this.icon != '') {
             if (this.icon.isImageURL()) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseURL + this.icon;
             }
@@ -2244,7 +2359,7 @@ HTMLTreeNodeElement.prototype.collapse = function (triggerEvent) {
     }
 };
 
-HTMLTreeNodeElement.prototype.select = function (triggerEvent) {
+TreeNode.prototype.select = function (triggerEvent) {
     /// <summary>选择当前节点</summary>
     /// <param name="triggerEvent" type="Boolean|Event">是否触发事件, 默认触发</param>
     if (this.treeView != null && this != this.treeView.selectedNode) {
@@ -2278,7 +2393,7 @@ HTMLTreeNodeElement.prototype.select = function (triggerEvent) {
                 }
 
                 //键盘导航时不再触发 expandOnSelect && collapseOnSelect
-                if (this.treeView.keyboardNavigationEnabled && triggerEvent.type == 'keyup') {
+                if (this.treeView.keyboardEnabled && triggerEvent.type == 'keyup') {
                     if (triggerEvent.keyCode == 38 || triggerEvent.keyCode == 40) { doToggle = false; }
                 }
             }
@@ -2286,11 +2401,11 @@ HTMLTreeNodeElement.prototype.select = function (triggerEvent) {
             if (doToggle) {
                 //是否由用户触发事件
                 // expandOnSelect
-                if (this.hasChildNodes && this.treeView.expandOnSelect && !this.expanded && !this.expanding) {
+                if (this.hasChildNodes() && this.treeView.expandOnSelect && !this.expanded && !this.expanding) {
                     this.expand(triggerEvent);
                 }
                 // collapseOnSelect
-                else if (this.hasChildNodes && this.treeView.collapseOnSelect && this.expanded) {
+                else if (this.hasChildNodes() && this.treeView.collapseOnSelect && this.expanded) {
                     this.collapse(triggerEvent);
                 }
             }
@@ -2305,7 +2420,7 @@ HTMLTreeNodeElement.prototype.select = function (triggerEvent) {
     }
 };
 
-HTMLTreeNodeElement.prototype.deselect = function () {
+TreeNode.prototype.deselect = function () {
     /// <summary>取消选择当前节点</summary>
     if (this.treeView != null) {
         if (this.selected) {
@@ -2320,7 +2435,7 @@ HTMLTreeNodeElement.prototype.deselect = function () {
     }
 };
 
-HTMLTreeNodeElement.prototype.burl = function () {
+TreeNode.prototype.burl = function () {
     /// <summary>恢复节点的+-</summary>
 
     // 给当前节点添加burl
@@ -2385,18 +2500,18 @@ HTMLTreeNodeElement.prototype.burl = function () {
     //this.execute('onBurled');
 }
 
-HTMLTreeNodeElement.prototype.unburl = function () {
+TreeNode.prototype.unburl = function () {
     /// <summary>去掉节点的+-</summary>
 
     // 去掉当前节点的burl
-    if (this.treeView.burlsVisible) {
+    if (this.treeView.burls == 'visible') {
         this.burlImage.src = this.treeView.imagesBaseURL + 'blank.gif';
         this.burlImage.onmouseover = null;
         this.burlImage.onmouseout = null;
         this.burlImage.onclick = null;
     }
     // 恢复节点图标
-    if (this.treeView.iconsVisible && this.expandedIcon != '' && this.icon != '') {
+    if (this.treeView.icons == 'visible' && this.expandedIcon != '' && this.icon != '') {
         this.iconCell.src = this.treeView.imagesBaseURL + this.icon;
     }
 
@@ -2406,18 +2521,18 @@ HTMLTreeNodeElement.prototype.unburl = function () {
     //this.execute('onUnBurled');
 };
 
-HTMLTreeNodeElement.prototype.check = function (triggerEvent) {
+TreeNode.prototype.check = function (triggerEvent) {
     /// <summary>选中当前节点</summary>
     /// <param name="triggerEvent" type="Boolean">是否触发事件, 默认触发</param>
 
-    this.__toggleCheckBox(1);
+    this.$toggleCheckBox(1);
 
-    if (this.treeView.checkBoxesVisible) {
+    if (this.treeView.checkBoxes == 'visible') {
         //检查子项
-        this.__traverseChildren();
+        this.$traverseChildren();
 
         //检查父级项
-        this.__traverseChildren();
+        this.$traverseParents();
     }
 
     //执行事件
@@ -2426,16 +2541,16 @@ HTMLTreeNodeElement.prototype.check = function (triggerEvent) {
     //this.execute('onChecked');
 };
 
-HTMLTreeNodeElement.prototype.uncheck = function (triggerEvent) {
+TreeNode.prototype.uncheck = function (triggerEvent) {
     /// <summary>取消选中当前节点</summary>
-    this.__toggleCheckBox(0);
+    this.$toggleCheckBox(0);
 
-    if (this.treeView.checkBoxesVisible) {
+    if (this.treeView.checkBoxes == 'visible') {
         //检查子项数
-        this.__traverseChildren();
+        this.$traverseChildren();
 
         //检查父级项 - 需要递归函数
-        this.__traverseChildren();
+        this.$traverseParents();
     }
 
     //执行事件
@@ -2444,7 +2559,7 @@ HTMLTreeNodeElement.prototype.uncheck = function (triggerEvent) {
     //this.execute('onUnChecked');
 }
 
-HTMLTreeNodeElement.prototype.navigate = function () {
+TreeNode.prototype.navigate = function () {
     /// <summary>打开节点链接</summary>
 
     if (this.link != '' && this.link.indexOf('javascript:') == -1) {
@@ -2465,7 +2580,7 @@ HTMLTreeNodeElement.prototype.navigate = function () {
     }
 }
 
-HTMLTreeNodeElement.prototype.getAttribute = function (attr) {
+TreeNode.prototype.getAttribute = function (attr) {
     /// <summary>得到自定义的属性值</summary>
     if (this[attr] !== undefined) {
         return this[attr];
@@ -2475,12 +2590,12 @@ HTMLTreeNodeElement.prototype.getAttribute = function (attr) {
     }    
 }
 
-HTMLTreeNodeElement.prototype.setAttribute = function (attr, value) {
+TreeNode.prototype.setAttribute = function (attr, value) {
     /// <summary>设置自定义的属性值</summary>    
     this.attributes[attr.toLowerCase()] = value;
 }
 
-HTMLTreeNodeElement.prototype.__renderChild = function(child, ref) {
+TreeNode.prototype.$renderChild = function(child, ref) {
     if (ref != null) {
         if (child.capDiv != null) {
             this.childrenDiv.insertBefore(child.capDiv, ref);
@@ -2509,7 +2624,7 @@ HTMLTreeNodeElement.prototype.__renderChild = function(child, ref) {
     }
 }
 
-HTMLTreeNodeElement.prototype.__removeChildElements = function(child) {
+TreeNode.prototype.$removeChildElements = function(child) {
     if (child.capDiv != null) {
         this.childrenDiv.removeChild(child.capDiv);
     }
@@ -2523,11 +2638,11 @@ HTMLTreeNodeElement.prototype.__removeChildElements = function(child) {
     }
 }
 
-HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
+TreeNode.prototype.appendChild = function (treeNode, editing) {
     /// <summary>添加子节点</summary>
 
-    if (!(treeNode instanceof HTMLTreeNodeElement)) {
-        treeNode = new HTMLTreeNodeElement(treeNode);
+    if (!(treeNode instanceof TreeNode)) {
+        treeNode = new TreeNode(treeNode);
     }
 
     //parentNode
@@ -2551,7 +2666,7 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
     this.children[length].populate();
     
     if (this.children[length].element != null) {
-        this.__renderChild(this.children[length], this.children[length].element);
+        this.$renderChild(this.children[length], this.children[length].element);
     }
     else {
         let ref = null; //参考节点
@@ -2570,7 +2685,7 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
             }
         }
 
-        this.__renderChild(this.children[length], ref);        
+        this.$renderChild(this.children[length], ref);        
     }
         
     if (this.children[length].primeDiv.classList != null) {
@@ -2590,8 +2705,8 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
         this.children[length - 1].nextSibling = this.children[length];
     }
 
-    //启用dragAndDrop 或者 spacing大于0并且 linesVisible 时, 创建分隔DIV
-    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.treeView.linesVisible)) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[length].spacing > 0 && this.treeView.lines == 'visible')) {
         
         //ahead spacing        
         //创建新的，只在节点羰有间隔
@@ -2604,12 +2719,12 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
         divB.setAttribute('next', this.children[length].name);
         this.childrenDiv.insertBefore(divB, this.children[length].primeDiv);
 
-        if (this.treeView.linesVisible && this.children[length].spacing > 0) {
-            divB.appendChild(HTMLTreeViewElement.__populateLinesSpacing(this.children[length]));
+        if (this.treeView.lines == 'visible' && this.children[length].spacing > 0) {
+            divB.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
         }
 
         if (this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) {
-            divB.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[length]));
+            divB.appendChild(TreeView.$populateDropLine(this.children[length]));
         }
         
         //只更新上一级
@@ -2629,22 +2744,22 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
         //     this.childrenDiv.appendChild(divA);
         // }
 
-        // if (this.treeView.linesVisible && this.children[length].spacing > 0) {
-        //     divA.appendChild(HTMLTreeViewElement.__populateLinesSpacing(this.children[length]));
+        // if (this.treeView.lines == 'visible' && this.children[length].spacing > 0) {
+        //     divA.appendChild(TreeView.$populateLinesSpacing(this.children[length]));
         // }
 
         if (this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) {
-            divA.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[0], true));
+            divA.appendChild(TreeView.$populateDropLine(this.children[0], true));
         }
 
         //dropLine
         //        if (this.treeView.dragAndDropEnabled) {
         //            //添加拖放线0
         //            if (length == 0) {
-        //                this.childrenDiv.insertBefore(HTMLTreeViewElement.__populateDropLine(null, this.children[0]), this.children[0].element);
+        //                this.childrenDiv.insertBefore(TreeView.$populateDropLine(null, this.children[0]), this.children[0].element);
         //            }
         //            //添加节点下方的拖放线
-        //            this.childrenDiv.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[length], null));
+        //            this.childrenDiv.appendChild(TreeView.$populateDropLine(this.children[length], null));
         //            //更新上方dropLine的next属性
         //            if (length > 0) {
         //                this.children[length].element.previousSibling.setAttribute('next', this.children[length].name);
@@ -2654,12 +2769,12 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
 
     // 如果添加的节点是第一个节点, 处理burl为+-, 并展开节点
     if (length == 0) {
-        if (this.treeView.burlsVisible) {
+        if (this.treeView.burls == 'visible') {
             this.burl();
         }
     }
 
-    this.children[length].__setLines();
+    this.children[length].$setLines();
 
     this.fire('onAppended', treeNode);
 
@@ -2672,21 +2787,26 @@ HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
     }    
 };
 
-HTMLTreeNodeElement.prototype.appendChildElement = function(element) {
-    this.childrenDiv.insertBeforeEnd(element);    
+TreeNode.prototype.appendChildElement = function(child) {
+    if (typeof(child) == 'string') {
+        this.childrenDiv.insertAdjacentHTML('beforeEnd', child);
+    }
+    else {
+        this.childrenDiv.appendChild(child);
+    }
 }
 
-HTMLTreeNodeElement.prototype.insertFront = function(treeNode) {
+TreeNode.prototype.insertFront = function(treeNode) {
 
-    if (!(treeNode instanceof HTMLTreeNodeElement)) {
-        treeNode = new HTMLTreeNodeElement(treeNode);
+    if (!(treeNode instanceof TreeNode)) {
+        treeNode = new TreeNode(treeNode);
     }
 
     if (this.firstChild != null) {
         this.insertBefore(treeNode, this.firstChild);
     }
     else {
-        if (!this.expanded && this.hasChildNodes) {
+        if (!this.expanded && this.hasChildNodes()) {
             this.bind('onExpanded', function() {
                 this.insertFront(treeNode);
             });
@@ -2698,22 +2818,13 @@ HTMLTreeNodeElement.prototype.insertFront = function(treeNode) {
     }    
 }
 
-HTMLTreeNodeElement.prototype.insertElementFront = function(element) {
-    if (this.firstChild != null) {
-        (this.firstChild.capDiv || this.firstChild.primeDiv).insertBeforeBegin(element);
-    }
-    else {
-        this.childrenDiv.insertAfterBegin(element);
-    }
-}
-
-HTMLTreeNodeElement.prototype.insertBefore = function (treeNode, referenceNode) {
+TreeNode.prototype.insertBefore = function (treeNode, referenceNode) {
     /// <summary>在referenceNode之前插入节点</summary>
     /// <param name="treeNode" type="TreeNode">要添加的节点</param>
     /// <param name="referenceNode" type="TreeNode">参考节点</param>
 
-    if (!(treeNode instanceof HTMLTreeNodeElement)) {
-        treeNode = new HTMLTreeNodeElement(treeNode);
+    if (!(treeNode instanceof TreeNode)) {
+        treeNode = new TreeNode(treeNode);
     }
 
     //parentNode
@@ -2756,8 +2867,8 @@ HTMLTreeNodeElement.prototype.insertBefore = function (treeNode, referenceNode) 
     this.children[index].nextElementSibling = referenceNode;
     referenceNode.previousElementSibling = this.children[index];
 
-    //启用dragAndDrop 或者 spacing 大于 0 并且 linesVisible时, 创建分隔DIV
-    if (this.treeView.dragAndDropEnabled || (this.children[index].spacing > 0 && this.treeView.linesVisible)) {
+    //启用dragAndDrop 或者 spacing大于0并且lines == 'visible'时, 创建分隔DIV
+    if (this.treeView.dragAndDropEnabled || (this.children[index].spacing > 0 && this.treeView.lines == 'visible')) {
         //before 在节点之前添加间隔
         let divB = $create('DIV');
         divB.style.height = this.children[0].spacing + 'px';
@@ -2771,25 +2882,25 @@ HTMLTreeNodeElement.prototype.insertBefore = function (treeNode, referenceNode) 
         //更新下方spacing的prev
         this.children[index].childrenDiv.nextElementSibling.setAttribute('prev', this.children[index].name);
 
-        if (this.treeView.linesVisible && this.children[index].spacing > 0) {
-            divB.appendChild(HTMLTreeViewElement.__populateLinesSpacing(this.children[index]));
+        if (this.treeView.lines == 'visible' && this.children[index].spacing > 0) {
+            divB.appendChild(TreeView.$populateLinesSpacing(this.children[index]));
         }
 
         if (this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) {
             //添加dropLine
-            divB.appendChild(HTMLTreeViewElement.__populateDropLine(this.children[index]));
+            divB.appendChild(TreeView.$populateDropLine(this.children[index]));
         }        
 
         //dropLine
         //        if (this.treeView.dragAndDropEnabled) {
         //            //添加节点下方的dropLine
-        //            this.childrenDiv.insertBefore(HTMLTreeViewElement.__populateDropLine(this.children[index], referenceNode), referenceNode.element);
+        //            this.childrenDiv.insertBefore(TreeView.$populateDropLine(this.children[index], referenceNode), referenceNode.element);
         //            //更新上面节点的dropLine的next属性
         //            this.children[index].element.previousSibling.setAttribute('next', this.children[index].name);
         //        }
     }
 
-    this.children[index].__setLines();
+    this.children[index].$setLines();
 
     //this.execute('onInserted', treeNode);
     
@@ -2798,11 +2909,16 @@ HTMLTreeNodeElement.prototype.insertBefore = function (treeNode, referenceNode) 
     }
 };
 
-HTMLTreeNodeElement.prototype.insertElementBefore = function(element, referenceNode) {
-    (referenceNode.capDiv || referenceNode.primeDiv).insertBeforeBegin(element);    
+TreeNode.prototype.insertElementBefore = function(child, referenceNode) {
+    if (typeof(child) == 'string') {
+        this.childrenDiv.insertAdjacentHTML('beforeBegin', referenceNode.primeDiv);
+    }
+    else {
+        this.childrenDiv.insertBefore(child, referenceNode.primeDiv);
+    }
 }
 
-HTMLTreeNodeElement.prototype.insertAfter = function (treeNode, referenceNode) {
+TreeNode.prototype.insertAfter = function (treeNode, referenceNode) {
     if (referenceNode.nextSibling != null) {
         this.insertBefore(treeNode, referenceNode.nextSibling);
     }
@@ -2811,16 +2927,12 @@ HTMLTreeNodeElement.prototype.insertAfter = function (treeNode, referenceNode) {
     }
 }
 
-HTMLTreeNodeElement.prototype.insertElementAfter = function(element, referenceNode) {
-    (referenceNode.lapDiv || referenceNode.childrenDiv).insertAfterEnd(element);    
-}
-
-HTMLTreeNodeElement.prototype.removeChild = function (treeNode) {
+TreeNode.prototype.removeChild = function (treeNode) {
     /// <summary>删除子节点</summary>
     
     let index = treeNode.index;
 
-    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.treeView.linesVisible)) {
+    if ((this.treeView.dragAndDropEnabled && this.treeView.dropSpacingEnabled) || (this.children[index].spacing > 0 && this.treeView.lines == 'visible')) {
         if (this.children.length == 1) {
             //删除下方的spacing
             this.childrenDiv.removeChild(this.children[index].childrenDiv.nextSibling);
@@ -2849,7 +2961,7 @@ HTMLTreeNodeElement.prototype.removeChild = function (treeNode) {
     //    }
 
     //删除元素节点
-    this.__removeChildElements(this.children[index]);
+    this.$removeChildElements(this.children[index]);
 
     //从子节点集合中删除子节点
     this.children.splice(index, 1);
@@ -2862,8 +2974,8 @@ HTMLTreeNodeElement.prototype.removeChild = function (treeNode) {
     //checked
     //删除前, 如果当前节点checked为2, 子节点数量肯定大于等于2
     //删除之后, 根据第一个子节点的选中状态向上递归
-    if (this.treeView.checkBoxesVisible) {
-        if (this.checked == $treeNode.checkBox.indeterminate) { this.children[0].__traverseChildren(); }
+    if (this.treeView.checkBoxes == 'visible') {
+        if (this.checked == 2) { this.children[0].$traverseParents(); }
     }
 
     // firstChild, lastChild, nextSibling, previousSibling
@@ -2901,15 +3013,11 @@ HTMLTreeNodeElement.prototype.removeChild = function (treeNode) {
     if (this.children.length == 0) { this.unburl(); }
 
     if (this.children.length > 0 && index == this.children.length) {
-        this.lastChild.__setLines();
+        this.lastChild.$setLines();
     }
 };
 
-HTMLTreeNodeElement.prototype.removeChildElement = function(element) {
-    this.childrenDiv.removeChild(element);
-}
-
-HTMLTreeNodeElement.prototype.removeAll = function () {
+TreeNode.prototype.removeAll = function () {
     /// <summary>删除所有子节点</summary>
 
     this.children.length = 0;
@@ -2922,12 +3030,12 @@ HTMLTreeNodeElement.prototype.removeAll = function () {
     this.lastChild = null;
 
     //checkbox
-    if (this.treeView.checkBoxesVisible) {
-        if (this.checked == $treeNode.checkBox.indeterminate) { this.uncheck(false); }
+    if (this.treeView.checkBoxes == 'visible') {
+        if (this.checked == 2) { this.uncheck(false); }
     }
 };
 
-HTMLTreeNodeElement.prototype.remove = function (triggerEvent) {
+TreeNode.prototype.remove = function (triggerEvent) {
     /// <summary>删除自身</summary>
 
     if (triggerEvent !== false ? this.treeView.execute('onNodeRemove', this) : true) {
@@ -2940,7 +3048,27 @@ HTMLTreeNodeElement.prototype.remove = function (triggerEvent) {
     }
 }
 
-HTMLTreeNodeElement.prototype.edit = function () {
+TreeNode.prototype.isFirst = function () {
+    /// <summary>判断是否是同级节点的第一个节点</summary>
+    if (this.parentNode == null) {
+        return (this == this.treeView.firstChild);
+    }
+    else {
+        return (this == this.parentNode.firstChild);
+    }
+}
+
+TreeNode.prototype.isLast = function () {
+    /// <summary>判断是否是同级节点的最后一个节点</summary>
+    if (this.parentNode == null) {
+        return (this == this.treeView.lastChild);
+    }
+    else {
+        return (this == this.parentNode.lastChild);
+    }
+}
+
+TreeNode.prototype.edit = function () {
     /// <summary>编辑节点</summary>
 
     // 可编辑并且没有在编辑时
@@ -2948,10 +3076,10 @@ HTMLTreeNodeElement.prototype.edit = function () {
         
         if (this.treeView.execute('onNodeEdit', this)) {
             //同时只能编辑一个节点
-            if (this.treeView.editingNode != null) {
-                this.treeView.editingNode.reset();
+            if (this.treeView.$editingNode != null) {
+                this.treeView.$editingNode.reset();
             }
-            this.treeView.editingNode = this;
+            this.treeView.$editingNode = this;
 
             //编辑时禁用拖放
             if (this.treeView.dragAndDropEnabled) {
@@ -2976,7 +3104,7 @@ HTMLTreeNodeElement.prototype.edit = function () {
                 }
                 else if (ev.keyCode == 13) {
                     if (this.value != this.defaultValue) {
-                        treeNode.__updateText(this.value);
+                        treeNode.updateText(this.value);
                     }
                     else {
                         treeNode.reset();
@@ -3022,7 +3150,7 @@ HTMLTreeNodeElement.prototype.edit = function () {
             a.appendChild(img);
             a.onclick = function () {
                 if (input.value != input.defaultValue) {
-                    treeNode.__updateText(input.value);
+                    treeNode.updateText(input.value);
                 }
                 else {
                     treeNode.reset();
@@ -3061,7 +3189,8 @@ HTMLTreeNodeElement.prototype.edit = function () {
     }
 };
 
-HTMLTreeNodeElement.prototype.__updateText = function (text) {
+TreeNode.prototype.updateText = function (text) {
+    /// <summary>更新文本并从编辑状态恢复为正常状态</summary>
 
     //执行事件
     this.text = text;
@@ -3079,7 +3208,7 @@ HTMLTreeNodeElement.prototype.__updateText = function (text) {
     this.textCell.parentNode.removeChild(this.textCell.nextSibling);
 
     this.editing = false;
-    this.treeView.editingNode = null;  
+    this.treeView.$editingNode = null;
 
     //恢复拖放
     if (this.treeView.dragAndDropEnabled) {
@@ -3096,7 +3225,7 @@ HTMLTreeNodeElement.prototype.__updateText = function (text) {
     this.treeView.execute('onNodeTextChanged', this);    
 };
 
-HTMLTreeNodeElement.prototype.reset = function () {
+TreeNode.prototype.reset = function () {
     /// <summary>从编辑状态恢复为正常状态</summary>
     if (this.textCell.firstChild.nodeType == 1 && this.textCell.firstChild.getAttribute('sign') == 'LINK') {
         this.textCell.firstChild.innerHTML = this.textCell.getAttribute('text');
@@ -3115,7 +3244,7 @@ HTMLTreeNodeElement.prototype.reset = function () {
     }    
 
     this.editing = false;
-    this.treeView.editingNode = null;
+    this.treeView.$editingNode = null;
 
     if (this.treeView.dragAndDropEnabled) {
         this.majorElement.draggable = this.draggable;
@@ -3128,10 +3257,10 @@ HTMLTreeNodeElement.prototype.reset = function () {
     }
 }
 
-HTMLTreeNodeElement.prototype.clone = function (args) {
+TreeNode.prototype.clone = function (args) {
     /// <summary>克隆一个节点, 默认只克隆OwnProperty</summary>
     /// <param name="args" type="String">要克隆的一个或多个非OwnProperty属性</param>
-    let node = new HTMLTreeNodeElement();
+    let node = new TreeNode();
 
     //children不克隆, 使用时重新加载
 
@@ -3151,14 +3280,14 @@ HTMLTreeNodeElement.prototype.clone = function (args) {
     return node;
 }
 
-HTMLTreeNodeElement.prototype.cut = function () {
+TreeNode.prototype.cut = function () {
     /// <summary>剪切节点</summary>
 
     //剪贴板有其他节点
-    if (HTMLTreeViewElement.clipBoard.action != '') {
+    if (TreeView.clipBoard.action != '') {
         //有其他节点正在被剪切, 恢复样式
-        if (HTMLTreeViewElement.clipBoard.action == 'MOVE') {
-            let node = HTMLTreeViewElement.clipBoard.treeNode;
+        if (TreeView.clipBoard.action == 'MOVE') {
+            let node = TreeView.clipBoard.treeNode;
             if (node.cutClass != '') {
                 node.majorElement.className = (node.selected ? node.selectedClass : node.className);
             }
@@ -3167,11 +3296,11 @@ HTMLTreeNodeElement.prototype.cut = function () {
             }
         }
 
-        HTMLTreeViewElement.clipBoard.clear();
+        TreeView.clipBoard.clear();
     }
 
-    HTMLTreeViewElement.clipBoard.treeNode = this;
-    HTMLTreeViewElement.clipBoard.action = 'MOVE';
+    TreeView.clipBoard.treeNode = this;
+    TreeView.clipBoard.action = 'MOVE';
 
     if (this.cutClass != '') {
         this.majorElement.className = this.cutClass;
@@ -3181,14 +3310,14 @@ HTMLTreeNodeElement.prototype.cut = function () {
     }
 }
 
-HTMLTreeNodeElement.prototype.copy = function () {
+TreeNode.prototype.copy = function () {
     /// <summary>拷贝节点</summary>
 
     //剪贴板有其他节点
-    if (HTMLTreeViewElement.clipBoard.action != '') {
+    if (TreeView.clipBoard.action != '') {
         //有其他节点正在被剪切, 恢复样式
-        if (HTMLTreeViewElement.clipBoard.action == 'MOVE') {
-            let node = HTMLTreeViewElement.clipBoard.treeNode;
+        if (TreeView.clipBoard.action == 'MOVE') {
+            let node = TreeView.clipBoard.treeNode;
             if (node.cutClass != '') {
                 node.majorElement.className = (node.selected ? node.selectedClass : node.className);
             }
@@ -3197,19 +3326,19 @@ HTMLTreeNodeElement.prototype.copy = function () {
             }
         }
 
-        HTMLTreeViewElement.clipBoard.clear();
+        TreeView.clipBoard.clear();
     }
 
-    HTMLTreeViewElement.clipBoard.treeNode = this;
-    HTMLTreeViewElement.clipBoard.action = 'COPY';
+    TreeView.clipBoard.treeNode = this;
+    TreeView.clipBoard.action = 'COPY';
 }
 
-HTMLTreeNodeElement.prototype.paste = function () {
+TreeNode.prototype.paste = function () {
     /// <summary>粘贴复制或剪切的节点</summary>
 
-    if (HTMLTreeViewElement.clipBoard.action != '' && HTMLTreeViewElement.clipBoard.treeNode != this) {
+    if (TreeView.clipBoard.action != '' && TreeView.clipBoard.treeNode != this) {
         //粘贴的节点不能是其父级节点
-        if (this.path.indexOf(HTMLTreeViewElement.clipBoard.treeNode.path + '.') == -1) {
+        if (this.path.indexOf(TreeView.clipBoard.treeNode.path + '.') == -1) {
             let treeNode = this;
 
             //onAppended 添加完节点之后执行
@@ -3218,34 +3347,34 @@ HTMLTreeNodeElement.prototype.paste = function () {
                 node.select(false);
 
                 //执行事件
-                if (HTMLTreeViewElement.clipBoard.action == 'MOVE') {
+                if (TreeView.clipBoard.action == 'MOVE') {
                     treeNode.treeView.execute('onNodeMoved', node);
                     //清空数据
-                    HTMLTreeViewElement.clipBoard.clear();
+                    TreeView.clipBoard.clear();
                 }
                 else {
                     treeNode.treeView.execute('onNodeCopied', node);
                 }
             }
 
-            let originalNode = HTMLTreeViewElement.clipBoard.treeNode;
+            let originalNode = TreeView.clipBoard.treeNode;
             let node = originalNode.clone();
 
             //处理原节点
-            if (HTMLTreeViewElement.clipBoard.action == 'MOVE') {
+            if (TreeView.clipBoard.action == 'MOVE') {
                 //删除原节点
                 originalNode.remove(false);                
             }
 
             //在当前节点添加子节点          
-            if (treeNode.hasChildNodes) {
+            if (treeNode.hasChildNodes()) {
                 //有子节点, 未展开
                 if (!treeNode.expanded) {
                     treeNode.bind('onExpanded', function () {
                         this.bind('onAppended', onAppended);
                         this.appendChild(node);
                     });
-                    HTMLTreeViewElement.clipBoard.$expanding = true;
+                    TreeView.clipBoard.$expanding = true;
                     treeNode.expand(false);
                 }
                 //有子节点, 已展开
@@ -3269,15 +3398,15 @@ HTMLTreeNodeElement.prototype.paste = function () {
     }
 }
 
-HTMLTreeNodeElement.prototype.show = function() {
+TreeNode.prototype.show = function() {
     this.visible = true;
 }
 
-HTMLTreeNodeElement.prototype.hide = function() {
+TreeNode.prototype.hide = function() {
     this.visible = false;
 }
 
-HTMLTreeNodeElement.prototype.if = function(exp) {
+TreeNode.prototype.if = function(exp) {
     let result = exp;
     if (typeof(exp) == 'string') {
         result = eval('result = function() {return ' + exp + '}').call(this);
@@ -3289,7 +3418,7 @@ HTMLTreeNodeElement.prototype.if = function(exp) {
     return result ? this : null;
 }
 
-HTMLTreeNodeElement.prototype.increase = function(increment = 1) {
+TreeNode.prototype.increase = function(increment = 1) {
     let value = this.tip.toFloat(NaN);
     if (!isNaN(value)) {
         value = value + increment;
@@ -3298,17 +3427,17 @@ HTMLTreeNodeElement.prototype.increase = function(increment = 1) {
     return this;
 }
 
-HTMLTreeNodeElement.prototype.decrease = function(decrement = 1) {
+TreeNode.prototype.decrease = function(decrement = 1) {
     return this.increase(-decrement);
 }
 
-HTMLTreeNodeElement.prototype.__completeExpanding = function (triggerEvent) {
+TreeNode.prototype.$completeExpanding = function (triggerEvent) {
     /// <summary>完成展开</summary>
     /// <param name="triggerEvent" type="Boolean">是否触发事件, 默认触发</param>
 
     this.expanding = false;
 
-    if (this.hasChildNodes) {
+    if (this.hasChildNodes()) {
         this.expanded = true; 
     }
 
@@ -3321,7 +3450,7 @@ HTMLTreeNodeElement.prototype.__completeExpanding = function (triggerEvent) {
     this.fire('onExpanded');
 };
 
-HTMLTreeNodeElement.prototype.__populateChildren = function() {
+TreeNode.prototype.$populateChildren = function() {
     //装配节点
     let treeNodes = [];
     for (let child of this.childrenDiv.children) {
@@ -3331,103 +3460,113 @@ HTMLTreeNodeElement.prototype.__populateChildren = function() {
     }
 
     for (let treeNode of treeNodes) {
-        this.appendChild(new HTMLTreeNodeElement(treeNode));
+        this.appendChild(new TreeNode(treeNode));
         treeNode.remove();
     }
 }
 
-HTMLTreeNodeElement.prototype.__toggleCheckBox = function (checkedState) {
+TreeNode.prototype.$toggleCheckBox = function (checkedState) {
     /// <summary>切换checkbox状态和checked</summary>
     /// <param name="checkedState" valueType="Integer">要切换到的状态</param>
 
-    if (this.treeView.checkBoxesVisible) {
+    if (this.treeView.checkBoxes == 'visible') {
         switch (checkedState) {
-            case $treeNode.checkBox.unchecked:
+            case 0:
                 this.checkBoxElement.src = this.checkBoxElement.src.replace(/checkbox_(1|2)/i, 'checkbox_0');
                 break;
-            case $treeNode.checkBox.checked:
+            case 1:
                 this.checkBoxElement.src = this.checkBoxElement.src.replace(/checkbox_(0|2)/i, 'checkbox_1');
                 break;
-            case $treeNode.checkBox.indeterminate:
+            case 2:
                 this.checkBoxElement.src = this.checkBoxElement.src.replace(/checkbox_(0|1)/i, 'checkbox_2');
+                break;
+        }
+    }
+    else if (this.treeView.checkBoxesVisible == 'SINGLE') {
+        switch (checkedState) {
+            case 0:
+                this.checkBoxElement.checked = false;
+                break;
+            case 1:
+                this.checkBoxElement.checked = true;
                 break;
         }
     }
     this.checked = checkedState;
 };
 
-HTMLTreeNodeElement.prototype.__traverseChildren = function () {
+TreeNode.prototype.$traverseChildren = function () {
     /// <summary>遍历子节点, 让子节点的选中状态和父节点一致, 适用于当前节点选中状态为0和1的时候</summary>
 
-    if (this.loaded && this.hasChildNodes) {
+    if (this.loaded && this.hasChildNodes()) {
         for (let i = 0; i < this.children.length; i++) {
             if (this.children[i].checked != this.checked) {
-                this.children[i].__toggleCheckBox(this.checked);
-                this.children[i].__traverseChildren();
+                this.children[i].$toggleCheckBox(this.checked);
+                this.children[i].$traverseChildren();
             }
         }
     }
 };
 
-HTMLTreeNodeElement.prototype.__traverseChildren = function () {
+TreeNode.prototype.$traverseParents = function () {
     /// <summary>遍历父节点, 改变父级节点的选中状态</summary>
     if (this.parentNode != null) {
         let checkState = this.checked;
         for (let i = 0; i < this.parentNode.children.length; i++) {
             if (this.parentNode.children[i].checked != checkState) {
-                checkState = $treeNode.checkBox.indeterminate;
+                checkState = 2;
                 break;
             }
         }
-        if (this.parentNode.checked != checkState) { this.parentNode.__toggleCheckBox(checkState); }
+        if (this.parentNode.checked != checkState) { this.parentNode.$toggleCheckBox(checkState); }
 
-        this.parentNode.__traverseChildren();
+        this.parentNode.$traverseParents();
     }
 };
 
-HTMLTreeNodeElement.prototype.__getCheckedNodes = function () {
-    /// <summary>获得当前节点子节点被checked的项, 被自己调用或在HTMLTreeViewElement.getCheckedNodes中调用</summary>
+TreeNode.prototype.$getCheckedNodes = function () {
+    /// <summary>获得当前节点子节点被checked的项, 被自己调用或在TreeView.getCheckedNodes中调用</summary>
     for (let i = 0; i < this.children.length; i++) {
-        if (this.children[i].checked == $treeNode.checkBox.checked) { this.treeView.__checkedNodes.push(this.children[i]); }
+        if (this.children[i].checked == 1) { this.treeView.$checkedNodes.push(this.children[i]); }
 
-        if (this.children[i].checked == $treeNode.checkBox.indeterminate) { this.children[i].__getCheckedNodes(); }
+        if (this.children[i].checked == 2 || this.treeView.checkBoxesVisible == 'SINGLE') { this.children[i].$getCheckedNodes(); }
     }
 };
 
-HTMLTreeNodeElement.prototype.__expandAll = function () {
+TreeNode.prototype.$expandAll = function () {
     /// <summary>展开所有子节点, 并继续向下传递</summary
 
-    if (this.hasChildNodes) {
+    if (this.hasChildNodes()) {
         if (this.expanded) {
-            for (let i = 0; i < this.children.length; i++) { this.children[i].__expandAll(); }
+            for (let i = 0; i < this.children.length; i++) { this.children[i].$expandAll(); }
         }
         else {
             this.bind('onExpanded', 
                 function () {
-                    for (let i = 0; i < this.children.length; i++) { this.children[i].__expandAll(); }
+                    for (let i = 0; i < this.children.length; i++) { this.children[i].$expandAll(); }
                 });
             this.expand(false);
         }
     }
 }
 
-HTMLTreeNodeElement.prototype.__expandNodeByNode = function () {
-    /// <summary>展开所有子节点, 在HTMLTreeViewElement.expandAllNodeByNode中被调用</summary>
+TreeNode.prototype.$expandNodeByNode = function () {
+    /// <summary>展开所有子节点, 在TreeView.expandAllNodeByNode中被调用</summary>
 
-    if (this.hasChildNodes) {
+    if (this.hasChildNodes()) {
         if (this.expanded) {
-            this.firstChild.__expandNodeByNode();
+            this.firstChild.$expandNodeByNode();
         }
         else {
             this.bind('onExpanded',
                 function () {
                     if (this.children.length > 0) {
                         //如果有子节点, 就继续展开
-                        this.firstChild.__expandNodeByNode();
+                        this.firstChild.$expandNodeByNode();
                     }
                     else {
                         //如果没有子节点, 就回调自身查找下一个节点
-                        this.__expandNodeByNode();
+                        this.$expandNodeByNode();
                     }
                 }
             );
@@ -3448,7 +3587,7 @@ HTMLTreeNodeElement.prototype.__expandNodeByNode = function () {
         }
         if (node != null) {
             node = node.nextSibling;
-            node.__expandNodeByNode();
+            node.$expandNodeByNode();
         }
         else {
             if (!this.treeView.loaded) { this.treeView.preloadTo(this.treeView.preloadDepth); }
@@ -3456,10 +3595,10 @@ HTMLTreeNodeElement.prototype.__expandNodeByNode = function () {
     }
 };
 
-HTMLTreeNodeElement.prototype.__collapseAll = function () {
-    /// <summary>闭合所有子节点, 在HTMLTreeViewElement.collapseAll中使用</summary>
-    if (this.hasChildNodes) {
-        if (this.loaded) { this.firstChild.__collapseAll(); }
+TreeNode.prototype.$collapseAll = function () {
+    /// <summary>闭合所有子节点, 在TreeView.collapseAll中使用</summary>
+    if (this.hasChildNodes()) {
+        if (this.loaded) { this.firstChild.$collapseAll(); }
         if (this.expanded) { this.collapse(); }
     }
     else {
@@ -3476,41 +3615,41 @@ HTMLTreeNodeElement.prototype.__collapseAll = function () {
         }
         if (node != null) {
             node = node.nextSibling;
-            node.__collapseAll();
+            node.$collapseAll();
         }
     }
 };
 
-HTMLTreeNodeElement.prototype.__loadAll = function () {
+TreeNode.prototype.$loadAll = function () {
 
-    if (this.hasChildNodes) {
+    if (this.hasChildNodes()) {
         if (this.loaded) {
-            for (let i = 0; i < this.children.length; i++) { this.children[i].__loadAll(); }
+            for (let i = 0; i < this.children.length; i++) { this.children[i].$loadAll(); }
         }
         else {
             this.bind('onLoaded', 
                 function () {
-                    for (let i = 0; i < this.children.length; i++) { this.children[i].__loadAll(); }
+                    for (let i = 0; i < this.children.length; i++) { this.children[i].$loadAll(); }
                 });
             this.load();
         }
     }
 }
 
-HTMLTreeNodeElement.prototype.__loadNodeByNode = function () {
-    /// <summary>展开所有子节点, 在HTMLTreeViewElement.loadAll中使用</summary>
-    if (this.hasChildNodes) {
+TreeNode.prototype.$loadNodeByNode = function () {
+    /// <summary>展开所有子节点, 在TreeView.loadAll中使用</summary>
+    if (this.hasChildNodes()) {
         if (this.loaded) {
-            this.firstChild.__loadAll();
+            this.firstChild.$loadAll();
         }
         else {
             this.bind('onLoaded',
                 function () {
                     if (this.firstChild != null) {
-                        this.firstChild.__loadNodeByNode();
+                        this.firstChild.$loadNodeByNode();
                     }
                     else {
-                        this.__loadNodeByNode();
+                        this.$loadNodeByNode();
                     }
                 }
             );
@@ -3532,7 +3671,7 @@ HTMLTreeNodeElement.prototype.__loadNodeByNode = function () {
         }
         if (node != null) {
             node = node.nextSibling;
-            node.__loadNodeByNode();
+            node.$loadNodeByNode();
         }
         else {
             if (!this.treeView.loaded) {
@@ -3542,10 +3681,10 @@ HTMLTreeNodeElement.prototype.__loadNodeByNode = function () {
     }
 };
 
-HTMLTreeNodeElement.prototype.__expandTo = function (depth) {
-    /// <summary>依次展开节点到指定的深度, 在HTMLTreeViewElement.expandTo方法中被调用</summary>
+TreeNode.prototype.$expandTo = function (depth) {
+    /// <summary>依次展开节点到指定的深度, 在TreeView.expandTo方法中被调用</summary>
 
-    if (depth > this.depth && this.hasChildNodes) {
+    if (depth > this.depth && this.hasChildNodes()) {
         if (this.expanded) {
             this.firstChild.$expandTo(depth);
         }
@@ -3588,21 +3727,21 @@ HTMLTreeNodeElement.prototype.__expandTo = function (depth) {
     }
 };
 
-HTMLTreeNodeElement.prototype.__preloadTo = function (depth) {
-    /// <summary>依次展开节点到指定的深度, 在HTMLTreeViewElement.expandTo方法中被调用</summary>
+TreeNode.prototype.$preloadTo = function (depth) {
+    /// <summary>依次展开节点到指定的深度, 在TreeView.expandTo方法中被调用</summary>
 
-    if (depth > this.depth && this.hasChildNodes) {
+    if (depth > this.depth && this.hasChildNodes()) {
         if (this.expanded) {
-            this.firstChild.__preloadTo(depth);
+            this.firstChild.$preloadTo(depth);
         }
         else {
             this.bind('onLoaded',
                 function () {
                     if (this.firstChild != null) {
-                        this.firstChild.__preloadTo(depth);
+                        this.firstChild.$preloadTo(depth);
                     }
                     else {
-                        this.__preloadTo(depth);
+                        this.$preloadTo(depth);
                     }
                 });
             this.load();
@@ -3623,7 +3762,7 @@ HTMLTreeNodeElement.prototype.__preloadTo = function (depth) {
 
         if (node != null) {
             node = node.nextSibling;
-            node.__preloadTo(depth);
+            node.$preloadTo(depth);
         }
         else {
             if (!this.treeView.loaded) {
@@ -3633,8 +3772,8 @@ HTMLTreeNodeElement.prototype.__preloadTo = function (depth) {
     }
 };
 
-HTMLTreeNodeElement.prototype.__selectNodeByPath = function (names) {
-    /// <summary>根据路径选择一个节点, 在HTMLTreeViewElement.selectNodeByPath中被调用</summary>	
+TreeNode.prototype.$selectNodeByPath = function (names) {
+    /// <summary>根据路径选择一个节点, 在TreeView.selectNodeByPath中被调用</summary>	
     /// <param name="names" type="String">节点name数组</param>
 
     let index = -1;
@@ -3654,12 +3793,12 @@ HTMLTreeNodeElement.prototype.__selectNodeByPath = function (names) {
             names.splice(0, 1);
             if (this.children[index].loaded) {
                 if (!this.children[index].expanded) this.children[index].expand(false);
-                this.children[index].__selectNodeByPath(names);
+                this.children[index].$selectNodeByPath(names);
             }
             else {
                 this.children[index].bind('onExpanded', 
                     function () {
-                        this.__selectNodeByPath(names);
+                        this.$selectNodeByPath(names);
                     });
                 this.children[index].expand(false);
             }
@@ -3676,8 +3815,8 @@ HTMLTreeNodeElement.prototype.__selectNodeByPath = function (names) {
     }
 };
 
-HTMLTreeNodeElement.prototype.__checkNodeByPath = function (paths, names) {
-    /// <summary>根据路径选中一个节点, 在HTMLTreeViewElement.prototype.__checkNodeByPath中被调用</summary>
+TreeNode.prototype.$checkNodeByPath = function (paths, names) {
+    /// <summary>根据路径选中一个节点, 在TreeView.prototype.$checkNodeByPath中被调用</summary>
     /// <param name="paths" type="Array" elementType="String">节点path数组</param>
     /// <param name="names" type="String">节点name数组</param>
 
@@ -3697,12 +3836,12 @@ HTMLTreeNodeElement.prototype.__checkNodeByPath = function (paths, names) {
         if (names.length > 1) {
             names.splice(0, 1);
             if (this.children[index].loaded) {
-                this.children[index].__checkNodeByPath(paths, names);
+                this.children[index].$checkNodeByPath(paths, names);
             }
             else {
                 this.children[index].bind('onExpanded', 
                     function () {
-                        this.__checkNodeByPath(paths, names);
+                        this.$checkNodeByPath(paths, names);
                     });
                 this.children[index].expand(false);
             }
@@ -3713,7 +3852,7 @@ HTMLTreeNodeElement.prototype.__checkNodeByPath = function (paths, names) {
             //查找下一个节点
             paths.splice(0, 1);
             if (paths.length > 0) {
-                this.treeView.__checkNodeByPath(paths, paths[0]);
+                this.treeView.$checkNodeByPath(paths, paths[0]);
             }
             else {
                 //查找完成
@@ -3723,51 +3862,51 @@ HTMLTreeNodeElement.prototype.__checkNodeByPath = function (paths, names) {
     }
 
     if (finished) {
-        if (!this.treeView.loaded) { this.treeView.__completeLoading(); }
+        if (!this.treeView.loaded) { this.treeView.$completeLoading(); }
     }
 };
 
-HTMLTreeNodeElement.prototype.__checkAll = function () {
-    /// <summary>SINGLE模式下, 选中已呈现的所有节点, 在 HTMLTreeViewElement.checkAll中被使用</summary>
+TreeNode.prototype.$checkAll = function () {
+    /// <summary>SINGLE模式下, 选中已呈现的所有节点, 在 TreeView.checkAll中被使用</summary>
 
     for (let i = 0; i < this.children.length; i++) {
-        if (this.children[i].checked == $treeNode.checkBox.unchecked) {
+        if (this.children[i].checked == 0) {
             this.children[i].check(false);
         }
-        if (this.children[i].hasChildNodes && this.children[i].loaded) {
-            this.children[i].__checkAll();
+        if (this.children[i].hasChildNodes() && this.children[i].loaded) {
+            this.children[i].$checkAll();
         }
     }
 }
 
-HTMLTreeNodeElement.prototype.__uncheckAll = function () {
-    /// <summary>SINGLE模式下, 取消选中已呈现的所有节点, 在 HTMLTreeViewElement.uncheckAll中被使用</summary>
+TreeNode.prototype.$uncheckAll = function () {
+    /// <summary>SINGLE模式下, 取消选中已呈现的所有节点, 在 TreeView.uncheckAll中被使用</summary>
     for (let i = 0; i < this.children.length; i++) {
-        if (this.children[i].checked == $treeNode.checkBox.checked) {
+        if (this.children[i].checked == 1) {
             this.children[i].uncheck(false);
         }
-        if (this.children[i].hasChildNodes && this.children[i].loaded) {
-            this.children[i].__uncheckAll();
+        if (this.children[i].hasChildNodes() && this.children[i].loaded) {
+            this.children[i].$uncheckAll();
         }
     }
 }
 
-HTMLTreeNodeElement.prototype.__setLines = function () {
+TreeNode.prototype.$setLines = function () {
     /// <summary>设置分支线, 100毫秒后执行</summary>
 
-    if (this.treeView.linesVisible) {
+    if (this.treeView.lines == 'visible') {
         let node = this;
         if (node.parentNode != null && !node.parentNode.expanding && !node.parentNode.expanded) {
-            //未展开的节点不能设置 lines, 在展开后才设置
-            node.parentNode.bind('onExpanded', function () { HTMLTreeNodeElement.__setLines(node); });
+            //未展开的节点不能设置lines, 在展开后才设置
+            node.parentNode.bind('onExpanded', function () { TreeNode.$setLines(node); });
         }
         else {
-            window.setTimeout(function () { HTMLTreeNodeElement.__setLines(node); }, 100);
+            window.setTimeout(function () { TreeNode.$setLines(node); }, 100);
         }
     }
 }
 
-HTMLTreeNodeElement.__setLines = function (node, t) {
+TreeNode.$setLines = function (node, t) {
     /// <summary>设置节点的分支线</summary>
     /// <param name="node" type="TreeNode">节点</param>
     /// <param name="t" type="Boolean">是否遍历子节点</param>
@@ -3779,7 +3918,7 @@ HTMLTreeNodeElement.__setLines = function (node, t) {
 
         if (w <= node.padding * 2) {
             //burl节点单元格中的图片未下载完成, 100毫秒之后再执行, 目前适用于Firefox
-            window.setTimeout(function () { HTMLTreeNodeElement.__setLines(node, t); }, 100);
+            window.setTimeout(function () { TreeNode.$setLines(node, t); }, 100);
         }
         else {
             //下载完成后才计算背景位置
@@ -3808,7 +3947,7 @@ HTMLTreeNodeElement.__setLines = function (node, t) {
                     node.previousSibling.burlImage.parentNode.style.backgroundImage = 'url(' + node.treeView.imagesBaseURL + 'line_3.gif)';
                 }
 
-                HTMLTreeNodeElement.__setChildLines(node.previousSibling);
+                TreeNode.$setChildLines(node.previousSibling);
             }
 
             //Line 1
@@ -3831,92 +3970,92 @@ HTMLTreeNodeElement.__setLines = function (node, t) {
                 }
             }
 
-            //设置间隔中的 lines
+            //设置间隔中的lines
             if (node.spacing > 0) {
-                //HTMLTreeNodeElement.DIV<ROW>.DIV<SPACING>.TABLE
-                HTMLTreeViewElement.__setPaddingOrSpacingLines(node, node.primeDiv.previousElementSibling.firstElementChild);
-                //HTMLTreeViewElement.__setPaddingOrSpacingLines(node, node.childrenDiv.nextElementSibling.firstElementChild);
+                //TreeNode.DIV<ROW>.DIV<SPACING>.TABLE
+                TreeView.$setPaddingOrSpacingLines(node, node.primeDiv.previousElementSibling.firstElementChild);
+                //TreeView.$setPaddingOrSpacingLines(node, node.childrenDiv.nextElementSibling.firstElementChild);
             }
             
 
-            //设置childrenPadding的 lines
+            //设置childrenPadding的lines
             if (node.depth > 1 && node.parentNode.childrenPadding > 0) {
                 if (node.isFirst()) {
-                    //HTMLTreeNodeElement.DIV<ROW>.DIV<CHILDREN>.DIV<CHILDRENPADDING>.TABLE
-                    HTMLTreeViewElement.__setPaddingOrSpacingLines(node, node.primeDiv.parentNode.firstElementChild.firstElementChild);
+                    //TreeNode.DIV<ROW>.DIV<CHILDREN>.DIV<CHILDRENPADDING>.TABLE
+                    TreeView.$setPaddingOrSpacingLines(node, node.primeDiv.parentNode.firstElementChild.firstElementChild);
                 }
 
                 if (node.isLast()) {
-                    HTMLTreeViewElement.__setPaddingOrSpacingLines(node, node.primeDiv.parentNode.lastElementChild.firstElementChild);
+                    TreeView.$setPaddingOrSpacingLines(node, node.primeDiv.parentNode.lastElementChild.firstElementChild);
                 }
             }
 
             //遍历子节点
             if (t) {
-                HTMLTreeNodeElement.__setChildLines(node);
+                TreeNode.$setChildLines(node);
             }
         }
     }
 }
 
 
-HTMLTreeNodeElement.__setChildLines = function (n) {
-    if (n.hasChildNodes && n.loaded && n.childrenDiv.innerHTML != '') {
+TreeNode.$setChildLines = function (n) {
+    if (n.hasChildNodes() && n.loaded && n.childrenDiv.innerHTML != '') {
         for (let i = 0; i < n.children.length; i++) {
-            HTMLTreeNodeElement.__setLines(n.children[i], true);
+            TreeNode.$setLines(n.children[i], true);
         }
     }
 }
 
-HTMLTreeNodeElement.__increment = 0;
-HTMLTreeNodeElement.__parseName = function() {
-    while(document.querySelector('#TreeNode_' + HTMLTreeNodeElement.__increment) != null) {
-        HTMLTreeNodeElement.__increment ++;
+TreeNode.increment = 0;
+TreeNode.$parseName = function() {
+    while($s('#TreeNode_' + TreeNode.increment) != null) {
+        TreeNode.increment++;
     }
-    return 'TreeNode_' + HTMLTreeNodeElement.__increment;
+    return 'TreeNode_' + TreeNode.increment;
 }
 
 /// <summary>TreeNode 私有事件</summary>
 
-//HTMLTreeNodeElement.onExpanded = {};
-//HTMLTreeNodeElement.onCollapsed = {};
-//HTMLTreeNodeElement.onLoaded = {};
-//HTMLTreeNodeElement.onAppended = {};
-//HTMLTreeNodeElement.onInserted = {};
-//HTMLTreeNodeElement.onRemoved = {};
-//HTMLTreeNodeElement.onDropped = {};
-//HTMLTreeNodeElement.onEdited = {};
-//HTMLTreeNodeElement.onCopied = {};
-//HTMLTreeNodeElement.onMoved = {};
-//HTMLTreeNodeElement.onSelected = {};
-//HTMLTreeNodeElement.onUnselected = {};
-//HTMLTreeNodeElement.onChecked = {};
-//HTMLTreeNodeElement.onUnchecked = {};
-//HTMLTreeNodeElement.onNavigate = {};
-//HTMLTreeNodeElement.onBurled = {};
-//HTMLTreeNodeElement.onUnburled = {};
+//TreeNode.onExpanded = {};
+//TreeNode.onCollapsed = {};
+//TreeNode.onLoaded = {};
+//TreeNode.onAppended = {};
+//TreeNode.onInserted = {};
+//TreeNode.onRemoved = {};
+//TreeNode.onDropped = {};
+//TreeNode.onEdited = {};
+//TreeNode.onCopied = {};
+//TreeNode.onMoved = {};
+//TreeNode.onSelected = {};
+//TreeNode.onUnselected = {};
+//TreeNode.onChecked = {};
+//TreeNode.onUnchecked = {};
+//TreeNode.onNavigate = {};
+//TreeNode.onBurled = {};
+//TreeNode.onUnburled = {};
 
 //TreeNode事件为一次性事件
 // eventName -> [eventFunc]
-HTMLTreeNodeElement.prototype.__events = new Object();
+TreeNode.prototype.$events = new Object();
 
-//绑定一次性事件
-HTMLTreeNodeElement.prototype.bind = function(eventName, func) {
-    if (this.__events[eventName] == null) {
-        this.__events[eventName] = [];
+// func 必须
+TreeNode.prototype.bind = function(eventName, func) {
+    if (this.$events[eventName] == null) {
+        this.$events[eventName] = [];
     }
-    this.__events[eventName].push(func);
+    this.$events[eventName].push(func);
 
     return this;
 }
 
 //执行一次性事件
-HTMLTreeNodeElement.prototype.fire = function(eventName, ...args) {
-    if (this.__events[eventName] != null) {
-        for (let i = 0; i < this.__events[eventName].length; i++) {
-            this.__events[eventName][i].call(this, ...args);
+TreeNode.prototype.fire = function(eventName, ...args) {
+    if (this.$events[eventName] != null) {
+        for (let i = 0; i < this.$events[eventName].length; i++) {
+            this.$events[eventName][i].call(this, ...args);
         }
-        this.__events[eventName].length = 0;
+        this.$events[eventName].length = 0;
     }    
 }
 
@@ -3927,7 +4066,7 @@ HTMLTreeNodeElement.prototype.fire = function(eventName, ...args) {
 **********/
 
 /// <value type="TreeNode">剪贴板, 用于 copy 和 move、drag & drop，存储单个节点</value>
-HTMLTreeViewElement.clipBoard = {
+TreeView.clipBoard = {
     treeNode: null, //原始节点
     action: '', //允许值 COPY, MOVE, DRAGCOPY, DRAGMOVE
     $expanding: false, //是否正在展开节点已完成拖放, 在dragend里判断
@@ -3939,14 +4078,14 @@ HTMLTreeViewElement.clipBoard = {
 };
 
 /// <value type="TreeNode">正在激活的TreeView, 用于键盘事件</value>
-HTMLTreeViewElement.__activeTreeView = null;
+TreeView.activeTreeView = null;
 
 /// <value type="Element:DIV">正在激活的拖放线, 只有当某个拖放线激活时才会有值，解决dragLeave时拖放线不隐藏的问题</value>
-HTMLTreeViewElement.__dropLine = null;
+TreeView.$dropLine = null;
 /// <value type="Array" elementType="String:Color">各隐藏颜色</value>
-HTMLTreeViewElement.__dropLineColors = ['#000000', '#33CC33', '#FF0000', '#FF9900', '#9900FF', '#00CCCC', '#99FF00', '#0000FF', '#CC9900', '#FF0099'];
+TreeView.$dropLineColors = ['#000000', '#33CC33', '#FF0000', '#FF9900', '#9900FF', '#00CCCC', '#99FF00', '#0000FF', '#CC9900', '#FF0099'];
 
-HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
+TreeView.$populateDropLine = function (refNode, isLast) {
     /// <summary>装配DropLine元素</summary>
     /// <value name="refNode" type="String">dropLine的参考节点, 一般指下一个</value>
 
@@ -3966,7 +4105,7 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
     //设置paddingTop会增大dropLine的高度
     //dropLine.style.paddingTop = Math.round((height - 1) / 2) + 'px';
     dropLine.setAttribute('parent', refNode.depth > 1 ? refNode.parentNode.name : '');
-    dropLine.setAttribute('color', HTMLTreeViewElement.__dropLineColors[(refNode.depth - 1) % 10]);
+    dropLine.setAttribute('color', TreeView.$dropLineColors[(refNode.depth - 1) % 10]);
 
     //标识线
     line = $create('DIV');
@@ -4001,7 +4140,7 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
     //事件开始
     let tTreeView = refNode.treeView;
     dropLine.ondragover = function (ev) {
-        let originalNode = HTMLTreeViewElement.clipBoard.treeNode;
+        let originalNode = TreeView.clipBoard.treeNode;
 
         //只接受节点拖入
         if (originalNode == null) {
@@ -4022,7 +4161,7 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
         }
 
         //dropChildEnabled 为 false 表示仅排序
-        if (!tHTMLTreeViewElement.dropChildEnabled) {
+        if (!tTreeView.dropChildEnabled) {
             if (tTreeView == oTreeView) {
                 if (parent != '') {
                     if (parent != originalNode.parentNode.name) { droppable = false; }
@@ -4037,7 +4176,7 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
         }
 
         // 根节点间的dropLine不能被放置, 只保留根节点排序
-        if (!tHTMLTreeViewElement.dropRootEnabled) {
+        if (!tTreeView.dropRootEnabled) {
             /*
             当原节点和线都属于同一个树
             当原节点和根节点depth = 1
@@ -4049,15 +4188,15 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
         if (droppable) {
             ev.preventDefault();
 
-            HTMLTreeViewElement.__highlightDropLine(this);
+            TreeView.$highlightDropLine(this);
         }
     }
 
-    dropLine.ondragleave = function (ev) { HTMLTreeViewElement.__restoreDropLine(this); }
+    dropLine.ondragleave = function (ev) { TreeView.$restoreDropLine(this); }
 
     dropLine.ondrop = function (ev) {
         //源节点
-        let originalNode = HTMLTreeViewElement.clipBoard.treeNode;
+        let originalNode = TreeView.clipBoard.treeNode;
         //let oTreeView = originalNode.treeView;
 
         //目标树 tTreeView
@@ -4067,15 +4206,15 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
         let next = this.parentNode.getAttribute('next');
 
         let pNode = null, nNode = null; //previous node & next node
-        if (prev != '') { pNode = tHTMLTreeViewElement.getNodeByName(prev); }
-        if (next != '') { nNode = tHTMLTreeViewElement.getNodeByName(next); }
+        if (prev != '') { pNode = tTreeView.getNodeByName(prev); }
+        if (next != '') { nNode = tTreeView.getNodeByName(next); }
 
         //被拖放的节点, after drop
         //先克隆
         let node = originalNode.clone();
 
         //处理原节点        
-        if (HTMLTreeViewElement.clipBoard.action == 'DRAGMOVE') {
+        if (TreeView.clipBoard.action == 'DRAGMOVE') {
             //删除原节点
             originalNode.remove(false);
         }
@@ -4094,12 +4233,12 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
         else {
             //是根节点
             if (nNode != null) {
-                tHTMLTreeViewElement.insertBefore(node, nNode);
+                tTreeView.insertBefore(node, nNode);
                 node = nNode.previousSibling;
             }
             else {
-                tHTMLTreeViewElement.appendChild(node);
-                node = tHTMLTreeViewElement.lastChild;
+                tTreeView.appendChild(node);
+                node = tTreeView.lastChild;
             }
         }
 
@@ -4107,21 +4246,21 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
         node.select(false);
 
         //执行事件
-        if (HTMLTreeViewElement.clipBoard.action == 'DRAGMOVE') {
-            tHTMLTreeViewElement.execute('onNodeMoved', node);
+        if (TreeView.clipBoard.action == 'DRAGMOVE') {
+            tTreeView.execute('onNodeMoved', node);
         }
-        else if (HTMLTreeViewElement.clipBoard.action == 'DRAGCOPY') {
-            tHTMLTreeViewElement.execute('onNodeCopied', node);
+        else if (TreeView.clipBoard.action == 'DRAGCOPY') {
+            tTreeView.execute('onNodeCopied', node);
         }
         //拖放到DropLine
-        tHTMLTreeViewElement.execute('onNodeDropped', node);
+        tTreeView.execute('onNodeDropped', node);
 
         //结束拖放事件
         ev.preventDefault();
         ev.stopPropagation();
 
         //恢复样式
-        HTMLTreeViewElement.__restoreDropLine(dropLine);
+        TreeView.$restoreDropLine(dropLine);
         //this.lastChild.className = '';
         //this.lastChild.style.backgroundColor = '';
         //this.lastChild.innerHTML = '&nbsp;';
@@ -4133,7 +4272,7 @@ HTMLTreeViewElement.__populateDropLine = function (refNode, isLast) {
     return dropLine;
 }
 
-HTMLTreeViewElement.__highlightDropLine = function (dropLine) {
+TreeView.$highlightDropLine = function (dropLine) {
     /// <summary>将dropLine显示出来</summary>
     /// <value name="dropLine" type="Element:DIV"></value>
 
@@ -4142,14 +4281,14 @@ HTMLTreeViewElement.__highlightDropLine = function (dropLine) {
     //dropLine.lastChild.style.borderBottom = '1px solid ' + dropLine.getAttribute('color');
     dropLine.lastChild.innerHTML = dropLine.style.zIndex;
 
-    HTMLTreeViewElement.__dropLine = dropLine;
+    TreeView.$dropLine = dropLine;
 }
 
-HTMLTreeViewElement.__restoreDropLine = function (dropLine) {
+TreeView.$restoreDropLine = function (dropLine) {
     /// <summary>将dropLine还原成默认样式</summary>
     /// <value name="dropLine" type="Element:DIV"></value>
 
-    if (dropLine == null) { dropLine = HTMLTreeViewElement.__dropLine; }
+    if (dropLine == null) { dropLine = TreeView.$dropLine; }
 
     if (dropLine != null) {
         dropLine.lastChild.className = '';
@@ -4157,11 +4296,11 @@ HTMLTreeViewElement.__restoreDropLine = function (dropLine) {
         //dropLine.lastChild.style.borderBottom = '';
         dropLine.lastChild.innerHTML = '&nbsp;';
 
-        HTMLTreeViewElement.__dropLine = null;
+        TreeView.$dropLine = null;
     }
 }
 
-HTMLTreeViewElement.__populateLinesSpacing = function (refNode) {
+TreeView.$populateLinesSpacing = function (refNode) {
     /// <summary>装配显示间隔Lines的table</summary>
     /// <value name="refNode" type="TreeNode">参考节点</value>
 
@@ -4192,8 +4331,8 @@ HTMLTreeViewElement.__populateLinesSpacing = function (refNode) {
     return table;
 }
 
-HTMLTreeViewElement.__populateChildrenPadding = function (node, l) {
-    /// <summary>当 linesVisible 时, 装配显示ChildNodesPadding Lines的DIV</summary>
+TreeView.$populateChildrenPadding = function (node, l) {
+    /// <summary>当lines == 'visible'为true时, 装配显示ChildNodesPadding Lines的DIV</summary>
     /// <value name="node" type="TreeNode">父级节点</value>
     /// <value name="l" type="String">位置 top 或 bottom</value>
 
@@ -4225,10 +4364,10 @@ HTMLTreeViewElement.__populateChildrenPadding = function (node, l) {
     return div;
 }
 
-HTMLTreeViewElement.__setPaddingOrSpacingLines = function (node, table) {
-    /// <summary>设置ChildNodesPadding或Spacing 的 lines</summary>
+TreeView.$setPaddingOrSpacingLines = function (node, table) {
+    /// <summary>设置ChildNodesPadding或Spacing的lines</summary>
     /// <value name="node" type="TreeNode">参考节点</value>
-    /// <value name="table" type="HTMLTable">显示 lines 的 Table</value>
+    /// <value name="table" type="HTMLTable">显示lines的Table</value>
 
     for (let i = 0; i < table.rows[0].cells.length; i++) {
         table.rows[0].cells[i].style.width = node.tableElement.rows[0].cells[i].offsetWidth + 'px';
@@ -4244,12 +4383,9 @@ HTMLTreeViewElement.__setPaddingOrSpacingLines = function (node, table) {
     }
 }
 
-//window.customElements.define('tree-view', HTMLTreeViewElement);
-//window.customElements.define('tree-node', HTMLTreeNodeElement);
-
-HTMLTreeViewElement.initializeAll = function() {
+TreeView.initializeAll = function() {
     document.querySelectorAll('treeview').forEach(treeView => {
-        new HTMLTreeViewElement(treeView).initialize();        
+        new TreeView(treeView).initialize();
     });
 
     document.body.on('click', function (ev) {
@@ -4261,10 +4397,10 @@ HTMLTreeViewElement.initializeAll = function() {
             target = target.parentNode;
         }
         if (target != null && target.getAttribute('sign') == 'TREEVIEW') {
-            HTMLTreeViewElement.__activeTreeView = document.components.get(target.id);
+            TreeView.activeTreeView = document.components.get(target.id);
         }
         else {
-            HTMLTreeViewElement.__activeTreeView = null;
+            TreeView.activeTreeView = null;
         }
 
         //隐藏 OptionBox:ContextMenu
@@ -4285,10 +4421,10 @@ HTMLTreeViewElement.initializeAll = function() {
 
     //添加键盘事件
     document.body.on('keyup', function (ev) {
-        let treeView = HTMLTreeViewElement.__activeTreeView;
+        let treeView = TreeView.activeTreeView;
         if (treeView != null) {
             //启用了键盘导航, 有节点被选择, 节点被有被编辑
-            if (treeView.keyboardNavigationEnabled && treeView.selectedNode != null && !treeView.selectedNode.editing) {
+            if (treeView.keyboardEnabled && treeView.selectedNode != null && !treeView.selectedNode.editing) {
                 //space 32
                 //←↑→↓ 37,38,39,40
                 //esc 27
@@ -4304,8 +4440,8 @@ HTMLTreeViewElement.initializeAll = function() {
                 let keys = {
                     //Space
                     32: function () {
-                        if (treeView.checkBoxesVisible) {
-                            if (treeNode.checked == $treeNode.checkBox.unchecked) {
+                        if (treeView.checkBoxesVisible != 'NONE') {
+                            if (treeNode.checked == 0) {
                                 treeNode.check();
                             }
                             else {
@@ -4406,5 +4542,5 @@ HTMLTreeViewElement.initializeAll = function() {
 }
 
 document.on('post', function() {
-    HTMLTreeViewElement.initializeAll();
+    TreeView.initializeAll();
 })

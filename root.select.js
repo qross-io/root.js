@@ -102,18 +102,19 @@ class Select {
             _value: '',
 
             _className: '',
+            //for beauty only
             _frameClass: function(value) {
-                return value || this._className;                
-            }, //for beauty only
+                return value ?? this._className;                
+            },
             _labelClass: '', 
             _optionClass: function(value) {
-                return value || Select[this.type].optionClass;
+                return value ?? Select[this.type].optionClass;
             },
             _selectedOptionClass: function(value) {
-                return value || Select[this.type].selectedOptionClass;
+                return value ?? Select[this.type].selectedOptionClass;
             },
             _disabledOptionClass: function(value) {
-                return value || Select[this.type].disabledOptionClass;
+                return value ?? Select[this.type].disabledOptionClass;
             },
             
             requiredText: '',
@@ -674,15 +675,13 @@ Select.prototype.add = function(settingsOrOptionElement) {
         }
         else {
             if (this.selectedIndex > -1) {
-                //$1x(this.options[this.selectedIndex].container).swap(this.options[this.selectedIndex].selectedClass, this.options[this.selectedIndex].className);
-                his.options[this.selectedIndex].container.className = this.options[this.selectedIndex].selectedClass;
+                this.options[this.selectedIndex].container.removeClass(this.options[this.selectedIndex].selectedClass).addClass(this.options[this.selectedIndex].className);
                 this.options[this.selectedIndex]._selected = false;
             }
             this._selectedIndex = option.index;
         }
 
-        //$1x(option.container).swap(option.selectedClass, option.className);
-        option.container.className = option.selectedClass;
+        option.container.removeClass(option.className).addClass(option.selectedClass);
         option.hideAndShow();
     }
     
@@ -967,8 +966,12 @@ class SelectOption {
         if (selected != this._selected || (selected && this._selected && this.select.selectedIndex == -1)) {
 
             if (this.select.multiple) {
-                //$1x(this.container).swap(this.selectedClass, this.className);
-                this.container.className = selected ? this.selectedClass : this.className;
+                if (selected) {
+                    this.container.removeClass(this.selectedClass).addClass(this.className);
+                }
+                else {
+                    this.container.removeClass(this.className).addClass(this.selectedClass);
+                }
                 this._selected = selected;
 
                 if (selected) {
@@ -983,19 +986,16 @@ class SelectOption {
             else {
                 if (selected) {
                     if (this.select._selectedIndex > -1) {
-                        //$1x(this.select.options[this.select.selectedIndex].container).swap(this.select.options[this.select._selectedIndex].selectedClass, this.select.options[this.select._selectedIndex].className);
-                        this.select.options[this.select.selectedIndex].container.className = this.select.options[this.select._selectedIndex].selectedClass;
+                        this.select.options[this.select._selectedIndex].container.removeClass(this.select.options[this.select._selectedIndex].selectedClass).addClass(this.select.options[this.select._selectedIndex].className);
                         this.select.options[this.select._selectedIndex]._selected = false;
                     }        
-                    //$1x(this.container).swap(this.selectedClass, this.className);
-                    this.container.className = this.selectedClass;
+                    this.container.removeClass(this.className).addClass(this.selectedClass);
                     this._selected = true;
 
                     this.hideAndShow();
                 }
                 else {
-                    //$1x(this.container).swap(this.selectedClass, this.className);
-                    this.container.className = this.className;
+                    this.container.removeClass(this.selectedClass).addClass(this.className);
                     this._selected = false;
                 }
 

@@ -58,7 +58,7 @@ Object.defineProperties(HTMLElement.prototype, {
         },
         set(icon) {
             let content = '';
-            if (/\.(jpg|jpeg|png|gif)$/i.test(icon)) {
+            if (icon.isImageURL()) {
                 content = `<img src="${icon}" align="absmiddle" /> `;
             }
             else {
@@ -280,6 +280,16 @@ HTMLElement.prototype.setClass = function (className) {
     return this;
 }
 
+HTMLElement.prototype.removeClass = function(className) {
+    this.classList.remove(className);
+    return this;
+}
+
+HTMLElement.prototype.addClass = function(className) {
+    this.classList.add(className);
+    return this;
+}
+
 HTMLElement.prototype.setIcon = function(icon) {
     this.icon = icon;
     return this;
@@ -413,7 +423,6 @@ HTMLElement.prototype.bind = function(eventName, func, useCapture = false, attac
 //native 是否强制绑定原生事件
 HTMLElement.prototype.on = function (eventNames, func, native = false) {
     eventNames.split(',').forEach(eventName => {
-
         let extended = false;
         if (!native) {
             if (eventName.includes('-') || eventName.includes('+')) {
@@ -1303,6 +1312,10 @@ String.prototype.isDateString = function() {
 
 String.prototype.isTimeString = function() {
     return /^\d\d\d\d:\d\d(:\d\d)?$/.test(this.toString());
+}
+
+String.prototype.isImageURL = function() {
+    return /\.(jpg|png|gif|jpeg)$/i.test(this.toString());
 }
 
 String.prototype.encode = function() {
@@ -2843,15 +2856,16 @@ $transfer = function(source, target) {
         });
 }
 
-$initialize = function(object) {
-    return new CustomElement(object);
+$initialize = function(object, child = false) {
+    return new CustomElement(object, child);
 }
 
-CustomElement = function(object) {
+CustomElement = function(object, child = false) {
     this.carrier = null;
     this.object = object;
     this.isElement = false;
     this.$burn = false;
+    this.child = child;
 
     this.object['nodeName'] = object.constructor != null ? (object.constructor.name != null ? object.constructor.name.toUpperCase() : 'UNKONWN') : 'UNKONWN';
     this.object['tagName'] = this.object['nodeName'];
@@ -3008,17 +3022,19 @@ CustomElement.prototype.declare = function(variables) {
         }
     }
 
-    this.object.on = function (eventName, func) {
-        Event.bind(this, eventName, func);
-        return this;
-    }
-    
-    this.object.execute = function (eventName, ...args) {
-        return Event.execute(this, eventName, ...args);
-    }
-    
-    if (this.object.name != '') {
-        document.components.set(this.object.name, this.object);
+    if (!this.child) {
+        this.object.on = function (eventName, func) {
+            Event.bind(this, eventName, func);
+            return this;
+        }
+        
+        this.object.execute = function (eventName, ...args) {
+            return Event.execute(this, eventName, ...args);
+        }
+        
+        if (this.object.name != '') {
+            document.components.set(this.object.name, this.object);
+        }
     }
 
     return this;
