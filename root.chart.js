@@ -157,7 +157,7 @@ class Serie {
 
 
 Chart.initializeAll = function() {
-    $n('chart').forEach(chart => {
+    document.querySelectorAll('chart').forEach(chart => {
         new Chart(chart).load();
     });
 }

@@ -1,4 +1,4 @@
-var $configuration = {
+window.localStorage.setItem('$root.configuration', JSON.stringify({
     "debug": false,
     "ajax": {
         "/api/": {
@@ -6,5 +6,7 @@ var $configuration = {
             "info": "/message",
             "path": "/data"
         }
-    }
-}
+    },
+    "singleSelector": '$',
+    "multipleSelector": '$$'
+}));

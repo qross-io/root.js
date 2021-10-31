@@ -125,7 +125,7 @@ HTMLAnchorElement.prototype.initialize = function() {
 }
 
 HTMLAnchorElement.initializeAll = function(container) {
-    for (let a of $n(container, 'a')) {
+    for (let a of (container ?? document).querySelectorAll('a')) {
         if (!a.hasAttribute('root-anchor')) {
             a.setAttribute('root-anchor', '');
             window.Model?.boostPropertyValue(a);            

@@ -119,7 +119,7 @@ $enhance(HTMLInputElement.prototype)
                 return value;
             },
             set (value) {
-                if (this.setter != null) {            
+                if (this.setter != null) {
                     value = function(exp, value) { return eval(exp); }.call(this, this.setter, value);
                 }
                 HTMLInputElement.valueDescriptor.set.call(this, value);
@@ -972,7 +972,7 @@ HTMLInputElement.Key = {
 };
 
 HTMLInputElement.initializeAll = function(container) {
-    $n(container, 'INPUT').forEach(input => {
+    (container ?? document).querySelectorAll('INPUT').forEach(input => {
         if (!input.hasAttribute('root-input')) {
             input.setAttribute('root-input', '');
             window.Model?.boostPropertyValue(input);            

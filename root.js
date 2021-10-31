@@ -1347,6 +1347,32 @@ String.prototype.toJson = function() {
     return new Json(this.toString());
 }
 
+String.prototype.shuffle = function(digit) {
+    let p = [];
+    if (digit == null) {
+        let s = new Set();
+        for (let i = 0; i < this.length; ) {
+            let x = $random(0, this.length - 1);
+            if (!s.has(x)) {
+                s.add(x);
+                p.push(this[x]);
+                i++;
+            }
+        }
+    }
+    else {
+        for (let i = 0; i < digit; i++) {
+            p.push(this[$random(0, this.length - 1)]);
+        }
+    }
+
+    return p.join('');
+}
+
+String.shuffle = function(digit = 7) {
+    return "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".shuffle(digit);    
+}
+
 Number.prototype.kilo = function() {
     let number = this.toString();
     number = number.replace(/,/g, '');
@@ -1513,16 +1539,7 @@ $root.home = function () {
 }();
 
 $root.images = $root.home + 'images/';
-
-if (window['$configuration'] == null) {
-    var $configuration = window.localStorage.getItem('root.configuration');
-}
-else if (window.localStorage.getItem('root.configuration') == null) {
-    window.localStorage.setItem('root.configuration', JSON.stringify($configuration));
-}
-if (window['$configuration'] != null && typeof($configuration) == 'string') {
-    $configuration = JSON.parse($configuration);
-}
+$root.configuration = JSON.parse(window.localStorage.getItem('$root.configuration'));
 
 $parseString = function(value, defaultValue = '') {
     if (typeof (value) == 'string') {
@@ -1685,17 +1702,8 @@ $random = function(begin, end) {
     return begin + Math.round(Math.random() * (end - begin));
 }
 
-$shuffle = function(digit = 7) {
-    let str = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    let pwd = '';
-    for (let i = 0; i < digit; i++) {
-        pwd += str.substr($random(0, 61), 1);
-    }
-    return pwd;
-}
-
 $guid = function() {
-    return new Date().valueOf() + '-' + $shuffle(10);
+    return new Date().valueOf() + '-' + String.shuffle(11);
 }
 
 $data = function(t, data) {
@@ -1796,6 +1804,28 @@ $a = function (...o) {
     return s;
 }
 
+if ($root.configuration != null) {
+    if ($root.configuration.singleSelector == '$') {
+        $_ = window.$;
+    }
+    if ($root.configuration.singleSelector != null && $root.configuration.singleSelector != '' && $root.configuration.singleSelector != '$s') {
+        window[$root.configuration.singleSelector] = $s;
+    }
+    if ($root.configuration.multipleSelector == '$$') {
+        $$_ = window.$$;
+    }
+    if ($root.configuration.multipleSelector != null && $root.configuration.multipleSelector != '' && $root.configuration.singleSelector != '$a') {
+        window[$root.configuration.multipleSelector] = $a;
+    }    
+}
+else {
+    $_ = window.$;
+    $$_ = window.$$;
+    window.$ = $s;
+    window.$$ = $a;
+}
+
+
 //first visible
 $v = function(o) {
     if (o.includes(',')) {
@@ -1817,22 +1847,6 @@ $v = function(o) {
     }
     else {
         return $s(o);
-    }
-}
-
-//native
-$n = function(container, tag) {
-    if (container == null) {
-        return document.querySelectorAll(tag);
-    }
-    else if (tag == null) {
-        return document.querySelectorAll(container);
-    }
-    else if (typeof (container) == 'string') {
-        return document.querySelectorAll(container + ' ' + tag);
-    }
-    else {
-        return container.querySelectorAll(tag);
     }
 }
 
@@ -2064,10 +2078,10 @@ $ajax = function (method, url, params = '', path = '/', element = null, p = true
 }
 
 $ajax.match = function(url) {
-    if (window['$configuration'] != null) {
-        for (let pattern in $configuration.ajax) {
+    if ($root.configuration != null) {
+        for (let pattern in $root.configuration.ajax) {
             if (url.includes(pattern) || new RegExp(pattern, 'i').test(url)) {
-                return $configuration.ajax[pattern];
+                return $root.configuration.ajax[pattern];
             }
         }
     }

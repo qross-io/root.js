@@ -550,7 +550,7 @@ HTMLButtonElement.observe = function() {
 }
 
 HTMLButtonElement.initializeAll = function(container) {
-    for (let button of $n(container, 'button')) {
+    for (let button of (container ?? document).querySelectorAll('button')) {
         // root 设置为 button 表示组件已初始化
         if (!button.hasAttribute('root-button')) {
             button.setAttribute('root-button', '');            

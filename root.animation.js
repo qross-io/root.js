@@ -121,7 +121,7 @@ Animation.Entity.prototype.play = function (ev) {
         //检查head中有没有样式单<style>
 
         if (this.element.id == '') {
-            this.element.id = 'animation_object_' + $shuffle(11);
+            this.element.id = 'animation_object_' + String.shuffle(11);
         }
         
         if (document.getElementById('__AnimationStyleSheet_' + this.element.id) != null) {

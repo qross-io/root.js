@@ -818,7 +818,7 @@ HTMLTreeViewElement.prototype.expandTo = function (depth) {
     /// <param name="depth" type="integer">展开到指定的深度</param>
     if (depth > 1) {
         if (this.firstChild != null) {
-            this.firstChild.$expandTo(depth); 
+            this.firstChild.__expandTo(depth); 
         }
     }
     else if (depth == 0) {
@@ -1365,7 +1365,7 @@ class HTMLTreeNodeElement {
 
     set icon(icon) {
         this.$icon = icon;
-        this.iconCell.style.display = icon == '' ? 'none' : '';
+        this.iconCell.hidden = (icon == '');
         if (icon.isImageURL()) {
             if (this.iconCell.querySelector('IMG') != null) {
                 this.iconCell.querySelector('IMG').src = icon;
@@ -1374,6 +1374,9 @@ class HTMLTreeNodeElement {
                 this.iconCell.innerHTML = '';    
                 this.iconCell.appendChild($create('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseURL + icon }));
             }
+        }
+        else if (icon.startsWith('icon-')) {
+            this.iconCell.innerHTML = '<i class="iconfont ' + icon + '"></i>';
         }
         else {
             this.iconCell.innerHTML = '';
@@ -1396,6 +1399,9 @@ class HTMLTreeNodeElement {
                     this.iconCell.innerHTML = '';    
                     this.iconCell.appendChild($create('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseURL + icon }));
                 }
+            }
+            else if (icon.startsWith('icon-')) {
+                this.iconCell.innerHTML = '<i class="iconfont ' + icon + '"></i>';
             }
             else {
                 this.iconCell.innerHTML = '';
@@ -1667,12 +1673,13 @@ HTMLTreeNodeElement.prototype.populate = function() {
         tr.appendChild(td);
     }
 
-    //icon
-    //&& this.icon != ''
-    // iconsVisible
+    // icon
     td = $create('TD', { align: 'center', className: this.iconClass }, { display: this.treeView.iconsVisible && this.icon != '' ? '' : 'none' }, { 'sign': 'ICON' });
     if (this.icon.isImageURL()) {
-        td.appendChild($create('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseURL + this.icon }));
+        td.insertBeforeEnd('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseURL + this.icon });
+    }
+    else if (this.icon.startsWith('icon-')) {
+        td.insertBeforeEnd('I', { className: 'iconfont ' + this.icon });
     }
     else {
         td.innerHTML = this.icon;
@@ -2184,8 +2191,11 @@ HTMLTreeNodeElement.prototype.expand = function (triggerEvent) {
         
         //icon
         if (this.treeView.iconsVisible && this.expandedIcon != '') {
-            if (this.icon.isImageURL()) {
+            if (this.expandedIcon.isImageURL()) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseURL + this.expandedIcon;
+            }
+            else if (this.expandedIcon.startsWith('icon-')) {
+                this.iconCell.innerHTML = '<i class="iconfont ' + this.expandedIcon + '"></i>';
             }
             else {
                 this.iconCell.innerHTML = this.expandedIcon;
@@ -2229,6 +2239,9 @@ HTMLTreeNodeElement.prototype.collapse = function (triggerEvent) {
         if (this.treeView.iconsVisible && this.expandedIcon != '' && this.icon != '') {
             if (this.icon.isImageURL()) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseURL + this.icon;
+            }
+            else if (this.icon.startsWith('icon-')) {
+                this.iconCell.innerHTML = '<i class="iconfont ' + this.icon + '"></i>';
             }
             else {
                 this.iconCell.innerHTML = this.icon;
@@ -2444,7 +2457,7 @@ HTMLTreeNodeElement.prototype.uncheck = function (triggerEvent) {
     //this.execute('onUnChecked');
 }
 
-HTMLTreeNodeElement.prototype.navigate = function () {
+HTMLTreeNodeElement.prototype.navigate = function() {
     /// <summary>打开节点链接</summary>
 
     if (this.link != '' && this.link.indexOf('javascript:') == -1) {
@@ -2465,7 +2478,7 @@ HTMLTreeNodeElement.prototype.navigate = function () {
     }
 }
 
-HTMLTreeNodeElement.prototype.getAttribute = function (attr) {
+HTMLTreeNodeElement.prototype.getAttribute = function(attr) {
     /// <summary>得到自定义的属性值</summary>
     if (this[attr] !== undefined) {
         return this[attr];
@@ -2475,7 +2488,7 @@ HTMLTreeNodeElement.prototype.getAttribute = function (attr) {
     }    
 }
 
-HTMLTreeNodeElement.prototype.setAttribute = function (attr, value) {
+HTMLTreeNodeElement.prototype.setAttribute = function(attr, value) {
     /// <summary>设置自定义的属性值</summary>    
     this.attributes[attr.toLowerCase()] = value;
 }
@@ -2523,7 +2536,7 @@ HTMLTreeNodeElement.prototype.__removeChildElements = function(child) {
     }
 }
 
-HTMLTreeNodeElement.prototype.appendChild = function (treeNode, editing) {
+HTMLTreeNodeElement.prototype.appendChild = function(treeNode, editing) {
     /// <summary>添加子节点</summary>
 
     if (!(treeNode instanceof HTMLTreeNodeElement)) {
@@ -2707,7 +2720,7 @@ HTMLTreeNodeElement.prototype.insertElementFront = function(element) {
     }
 }
 
-HTMLTreeNodeElement.prototype.insertBefore = function (treeNode, referenceNode) {
+HTMLTreeNodeElement.prototype.insertBefore = function(treeNode, referenceNode) {
     /// <summary>在referenceNode之前插入节点</summary>
     /// <param name="treeNode" type="TreeNode">要添加的节点</param>
     /// <param name="referenceNode" type="TreeNode">参考节点</param>
@@ -2802,7 +2815,7 @@ HTMLTreeNodeElement.prototype.insertElementBefore = function(element, referenceN
     (referenceNode.capDiv || referenceNode.primeDiv).insertBeforeBegin(element);    
 }
 
-HTMLTreeNodeElement.prototype.insertAfter = function (treeNode, referenceNode) {
+HTMLTreeNodeElement.prototype.insertAfter = function(treeNode, referenceNode) {
     if (referenceNode.nextSibling != null) {
         this.insertBefore(treeNode, referenceNode.nextSibling);
     }
@@ -3547,16 +3560,16 @@ HTMLTreeNodeElement.prototype.__expandTo = function (depth) {
 
     if (depth > this.depth && this.hasChildNodes) {
         if (this.expanded) {
-            this.firstChild.$expandTo(depth);
+            this.firstChild.__expandTo(depth);
         }
         else {
             this.bind('onExpanded',
                 function () {
                     if (this.firstChild != null) {
-                        this.firstChild.$expandTo(depth);
+                        this.firstChild.__expandTo(depth);
                     }
                     else {
-                        this.$expandTo(depth);
+                        this.__expandTo(depth);
                     }
                 }
             );
@@ -3578,7 +3591,7 @@ HTMLTreeNodeElement.prototype.__expandTo = function (depth) {
 
         if (node != null) {
             node = node.nextSibling;
-            node.$expandTo(depth);
+            node.__expandTo(depth);
         }
         else {
             if (!this.treeView.loaded) {
@@ -4160,7 +4173,7 @@ HTMLTreeViewElement.__restoreDropLine = function (dropLine) {
         HTMLTreeViewElement.__dropLine = null;
     }
 }
-
+ 
 HTMLTreeViewElement.__populateLinesSpacing = function (refNode) {
     /// <summary>装配显示间隔Lines的table</summary>
     /// <value name="refNode" type="TreeNode">参考节点</value>
