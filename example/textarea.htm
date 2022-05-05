@@ -7,16 +7,15 @@
     <script type="text/javascript" src="/root.animation.js"></script>    
     <script type="text/javascript" src="/root.datetimepicker.js"></script>
     <script type="text/javascript" src="/root.input.js"></script>
+    <script type="text/javascript" src="/root.textarea.js"></script>
     <script type="text/javascript" src="/root.select.js"></script>
-    <script type="text/javascript" src="/root.button.js"></script>    
+    <script type="text/javascript" src="/root.button.js"></script>
     <script type="text/javascript" src="/root.datetime.js"></script>
     <script type="text/javascript" src="/root.calendar.js"></script>
     <script type="text/javascript" src="/root.clock.js"></script>
     <script type="text/javascript" src="/root.anchor.js"></script>
-    <script type="text/javascript" src="/root.dialog.js"></script>
-    <script type="text/javascript" src="/root.callout.js"></script>
     <script type="text/javascript" src="/root.popup.js"></script>
-    <script type="text/javascript" src="/root.coder.js"></script>
+    <script type="text/javascript" src="/root.coder.js"></script>    
     <script type="text/javascript" src="/coder/codemirror.js"></script>
     <script type="text/javascript" src="/coder/javascript.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
@@ -27,6 +26,7 @@
     <link href="/coder/codemirror.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/coder.css" rel="stylesheet" type="text/css" />
     <style type="text/css">
+    #T::selection { background-color: #FFFF00; color: #FF0000; }
     </style>
 </head>
 <body style="padding: 50px;">
@@ -37,6 +37,44 @@
    <select id="Select1" type="radio" onchange+="hello world 2021" onchange-="reload:#Select2"></select>
 
    onchange="reload: #Select2; hide: #Select1; show: #Select3;"
+
+    <textarea id="T" rows="12" cols="100">
+        if (this.setSelectionRange != null) {
+            //IE 9+, Firefox, Chrome, Safari
+            this.setSelectionRange(this.value.length, this.value.length);
+        }
+        else if (this.createTextRange != null) {
+            //IE 8-
+            let r = this.createTextRange();
+            r.moveStart('character', this.value.length);
+            r.collapse(true);
+            r.select();
+        }     
+        if (this.setSelectionRange != null) {
+            //IE 9+, Firefox, Chrome, Safari
+            this.setSelectionRange(this.value.length, this.value.length);
+        }
+        else if (this.createTextRange != null) {
+            //IE 8-
+            let r = this.createTextRange();
+            r.moveStart('character', this.value.length);
+            r.collapse(true);
+            r.select();
+        } 
+        if (this.setSelectionRange != null) {
+            //IE 9+, Firefox, Chrome, Safari
+            this.setSelectionRange(this.value.length, this.value.length);
+        }
+        else if (this.createTextRange != null) {
+            //IE 8-
+            let r = this.createTextRange();
+            r.moveStart('character', this.value.length);
+            r.collapse(true);
+            r.select();
+        }   
+    </textarea>
+    <input id="P" type="text" value="IE" />
+    <button onclick="$('#T').find($('#P').value)">Match</button>
 
    <script type="text/javascript">
    function xxx(...a) {
@@ -49,7 +87,11 @@
        });
    }
 
-   xxx(1, 2, 3);
+   $('#T').focus();
+   //$('#T').setSelectionRange(20, 20);
+   $('#T').setCursorPosition(100000);
+   $('#T').scrollTop = $('#T').scrollHeight;
+
    </script>
 </body>
 </html>

@@ -49,20 +49,6 @@ $enhance(HTMLTableElement.prototype)
         terminal: 'false',
         meet: null,
 
-        onrowhover: null, //function(row) { },
-        onrowleave: null, //function(row) { },
-        onrowfocus: null, //function(row) { },
-        onrowblur: null, //function(row) { },
-        onrowdblclick: null, //function(row) { },
-        onrowdelete: null, //function(row) { },
-        onload: null, //function() { },
-        onreload: null, //function() { },
-        onmeet: null,
-        onmiss: null,
-        onfilter: null, //function() {},
-        onsort: null, //function() {},
-        onfiltercancel: null, //function() {}
-
         successText: '',
         failureText: '',
         exceptionText: '',
@@ -71,7 +57,21 @@ $enhance(HTMLTableElement.prototype)
         reloadOnFilter: false,
         reloadOnSort: false
     })
-    .extend('onrowdblclick+')
+    .extend('onrowdblclick+',
+        onrowhover, //function(row) { },
+        onrowleave, //function(row) { },
+        onrowfocus, //function(row) { },
+        onrowblur, //function(row) { },
+        onrowdblclick, //function(row) { },
+        onrowdelete, //function(row) { },
+        onload, //function() { },
+        onreload, //function() { },
+        onmeet,
+        onmiss,
+        onfilter, //function() {},
+        onsort, //function() {},
+        onfiltercancel //function() {}
+    )
     .define({
         'value': {
             get () {            
@@ -358,7 +358,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
             let ficn = $create('I', { className: 'iconfont icon-filter f14' }, { marginLeft: '5px', marginTop: '2px' });
             let sicn = $create('I', { className: 'iconfont icon-sousuo f14' }, { marginLeft: '-20px', marginTop: '2px' });
             let cicn = $create('I', { className: 'iconfont icon-quxiao f14' }, { marginLeft: '5px', marginTop: '2px' });
-            let input = $create('INPUT', { value: th.getAttribute('filter') != null ? th.getAttribute('filter') : '', size: th.textContent.$length(4) }, { borderWidth: '0px', fontWeight: 'inherit', backgroundColor: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', color: '#666666', padding: '4px' });
+            let input = $create('INPUT', { value: th.getAttribute('filter') != null ? th.getAttribute('filter') : '', size: th.textContent.unicodeLength.max(4) }, { borderWidth: '0px', fontWeight: 'inherit', backgroundColor: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', color: '#666666', padding: '4px' });
 
             th.title = th.textContent;
             th.appendChild(ficn);
@@ -371,7 +371,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                     this.blur();
                 }
                 else {
-                    this.size = this.value.$length(4);
+                    this.size = this.value.unicodeLength.max(4);
                 }
             }
 

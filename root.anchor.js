@@ -1,4 +1,3 @@
-//链接扩展
 
 $enhance(HTMLAnchorElement.prototype)
     .declare({        
@@ -9,10 +8,7 @@ $enhance(HTMLAnchorElement.prototype)
 
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
-        exceptionText: '', //请求发生错误的提醒文字
-
-        callout: null,
-        message: null        
+        exceptionText: '' //请求发生错误的提醒文字
     })
     .extend('onclick+')
     .define({
@@ -26,15 +22,31 @@ $enhance(HTMLAnchorElement.prototype)
                 }
             }
         },
+        'calloutPosition': {
+            get() {
+                return this.getAttribute('callout-position') ?? this.getAttribute('calloutPosition') ?? this.getAttribute('callout');
+            },
+            set(position) {
+                this.setAttribute('callout-position', position);
+            }
+        },
+        'messageDuration': {
+            get() {
+                return this.getAttribute('message-duration') ?? this.getAttribute('messageDuration') ?? this.getAttribute('message');
+            },
+            set(duration) {
+                this.setAttribute('message-duration', duration);
+            }
+        },
         'hintText': {
             set (text) {
                 if (text != '') {
-                    if (this.callout != null) {                        
-                        Callout(text).position(this, this.callout).show();
+                    if (this.calloutPosition != null || this.messageDuration == null) {                        
+                        Callout(text).position(this, this.calloutPosition).show();
                     }
 
-                    if (this.message != null) {
-                        window.Message?.[this.status == 'success' ? 'green' : 'red'](text).show(this.message.toFloat(0));
+                    if (this.messageDuration != null) {
+                        window.Message?.[this.status == 'success' ? 'green' : 'red'](text).show(this.messageDuration.toFloat(0));
                     }
                 }                
             }
@@ -121,7 +133,7 @@ HTMLAnchorElement.prototype.initialize = function() {
         }        
     });
 
-    Event.interact(this, this);
+    HTMLElement.interactEvents(this);
 }
 
 HTMLAnchorElement.initializeAll = function(container) {
@@ -129,14 +141,14 @@ HTMLAnchorElement.initializeAll = function(container) {
         if (!a.hasAttribute('root-anchor')) {
             a.setAttribute('root-anchor', '');
             window.Model?.boostPropertyValue(a);            
-            if (a.getAttribute('onclick+') != null) {
+            if (a.hasAttribute('onclick+')) {
                 a.initialize();
             }
-            else if (a.getAttribute('onclick-') != null) {
+            else if (a.hasAttribute('onclick-')) {
                 if (a.href == '') {
                     a.href = 'javascript:void(0)';
                 }
-                Event.interact(a, a);
+                HTMLElement.interactEvents(a);
             }
         }
     }

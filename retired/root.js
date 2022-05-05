@@ -1180,7 +1180,7 @@ $TAKE = function(data, element, owner, func) {
                 func.call(eval(data), js);
             }
             catch (e) {
-                console.err('Unreconized data property: ' + data + '. Exeption: ' + e.message);
+                console.error('Unreconized data property: ' + data + '. Exeption: ' + e.message);
                 func.call(owner, data);
             }            
         }
@@ -1602,6 +1602,10 @@ $cookie.has = function(n) {
     return $cookie.s[n] != null;
 }
 $cookie();
+
+Object.prototype.log = function() {
+    console.log(this);
+}
 
 String.prototype.$trim = function(char = '', char2 = '') {
     if (this != null) {
@@ -2037,7 +2041,7 @@ String.prototype.toBoolean = function(defaultValue = false, object = null) {
             }
         }
         catch (e) {
-            console.err('Wrong test expression: ' + test + '. Exception: ' + e.message);
+            console.error('Wrong test expression: ' + test + '. Exception: ' + e.message);
             value = defaultValue;
         }
     }
@@ -3448,7 +3452,7 @@ $Settings.prototype.get = function(attr) {
                 //class需要从原生属性className获取
                 else if (this.carrier[attr] != undefined) {
                     //排除掉有问题的项
-                    if (!'selectedIndex,draggable'.$includes(attr)) {
+                    if (!'selectedIndex,draggable'.includes(attr)) {
                         value = this.carrier[attr];
                     }
                 }

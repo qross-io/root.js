@@ -2980,7 +2980,7 @@ HTMLTreeNodeElement.prototype.edit = function () {
             }
 
             let treeNode = this;
-            let input = $create('INPUT', { type: 'text', className: this.editingBoxClass, value: this.text, defaultValue: this.text, size: this.text.$length() + 2 });
+            let input = $create('INPUT', { type: 'text', className: this.editingBoxClass, value: this.text, defaultValue: this.text, size: this.text.unicodeLength + 2 });
             input.onkeyup = function (ev) {
                 if (ev.keyCode == 27) {
                     //恢复
@@ -2999,7 +2999,7 @@ HTMLTreeNodeElement.prototype.edit = function () {
                     return false;
                 }
                 else {
-                    this.size = this.value.$length() + 1;
+                    this.size = this.value.unicodeLength + 1;
                 }
             }
             input.onfocus = function () {

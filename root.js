@@ -12,24 +12,98 @@ Object.defineProperties(HTMLElement.prototype, {
                 visible = $parseBoolean(visible, true, this);
             }
             this.hidden = !visible;
-
-            if (visible) {
-                if (this.style.display == 'none') {
-                    this.style.display = '';
-                }                
+        }
+    },
+    'hidden': {
+        get() {
+            return $parseBoolean(this.getAttribute('hidden') ?? false) || this.css.display == 'none' || this.css.visibility == 'hidden' || this.css.opacity == '0';
+        },
+        set(hidden) {
+            if (typeof(hidden) != 'boolean') {
+                hidden = $parseBoolean(hidden, true, this);
             }
-            
+            if (hidden) {
+                this.setAttribute('hidden', '');
+                if (this.style.display == 'none' || this.css.display == 'none') {
+                    //do nothing
+                }
+                else if (this.style.display != '') {
+                    this.setAttribute('style-display', this.style.display);
+                    this.style.display = 'none';
+                }
+                else if (this.css.display != '') {
+                    this.setAttribute('inbox-display', '');
+                    this.style.display = 'none';
+                }
+
+                if (this.hasAttribute('style-visibility')) {
+                    this.removeAttribute('style-visibility');
+                    this.style.visibility = 'hidden';
+                }
+                else if (this.hasAttribute('inbox-visibility')) {
+                    this.removeAttribute('inbox-visibility');
+                    this.style.visibility = '';
+                }
+
+                if (this.hasAttribute('style-opacity')) {
+                    this.removeAttribute('style-opacity');
+                    this.style.opacity = 0;
+                }
+                else if (this.hasAttribute('inbox-opacity')) {
+                    this.removeAttribute('inbox-opacity');
+                    this.style.opacity = '';
+                }
+            }
+            else {
+                this.removeAttribute('hidden');
+                if (this.hasAttribute('style-display')) {
+                    this.style.display = this.getAttribute('style-display');
+                    this.removeAttribute('style-display');
+                }
+                else if (this.hasAttribute('inbox-display')) {
+                    this.style.display = '';
+                    this.removeAttribute('inbox-display');
+                }
+                else if (this.style.display == 'none' || this.css.display == 'none') {
+                    this.style.display = '';
+                }
+
+                if (this.style.visibility == 'hidden') {
+                    this.setAttribute('style-visibility', '');
+                    this.style.visibility = 'visible';
+                }
+                else if (this.css.visibility == 'hidden') {
+                    this.setAttribute('inbox-visibility', '');
+                    this.style.visibility = 'visible';
+                }
+
+                if (this.style.opacity == '0') {
+                    this.setAttribute('style-opacity', '');
+                    this.style.opacity = 1;
+                }
+                else if (this.css.opacity == '0') {
+                    this.setAttribute('inbox-opacity', '');
+                    this.style.opacity = 1;
+                }
+            }
+
             if (this.hasAttribute('relative')) {
-                $a(this.getAttribute('relative')).forEach(e => e.visible = visbile);
+                $a(this.getAttribute('relative')).forEach(e => e.hidden = hidden);
             }
         }
     },
     'text': {
         get() {
-            return this.textContent;
+            return this.$('text')?.textContent ?? this.textContent;
         },
         set(text) {
-            this.textContent = text;
+            let t = this.$('text');
+            if (t != null) {
+                t.textContent = text;
+            }
+            else {
+                this.textContent = text;
+            }            
         }
     },
     'html': {
@@ -139,6 +213,37 @@ Object.defineProperties(HTMLElement.prototype, {
         set(height) {
             this.style.height = height + 'px';
         }
+    },
+    'css': {
+        get() {
+            return window.getComputedStyle(this);
+        }
+    },
+    'customEvents': {
+        // eventName -> eventFunc
+        get() {
+            if (this['#customEvents'] == null) {
+                this['#customEvents'] = new Map();
+            }
+            return this['#customEvents'];
+        }
+    },
+    'eventListeners': {
+        // eventName -> eventFunc
+        get() {
+            if (this['#eventListeners'] == null) {
+                this['#eventListeners'] = new Map();
+            }
+            return this['#eventListeners'];
+        }
+    },
+    'debug': {
+        get() {
+            return $parseBoolean(this.getAttribute('debug'), false);
+        },
+        set (debug) {
+            ths.setAttribute('debug', debug);
+        }
     }
 });
 
@@ -177,12 +282,12 @@ HTMLElement.prototype.insertBeforeEnd = function(element, properties, styles, at
     return this.insertAdjacent('beforeEnd', element, properties, styles, attributes);
 }
 
-HTMLElement.prototype.select = function(o) {
+HTMLElement.prototype.$ = function(o) {
     return this.querySelector(o);
 }
 
-HTMLElement.prototype.selectAll = function(o) {
-    return [...this.querySelectorAll(o)];
+HTMLElement.prototype.$$ = function(o) {
+    return this.querySelectorAll(o);
 }
 
 HTMLElement.prototype.get = function(attr) {
@@ -271,12 +376,14 @@ HTMLElement.prototype.setHTML = function (html) {
 }
 
 HTMLElement.prototype.setText = function (text) {
-    this.textContent = text;
+    this.text = text;
     return this;
 }
 
 HTMLElement.prototype.setClass = function (className) {
-    this.className = className;
+    if (className != '.') {
+        this.className = className;
+    }    
     return this;
 }
 
@@ -336,14 +443,25 @@ HTMLElement.prototype.do = function(exp) {
     return this;
 }
 
+HTMLElement.prototype.if = function(exp) {
+    let result = exp;
+    if (typeof(exp) == 'string') {
+        result = eval('result = function() {return ' + exp + '}').call(this);
+    }
+    else if (typeof(exp) == 'function') {
+        result = exp.call(this, this);
+    }
+    return result ? this : null;
+}
+
 HTMLElement.prototype.upside = function(reference, offsetX = 0, offsetY = 0, align = 'center') {
     let top = reference.top - this.height + offsetY;
     let left = reference.left + offsetX;
     if (align == 'center') {
-        left += reference.width / 2 - this.width / 2;
+        left += reference.offsetWidth / 2 - this.width / 2;
     }
     else if (align == 'right') {
-        left += reference.width - this.width;
+        left += reference.offsetWidth - this.width;
     }
 
     if (left + this.width > $root.documentWidth) {
@@ -357,13 +475,13 @@ HTMLElement.prototype.upside = function(reference, offsetX = 0, offsetY = 0, ali
 }
 
 HTMLElement.prototype.downside = function(reference, offsetX = 0, offsetY = 0, align = 'center') {
-    let top = reference.top + reference.height + offsetY;
+    let top = reference.top + reference.offsetHeight + offsetY;
     let left = reference.left + offsetX;
     if (align == 'center') {
-        left += reference.width / 2 - this.width / 2;
+        left += reference.offsetWidth / 2 - this.width / 2;
     }
     else if (align == 'right') {
-        left += reference.width - this.width;
+        left += reference.offsetWidth - this.width;
     }
 
     if (left + this.width > $root.documentWidth) {
@@ -378,25 +496,25 @@ HTMLElement.prototype.downside = function(reference, offsetX = 0, offsetY = 0, a
 
 HTMLElement.prototype.leftside = function(reference, offsetX = 0, offsetY = 0) {
     this.left = reference.left - this.width + offsetX - 12;
-    this.top = reference.top + reference.height / 2 - this.height / 2 + offsetY;
+    this.top = reference.top + reference.offsetHeight / 2 - this.height / 2 + offsetY;
 
     return this.left >= 0;
 }
 
 HTMLElement.prototype.rightside = function(reference, offsetX = 0, offsetY = 0) {
-    this.left = reference.left + reference.width + offsetX + 12;
-    this.top = reference.top + reference.height / 2 - this.height / 2 + offsetY;
+    this.left = reference.left + reference.offsetWidth + offsetX + 12;
+    this.top = reference.top + reference.offsetHeight / 2 - this.height / 2 + offsetY;
 
     return this.left + this.width <= $root.documentWidth;
 }
 
-HTMLElement.prototype.call = function(message, pos = 'up', seconds = 0) {
+HTMLElement.prototype.callout = function(message, pos = 'up', seconds = 0) {
     Callout(message).position(this, pos).show(seconds);
 }
 
-HTMLElement.prototype.show = function() {
+HTMLElement.prototype.show = function(visible = true) {
     if (this.getAttribute('hidden') != 'always') {
-        this.visible = true;        
+        this.visible = visible;
     }
     return this;
 }
@@ -408,54 +526,111 @@ HTMLElement.prototype.hide = function() {
     return this;
 }
 
-//useCapture false 在冒泡阶段执行  true 在捕获阶段执行
-HTMLElement.prototype.bind = function(eventName, func, useCapture = false, attach = true) {
-    if (attach) {
-        this.addEventListener?.(eventName.drop('on'), func, false) ?? this.attachEvent?.(eventName.prefix('on'), func);
+HTMLElement.prototype.inElement = function(nodeName) {
+    let parent = this.parentNode;
+    nodeName = nodeName.toUpperCase();
+    while (parent.nodeName != nodeName && parent.nodeName != 'BODY' && parent.nodeName != 'HTML') {
+        parent = parent.parentNode;
     }
-    else {
-        this[eventName.prefix('on')] = func;
-    }
+    return parent.nodeName == nodeName;
+}
+
+//useCapture false 在冒泡阶段执行（从子级到父级）  true 在捕获阶段执行（从父级到子级）
+HTMLElement.prototype.on = function(eventNames, func, attach = true, useCapture = false) {
+    eventNames.split(',').forEach(eventName => {
+        eventName = eventName.trim().toLowerCase().drop('on');
+        let onEventName = eventName.prefix('on');
+        let funcStr = func.toString();
+
+        if (!this.eventListeners.has(onEventName)) {
+            this.eventListeners.set(onEventName, new Set());
+        }        
+        if (attach) {
+            if (!this.eventListeners.get(onEventName).has(funcStr)) {
+                this.addEventListener?.(eventName, func, useCapture) ?? this.attachEvent?.(onEventName, func);
+                this.eventListeners.get(onEventName).add(funcStr);                
+            }
+        }
+        else {
+            this[onEventName] = func;
+            this.eventListeners.get(onEventName).add(funcStr);
+        }
+    });
     
     return this;
 }
 
-//native 是否强制绑定原生事件
-HTMLElement.prototype.on = function (eventNames, func, native = false) {
-    eventNames.split(',').forEach(eventName => {
-        let extended = false;
-        if (!native) {
-            if (eventName.includes('-') || eventName.includes('+')) {
-                extended = true;
-            }
+HTMLElement.defineCustomEvent = function(element, eventName) {
+    eventName = eventName.toLowerCase().prefix('on');
 
-            if (!extended) {
-                let id = this.id || this.name || '';            
-                if (this instanceof HTMLUnknownElement || this.nodeType == 0 || (id != '' && document.components.has(id)) || Object.getOwnPropertyNames(this.constructor.prototype).filter(n => n.startsWith('on')).map(n => n.toLowerCase()).includes(eventName)) {
-                    extended = true;
-                }
+    element.customEvents.set(eventName, null);
 
-                if (!extended) {
-                    if (this.hasAttribute('coder') || this.hasAttribute('popup') || (this.hasAttribute('tab') && eventName == 'onchange')) {
-                        extended = true;
-                    }
-                }
-            }
-        }
-
-        if (extended) {
-            Event.bind(this, eventName, func);
-        }
-        else {
-            this.bind(eventName, func);
+    Object.defineProperty(element, eventName, {
+        get() {
+            return this.customEvents[eventName] ?? this.getAttribute(eventName);
+        },
+        set (value) {
+            this.customEvents[eventName] = value;
         }
     });
-
-    return this;
 }
 
-HTMLElement.prototype.execute = function (eventName, ...args) {
-    return Event.execute(this, eventName, ...args);
+HTMLElement.hasEventListener = function(element, eventName, func) {
+    eventName = eventName.toLowerCase().prefix('on');
+    if (func == null) {
+        return element[eventName] != null || element.eventListeners.has(eventName);
+    }
+    else {
+        let funcStr = func.toString();
+        return element[eventName] == funcStr || (element.eventListeners.has(eventName) && element.eventListeners.get(eventName).has(funcStr));
+    }
+}
+
+HTMLElement.defineSeverEvent = function(element, eventName) {
+    eventName = eventName.toLowerCase().prefix('on').suffix('+');
+    Object.defineProperty(element, eventName, {
+        get() {
+            return this.getAttribute(eventName);
+        },
+        set (value) {
+            this.setAttribute(eventName, value);
+        }
+    });
+    [eventName + 'success', eventName + 'failure', eventName + 'exception', eventName + 'completion']
+        .forEach(name => {
+            HTMLElement.defineCustomEvent(element, name);
+        });
+}
+
+HTMLElement.prototype.dispatchCustomEvent = function(eventName, eventArgs) {
+    eventName = eventName.trim().toLowerCase();
+
+    let final = Event.fire(this, eventName.prefix('on'), { detail: eventArgs ?? {} });
+
+    this.dispatchEvent(new CustomEvent(eventName.drop('on'), {
+        detail: eventArgs ?? { },
+        bubbles: false, //不向父级元素冒泡
+        cancelable: true, //可取消
+        composed: false //不跨越 Shadow DOM
+    }));
+
+    return final;
+}
+
+HTMLElement.interactEvents = function(element) {
+    for (let name of element.getAttributeNames().filter(name => name.startsWith('on') || name.endsWith('-on'))) {
+        if (/^on/i.test(name) && name.endsWith('-')) {
+            //on{event}-
+            element.on(name.dropRight(1), function(...args) {
+                Event.express.call(this, this.getAttribute(name).$p(this, args));
+            });
+        }
+        else if (/-on$/i.test(name)) {
+            //{method}-{attr}-on
+            Event.watch(element, name, element.getAttribute(name));
+            element.removeAttribute(name); //防止重复监听
+        }
+    }
 }
 
 Window.prototype.on = function(eventNames, func) {
@@ -627,7 +802,33 @@ Array.prototype.repeat = function(t) {
     return array;
 }
 
-String.prototype.$trim = function(char = '', char2 = '') {
+Array.prototype.do = function(exp) {    
+    if (typeof(exp) == 'function') {
+        exp.call(this, this);
+    }
+    else if (typeof(exp) == 'string') {
+        eval('_ = function() { ' + exp + '}').call(this);
+    }
+
+    return this;
+}
+
+Object.defineProperties(String.prototype, {
+    'unicodeLength': {
+        get() {
+            let l = 0;
+            for (let i = 0; i < this.length; i++) {
+                let c = this.charCodeAt(i);
+                l += (c < 256 || (c >= 0xff61 && c <= 0xff9f)) ? 1 : 2;
+            }
+            
+            return l;
+        }
+    }
+});
+
+
+String.prototype.trimPlus = function(char = '', char2 = '') {
     if (this != null) {
         if (char == '') {
             return this.trim().replace(/^(&nbsp;|\s)+/g, '').replace(/(&nbsp;|\s)+$/g, '');
@@ -651,21 +852,13 @@ String.prototype.$trim = function(char = '', char2 = '') {
     }
 }
 
-String.prototype.$includes = function(str, delimiter = ',') {
-    return (delimiter + this.toString().trim() + delimiter).includes(delimiter + str + delimiter);
-}
-
-String.prototype.$remove = function(str, delimiter = ',') {
-    return (delimiter + this.toString().trim() + delimiter).replace(delimiter + str + delimiter, delimiter).$trim(delimiter);
-}
-
 String.prototype.take = function(length) {
     let me = this.toString();
     if (length <= 0) {
         return "";
     }
     else if (length < me.length) {
-        return me.substr(0, length);
+        return me.substring(0, length);
     }
     else {
         return me;
@@ -713,17 +906,21 @@ String.prototype.dropRight = function(lengthOrSuffix) {
             return this.toString();
         }
         else {
-            return this.substr(0, this.length - lengthOrSuffix);
+            return this.substring(0, this.length - lengthOrSuffix);
         }
     }
     else {
         if (this.endsWith(lengthOrPrefix)) {
-            return this.substr(0, this.length - lengthOrPrefix.length)
+            return this.substring(0, this.length - lengthOrPrefix.length)
         }
         else {
             return this.toString();
         }
     }
+}
+
+String.prototype.divide = function(other) {
+    return other.split(this.toString());
 }
 
 String.prototype.takeBefore = function(value) {
@@ -737,12 +934,7 @@ String.prototype.takeBefore = function(value) {
         }
     }
     else if (value instanceof RegExp) {
-        if (value.test(me)) {
-            return me.substring(0, me.indexOf(value.exec(me)[0]));
-        }
-        else {
-            return '';
-        }
+        return value.findFirstIn(me)?.divide(me).first ?? '';
     }
     else {
         throw new Error('Unsupported data type in takeBefore: ' + value);
@@ -808,14 +1000,7 @@ String.prototype.takeAfterLast = function(value) {
         }
     }
     else if (value instanceof RegExp) {
-        if (value.test(me)) {
-            let ms = value.exec(me);
-            let mx = ms[ms.length-1];
-            return me.substring(me.lastIndexOf(mx) + mx.length);
-        }
-        else {
-            return me;
-        }
+        return value.findAllIn(me).last?.divide(me).last ?? '';        
     }
     else {
         throw new Error('Unsupported data type in takeAfterLast: ' + value);
@@ -824,7 +1009,7 @@ String.prototype.takeAfterLast = function(value) {
 
 String.prototype.fill = function(...element) {
     $a(...element).forEach(tag => tag.innerHTML = this.toString());
-    return this;
+    return this.toString();
 }
 
 String.prototype.prefix = function(str) {
@@ -837,8 +1022,20 @@ String.prototype.prefix = function(str) {
 }
 
 String.prototype.suffix = function(str) {
-    if (!this.startsWith(str)) {
+    if (!this.endsWith(str)) {
         return this + str;
+    }
+    else {
+        return this.toString();
+    }
+}
+
+String.prototype.joint = function(left, right) {
+    if (left != null && right == null) {
+        return left + this.toString();
+    }
+    else if (left != null && right != null) {
+        return left + this.toString() + right;
     }
     else {
         return this.toString();
@@ -1068,17 +1265,6 @@ String.prototype.recognize = function() {
     }
 }
 
-String.prototype.$length = function (min = 0) {
-    let l = 0;
-    for (let i = 0; i < this.length; i++) {
-        let c = this.charCodeAt(i);
-        l += (c < 256 || (c >= 0xff61 && c <= 0xff9f)) ? 1 : 2;
-    }
-    if (min > 0 && l < min) { l = min; }
-    
-    return l;
-}
-
 // 从 model 中加载数据，替换特定占位符的值
 // follower 要监听哪个对象, 保存在 followers 中
 String.prototype.placeModelData = function(follower) {
@@ -1115,56 +1301,8 @@ String.prototype.placeModelData = function(follower) {
     //没有 evalJsExpression 是因为后面一般跟 .$p()
 }
 
-//t = element target
-//p = <>+-\dn pointer
-//a = [attr]
-//d = default value
-String.$parse = function(t, p, a, d = 'null') {
-    let v = null;
-    if (t != null) {
-        if (p != null && p != '') {
-            p = p.replace(/&lt;/g, '<').replace(/&gt;/g, '>').toLowerCase();
-            for (let c of p) {
-                switch(c) {
-                    case '<':
-                    case 'b': //back
-                        t = t.parentNode != null ? t.parentNode : null;
-                        break;
-                    case '>':
-                    case 'f': //forward/first
-                        t = t.firstElementChild != null ? t.firstElementChild : null;
-                        break;
-                    case '+':
-                    case 'n': //next
-                        t = t.nextElementSibling != null ? t.nextElementSibling : null;
-                        break;
-                    case '-':
-                    case 'p': //previous
-                        t = t.previousElementSibling != null ? t.previousElementSibling : null;
-                        break;
-                    case 'l': //last
-                        t = t.lastElementChild != null ? t.lastElementChild : null;
-                        break;
-                    default:
-                        if (/^\d+$/.test(c)) {
-                            c = c.toInt(0);
-                            t = t.children[c] != null ? t.children[c] : null; 
-                        }
-                        break;
-                }
-            }
-        }
-        if (t != null) {
-            // [attr] or value
-            v = a != null ? $attr(t, a) : $value(t);            
-        }                    
-    }
-
-    return v != null ? v : d;
-}
-
 //argument 'element' also supports object { }
-//data -> ajax recall data
+//data : ajax recall data
 String.prototype.$p = function(element, data) {
 
     let str = this.toString();
@@ -1180,11 +1318,10 @@ String.prototype.$p = function(element, data) {
     str = str.replace(/&gt;/g, '>');
 
     //&(query)
-    let query = /\&(amp;)?\(([a-z0-9_]+)\)?(\?\((.*?)\))?[!%]?/i;
-    while (query.test(str)) {
-        let match = query.exec(str);
-        str = str.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : (match[4] ?? 'null').encodeURIComponent(match[0].endsWith('%')));
-    }
+    /\&(amp;)?\(([a-z0-9_]+)\)?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(str)
+        .forEach(match => {
+            str = str.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : (match[4] ?? 'null').encodeURIComponent(match[0].endsWith('%')));
+        });
 
     //$(selector)+-><[n][attr]?(1)
     // + next
@@ -1193,11 +1330,10 @@ String.prototype.$p = function(element, data) {
     // < parent
     // \d child \d
     // n last child
-    let selector = /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/i;
-    while (selector.test(str)) {
-        let match = selector.exec(str);
-        str = str.replace(match[0], String.$parse($v(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));
-    }
+    /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(str)
+        .forEach(match => {
+            str = str.replace(match[0], $root.__$select($v(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));    
+        });
 
     //parse element
     // $:<0
@@ -1222,40 +1358,38 @@ String.prototype.$p = function(element, data) {
                 if (s.startsWith('$:')) {
                     p = s.substring(2);
                 }
-                str = str.replace(holder, String.$parse(element, p, a, d).encodeURIComponent(holder.endsWith('%')));
+                str = str.replace(holder, $root.__$select(element, p, a, d).encodeURIComponent(holder.endsWith('%')));
             }
         }
     }
 
     //~{{complex expression}}
     //must return a value 
-    let complex = /\~?\{\{([\s\S]+?)\}\}%?/;
-    while (complex.test(str)) {
-        let match = complex.exec(str);
-        let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $data(element, data), $value(element, data), $text(element, data));
-        if (typeof(result) != 'string') {
-            result = String(result);
-        }
-        if (match[0].endsWith('%')) {
-            result = encodeURIComponent(result);
-        }        
-        str = str.replace(match[0], result);
-    }
+    /\~?\{\{([\s\S]+?)\}\}%?/g.findAllMatchIn(str)
+        .forEach(match => {
+            let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $root.__$data(element, data), $root.__$value(element, data), $root.__$text(element, data));
+            if (typeof(result) != 'string') {
+                result = String(result);
+            }
+            if (match[0].endsWith('%')) {
+                result = encodeURIComponent(result);
+            }        
+            str = str.replace(match[0], result);
+        });
 
     //~{simple expression}
-    let expression = /\~?\{([\s\S]+?)\}%?/;
-    while (expression.test(str)) {
-        let match = expression.exec(str);
-        let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $data(element, data), $value(element, data), $text(element, data));
-        if (typeof(result) != 'string') {
-            result = String(result);
-        }
-        if (match[0].endsWith('%')) {
-            result = encodeURIComponent(result);
-        }
-        str = str.replace(match[0], result);
-    }
-
+    /\~?\{([\s\S]+?)\}%?/g.findAllMatchIn(str)
+        .forEach(match => {
+            let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $root.__$data(element, data), $root.__$value(element, data), $root.__$text(element, data));
+            if (typeof(result) != 'string') {
+                result = String(result);
+            }
+            if (match[0].endsWith('%')) {
+                result = encodeURIComponent(result);
+            }
+            str = str.replace(match[0], result);
+        });
+    
     return str;
 }
 
@@ -1373,6 +1507,34 @@ String.shuffle = function(digit = 7) {
     return "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".shuffle(digit);    
 }
 
+String.prototype.do = function(exp) {    
+    if (typeof(exp) == 'function') {
+        exp.call(this.toString(), this.toString());
+    }
+    else if (typeof(exp) == 'string') {
+        eval('_ = function() { ' + exp + '}').call(this.toString());
+    }
+
+    return this.toString();
+}
+
+RegExp.prototype.findFirstIn = function(content) {
+    return this.exec(content)?.[0] ?? null;
+}
+
+RegExp.prototype.findFirstMatchIn = function(content) {
+    this.lastIndex = 0;
+    return this.exec(content);
+}
+
+RegExp.prototype.findAllIn = function(content) {
+    return content.match(this.global ? this : new RegExp(this, this.flags + 'g')) ?? []
+}
+
+RegExp.prototype.findAllMatchIn = function(content) {
+    return [...content.matchAll(this.global ? this : new RegExp(this, this.flags + 'g'))];   
+}
+
 Number.prototype.kilo = function() {
     let number = this.toString();
     number = number.replace(/,/g, '');
@@ -1384,13 +1546,13 @@ Number.prototype.kilo = function() {
     }
     let kn = number;
     if (number.length > 3) {
-        kn = number.substr(number.length - 3, 3);
+        kn = number.substring(number.length - 3);
         for (let i = number.length - 6; i > -3; i -= 3) {
             if (i > 0) {
-                kn = number.substr(i, 3) + ',' + kn;
+                kn = number.substring(i, i + 3) + ',' + kn;
             }
             else {
-                kn = number.substr(0, 3 + i) + ',' + kn;
+                kn = number.substring(0, i + 3) + ',' + kn;
             }
         }
     }
@@ -1426,20 +1588,32 @@ Number.prototype.floor = function(n = 0) {
     }
 }
 
-Number.prototype.ifNegative = function(v) {
-    return this < 0 ? v : this;
-}
-
 Number.prototype.ifZero = function(v) {
-    return this == 0 ? v : this;
+    return this == 0 ? v : +this;
 }
 
 Number.prototype.ifNotZero = function(v) {
-    return this != 0 ? v : this;
+    return this != 0 ? v : +this;
+}
+
+Number.prototype.ifNegative = function(v) {
+    return this < 0 ? v : +this;
 }
 
 Number.prototype.ifPositive = function(v) {
-    return this > 0 ? v : this;
+    return this > 0 ? v : +this;
+}
+
+Number.prototype.min = function(other) {
+    return Math.min(this, other);
+}
+
+Number.prototype.max = function(other) {
+    return Math.max(this, other);
+}
+
+Number.prototype.opposite = function(condition) {
+    return $parseBoolean(condition, true) ? -this : +this;    
 }
 
 $root = {};
@@ -1476,6 +1650,223 @@ $root.__offsetTop = function(element) {
         parent = parent.parentNode;
     }
     return top;
+}
+
+//t = element target
+//p = <>+-\dn pointer
+//a = [attr]
+//d = default value
+$root.__$select = function(t, p, a, d = 'null') {
+    let v = null;
+    if (t != null) {
+        if (p != null && p != '') {
+            p = p.replace(/&lt;/g, '<').replace(/&gt;/g, '>').toLowerCase();
+            for (let c of p) {
+                switch(c) {
+                    case '<':
+                    case 'b': //back
+                        t = t.parentNode != null ? t.parentNode : null;
+                        break;
+                    case '>':
+                    case 'f': //forward/first
+                        t = t.firstElementChild != null ? t.firstElementChild : null;
+                        break;
+                    case '+':
+                    case 'n': //next
+                        t = t.nextElementSibling != null ? t.nextElementSibling : null;
+                        break;
+                    case '-':
+                    case 'p': //previous
+                        t = t.previousElementSibling != null ? t.previousElementSibling : null;
+                        break;
+                    case 'l': //last
+                        t = t.lastElementChild != null ? t.lastElementChild : null;
+                        break;
+                    default:
+                        if (/^\d+$/.test(c)) {
+                            c = c.toInt(0);
+                            t = t.children[c] != null ? t.children[c] : null; 
+                        }
+                        break;
+                }
+            }
+        }
+        if (t != null) {
+            // [attr] or value
+            v = a != null ? $root.__$attr(t, a) : $root.__$value(t);            
+        }                    
+    }
+
+    return v != null ? v : d;
+}
+
+// private
+$root.__$value = function(t, data) {
+    if (t.value != undefined) {
+        return t.value;
+    }
+    else if (t.getAttribute('value') != null) {
+        return t.getAttribute('value');
+    }
+    else if (data != null) {
+        if (data.value != null) {
+            return data.value;
+        }
+        else if (data.text != null) {
+            return data.text;
+        }
+        else if (data.data != null) {
+            return data.data;
+        }
+        else {
+            return data;
+        }
+    }
+    else if (t.innerHTML != null) {
+        return t.innerHTML;
+    }
+    else if (t.text != null) {
+        return t.text;
+    }
+    else if (t.textContent != null) {
+        return t.textContent;
+    }
+    else {
+        return null;
+    }
+}
+
+$root.__$text = function(t, data) {
+    if (t.text != undefined) {
+        return t.text;
+    }
+    else if (t.getAttribute('text') != null) {
+        return t.getAttribute('text');
+    }
+    else if (data != null) {
+        if (data.text != null) {
+            return data.text;
+        }
+        else if (data.value != null) {
+            return data.value;
+        }
+        else if (data.data != null) {
+            return data.data;
+        }
+        else {
+            return data;
+        }
+    }
+    else if (t.textContent != null) {
+        return t.textContent;
+    }
+    else if (t.innerHTML != null) {
+        return t.innerHTML;
+    }
+    else if (t.value != null) {
+        return t.value;
+    }
+    else {
+        return null;
+    }
+}
+
+$root.__$data = function(t, data) {
+    if (data != null) {
+        if (data.data != null) {
+            return data;
+        }
+        else {
+            return data;
+        }
+    }
+    else if (t.data != undefined) {
+        return t.data;
+    }
+    else if (t.getAttribute('data') != null) {
+        return t.getAttribute('data');
+    }
+    else if (t.value != null) {
+        return t.value;
+    }
+    else if (t.text != null) {
+        return t.text;
+    }
+    else if (t.textContent != null) {
+        return t.textContent;
+    }
+    else if (t.innerHTML != null) {
+        return t.innerHTML;
+    }
+    else {
+        return null;
+    }    
+}
+
+// private
+$root.__$attr = function(t, a, v) {
+    if (typeof(t) == 'string') {
+        let s = t;
+        t = $s(t);
+        if (t == null) {
+            throw new Error('Incorrect selector: ' + s);
+        }        
+    }
+
+    if (a == 'class') {
+        a = 'className';
+    }
+
+    let b = null;
+    if (a.includes('-')) {
+        b = a.takeAfter('-').toCamel();
+        a = a.takeBefore('-');
+    }
+    else if (a.includes(':')) {
+        b = a.takeAfter(':').toCamel();
+        a = a.takeBefore(':').toCamel();
+    }
+    if (v == null) {
+        v = t[a]?.toString() ?? t.getAttribute?.(a);
+        if (b != null) {
+            return v[b]?.toString() ?? v.getAttribute?.(b);
+        }
+        else {
+            return v;
+        }
+    }
+    else {        
+        if (t[a] !== undefined) {
+            if (b == null) {
+                if (typeof(t[a]) == 'boolean') {
+                    t[a] = $parseBoolean(v, true, t);
+                }
+                else if (typeof(t[a]) == 'number') {
+                    t[a] = $parseFloat(v);
+                }
+                else {
+                    t[a] = v;
+                }
+            }
+            else if (t[a][b] !== undefined) {
+                if (typeof(t[a][b]) == 'boolean') {
+                    t[a][b] = $parseBoolean(v, true, t);
+                }
+                else if (typeof(t[a]) == 'number') {
+                    t[a][b] = $parseFloat(v);
+                }
+                else {
+                    t[a][b] = v;
+                }
+            }
+            else {
+                throw new Error('Incorrect attribute name: ' + b);
+            }
+        }
+        else {
+            t.setAttribute?.(a, v);
+        }
+    }
 }
 
 Object.defineProperties($root, {
@@ -1541,6 +1932,13 @@ $root.home = function () {
 $root.images = $root.home + 'images/';
 $root.configuration = JSON.parse(window.localStorage.getItem('$root.configuration'));
 
+$root.appendClass = function(classText) {
+    if ($('head style') == null) {
+        $('head').insertAfterBegin('STYLE', { 'type': 'text/css' });
+    }
+    $('head style').appendChild(document.createTextNode(classText));
+}
+
 $parseString = function(value, defaultValue = '') {
     if (typeof (value) == 'string') {
         return value;
@@ -1585,7 +1983,7 @@ $parseBoolean = function(value, defaultValue = false, object = null) {
         return value;
     }
     else if (typeof (value) == 'string') {
-        return value.toBoolean(defaultValue, object); //1.5.15
+        return value.toBoolean(defaultValue, object);
     }
     else if (typeof (value) == 'number') {
         return value > 0;
@@ -1694,6 +2092,43 @@ $parseZero = function(value, defaultValue = 1) {
     }
 }
 
+$parseElement = function(element, propertyName) {
+    if (typeof(element) == 'string') {
+        let e = $(element);
+        if (e == null) {
+            console.warn('Incorrect selector "' + element + '" or element does not exists.');
+        }
+        return e;
+    }
+    else if (element instanceof HTMLElement || element == null) {
+        return element;
+    }
+    else {
+        console.error('Unsupported value type for property "' + propertyName + '".');
+        return null;
+    }
+}
+
+$parseElements = function(elements, propertyName) {
+    if (typeof(elements) == 'string') {
+        return $$(elements).do(a => {
+            if (a.length == 0) {
+                console.warn('Incorrect selector "' + element + '" or element does not exists.');
+            }
+        });
+    }
+    else if (elements instanceof Array) {
+        return elements;
+    }
+    else if (elements instanceof HTMLElement) {
+        return [elements];
+    }
+    else {
+        console.error('Unsupported value type for property "' + propertyName + '".');
+        return [];
+    }
+}
+
 $random = function(begin, end) {
     if (end == null) {
         end = begin;
@@ -1706,40 +2141,8 @@ $guid = function() {
     return new Date().valueOf() + '-' + String.shuffle(11);
 }
 
-$data = function(t, data) {
-    if (data != null) {
-        if (data.data != null) {
-            return data;
-        }
-        else {
-            return data;
-        }
-    }
-    else if (t.data != undefined) {
-        return t.data;
-    }
-    else if (t.getAttribute('data') != null) {
-        return t.getAttribute('data');
-    }
-    else if (t.value != null) {
-        return t.value;
-    }
-    else if (t.text != null) {
-        return t.text;
-    }
-    else if (t.textContent != null) {
-        return t.textContent;
-    }
-    else if (t.innerHTML != null) {
-        return t.innerHTML;
-    }
-    else {
-        return null;
-    }    
-}
-
 //single
-$s = function (o) {
+$s = function (o, error) {
     if (typeof (o) == 'string') {
         if (o.includes('#')) {
             let t = o.substring(1);
@@ -1755,13 +2158,17 @@ $s = function (o) {
             }
         }
         else if (o != '') {
-            return document.querySelector(o);
+            let s = document.querySelector(o);
+            if (s == null && error != undefined) {
+                console.error(error);
+            }
+            return s;
         }
         else {
             return null;
         }
     }    
-    else {
+    else {        
         return o;
     }
 }
@@ -1825,7 +2232,6 @@ else {
     window.$$ = $a;
 }
 
-
 //first visible
 $v = function(o) {
     if (o.includes(',')) {
@@ -1853,143 +2259,6 @@ $v = function(o) {
 //tag
 $t = function(o) {
     return document.components.get(o.drop('#'));
-}
-
-// private
-$value = function(t, data) {
-    if (t.value != undefined) {
-        return t.value;
-    }
-    else if (t.getAttribute('value') != null) {
-        return t.getAttribute('value');
-    }
-    else if (data != null) {
-        if (data.value != null) {
-            return data.value;
-        }
-        else if (data.text != null) {
-            return data.text;
-        }
-        else if (data.data != null) {
-            return data.data;
-        }
-        else {
-            return data;
-        }
-    }
-    else if (t.text != null) {
-        return t.text;
-    }
-    else if (t.textContent != null) {
-        return t.textContent;
-    }
-    else if (t.innerHTML != null) {
-        return t.innerHTML;
-    }
-    else {
-        return null;
-    }
-}
-
-$text = function(t, data) {
-    if (t.text != undefined) {
-        return t.text;
-    }
-    else if (t.getAttribute('text') != null) {
-        return t.getAttribute('text');
-    }
-    else if (data != null) {
-        if (data.text != null) {
-            return data.text;
-        }
-        else if (data.value != null) {
-            return data.value;
-        }
-        else if (data.data != null) {
-            return data.data;
-        }
-        else {
-            return data;
-        }
-    }
-    else if (t.textContent != null) {
-        return t.textContent;
-    }
-    else if (t.innerHTML != null) {
-        return t.innerHTML;
-    }
-    else if (t.value != null) {
-        return t.value;
-    }
-    else {
-        return null;
-    }
-}
-
-// private
-$attr = function(t, a, v) {
-    if (typeof(t) == 'string') {
-        let s = t;
-        t = $s(t);
-        if (t == null) {
-            throw new Error('Incorrect selector: ' + s);
-        }        
-    }
-
-    if (a == 'class') {
-        a = 'className';
-    }
-
-    let b = null;
-    if (a.includes('-')) {
-        b = a.takeAfter('-').toCamel();
-        a = a.takeBefore('-');
-    }
-    else if (a.includes(':')) {
-        b = a.takeAfter(':').toCamel();
-        a = a.takeBefore(':').toCamel();
-    }
-    if (v == null) {
-        v = t[a]?.toString() ?? t.getAttribute?.(a);
-        if (b != null) {
-            return v[b]?.toString() ?? v.getAttribute?.(b);
-        }
-        else {
-            return v;
-        }
-    }
-    else {        
-        if (t[a] !== undefined) {
-            if (b == null) {
-                if (typeof(t[a]) == 'boolean') {
-                    t[a] = $parseBoolean(v, true, t);
-                }
-                else if (typeof(t[a]) == 'number') {
-                    t[a] = $parseFloat(v);
-                }
-                else {
-                    t[a] = v;
-                }
-            }
-            else if (t[a][b] !== undefined) {
-                if (typeof(t[a][b]) == 'boolean') {
-                    t[a][b] = $parseBoolean(v, true, t);
-                }
-                else if (typeof(t[a]) == 'number') {
-                    t[a][b] = $parseFloat(v);
-                }
-                else {
-                    t[a][b] = v;
-                }
-            }
-            else {
-                throw new Error('Incorrect attribute name: ' + b);
-            }
-        }
-        else {
-            t.setAttribute?.(a, v);
-        }
-    }
 }
 
 $create = function (tag, properties, styles, attributes) {
@@ -2028,16 +2297,16 @@ $create = function (tag, properties, styles, attributes) {
     }
 }
 
-$GET = function (url, path = '/', element = null, p = true) { return new $api('GET', url, '', path, element, p); }   //SELECT
-$POST = function (url, params = '', path = '/', element = null, p = true) {return new $api('POST', url, params, path, element, p); } //INSERT
-$PUT = function (url, params = '', path = '/',  element = null, p = true) { return new $api('PUT', url, params, path, element, p); }  //UPDATE/INSERT
-$DELETE = function (url, path = '/', element = null, p = true) { return new $api('DELETE', url, path, element, p); }  //DELETE
+$GET = function (url, path = '/', element = null, p = true) { return new $ajax('GET', url, '', path, element, p); }   //SELECT
+$POST = function (url, params = '', path = '/', element = null, p = true) {return new $ajax('POST', url, params, path, element, p); } //INSERT
+$PUT = function (url, params = '', path = '/',  element = null, p = true) { return new $ajax('PUT', url, params, path, element, p); }  //UPDATE/INSERT
+$DELETE = function (url, path = '/', element = null, p = true) { return new $ajax('DELETE', url, path, element, p); }  //DELETE
 
 $TAKE = function(data, element, owner, func) {
     if (typeof(data) == 'string') {
         data = data.trim();
         if (data.isArrayString() || data.isObjectString()) {
-            func.call(owner, Json.eval(data).find());
+            func.call(owner, Json.eval(data));
         }
         else if (data.isCogoString()) {
             $cogo(data, element, element)
@@ -2073,23 +2342,8 @@ $TAKE = function(data, element, owner, func) {
     }
 }
 
-$ajax = function (method, url, params = '', path = '/', element = null, p = true) {
-    return new $api(method, url, params, path, element, p);
-}
-
-$ajax.match = function(url) {
-    if ($root.configuration != null) {
-        for (let pattern in $root.configuration.ajax) {
-            if (url.includes(pattern) || new RegExp(pattern, 'i').test(url)) {
-                return $root.configuration.ajax[pattern];
-            }
-        }
-    }
-    return null;
-}
-
 // p - if to be $p
-$api = function (method, url, params = '', path = '/', element = null, p = true) {
+$ajax = function (method, url, params = '', path = '/', element = null, p = true) {
 
     this.method = method.toUpperCase();
 
@@ -2150,7 +2404,7 @@ $api = function (method, url, params = '', path = '/', element = null, p = true)
     this.onsuccess = null; //function(result) { };
 }
 
-$api.prototype.$send = function () {
+$ajax.prototype.send = function () {
 
     let url = this.url; //encodeURI(this.url); 必须后端配合才可以
     if (!this.cache) {
@@ -2200,29 +2454,20 @@ $api.prototype.$send = function () {
     }
 }
 
-$api.prototype.sync = function(enabled = true) {
+$ajax.prototype.sync = function(enabled = true) {
     this.async = !enabled;
     return this;
 }
 
-$api.prototype.send = function (func) {
-    this.onsend = func;
+$ajax.prototype.on = function(event, func) {
+    event = event.trim().toLowerCase().prefix('on');
+    if (/^on(send|complete|error|success)$/.test(event)) {
+        this[event] = func;
+    }
+    else {
+        console.error('Unsupported event name "' + event + '", it must be "onsend", "oncomplete", "onerror" or "onsuccess".');        
+    }
     return this;
-}
-
-$api.prototype.complete = function (func) {
-    this.oncompelete = func;
-    return this;
-}
-
-$api.prototype.error = function (func) {
-    this.onerror = func;
-    return this;
-}
-
-$api.prototype.success = function (func) {
-    this.onsuccess = func;
-    this.$send();
 }
 
 //data 传递 data, value, text 三个变量的数据对象
@@ -2246,13 +2491,19 @@ $cogo = function(todo, element, data) {
         todo = '/api/cogo/pql?statement=' + encodeURIComponent(todo.$p(element, data));        
     }
     else {
-        setting = $ajax.match(todo);
-
-        if (/#\s*\//.test(todo)) {
-            let sp = /#\s*\//.exec(todo)[0];
-            path = todo.substring(todo.lastIndexOf('sp') + 1).trim();
-            todo = todo.takeBeforeLast(sp).trim();
+        if ($root.configuration != null) {
+            for (let pattern in $root.configuration.ajax) {
+                if (todo.includes(pattern) || new RegExp(pattern, 'i').test(todo)) {
+                    setting = $root.configuration.ajax[pattern];
+                }
+            }
         }
+
+        /#\s*\//.findFirstIn(todo)
+            ?.do(sp => {
+                path = todo.substring(todo.lastIndexOf(sp) + 1).trim();
+                todo = todo.takeBeforeLast(sp).trim();
+            });        
 
         if (/^https?:/i.test(todo)) {
             todo = '/api/cogo/cross?method='+ method + '&url=' + encodeURIComponent(todo.$p(element, data));
@@ -2264,12 +2515,13 @@ $cogo = function(todo, element, data) {
 
     if (todo != '') {
         return new Promise((resolve, reject) => {
-                    $ajax(method, todo, null, path, element, false)
-                        .error((status, statusText) => {
+                    new $ajax(method, todo, null, path, element, false)
+                        .on('error', (status, statusText) => {
                             reject(statusText);
                         })
-                        .success(result => {
-                            if (setting == null) {
+                        .on('success', result => {
+                            if (setting == null || typeof(result) != 'object' || Object.keys(result).length != new Set(Object.keys(result).concat(setting.fields)).size) {
+                                //单值或不符合预设字段格式则直接返回
                                 resolve(result);
                             }
                             else {
@@ -2281,7 +2533,7 @@ $cogo = function(todo, element, data) {
                                     reject(Json.find(result, setting.info));
                                 }
                             }
-                        });
+                        }).send();
                 });
     }
     else {
@@ -2290,6 +2542,7 @@ $cogo = function(todo, element, data) {
         });
     }
 };
+
 //server event
 $FIRE = function (element, event, succeed, fail, except, complete, actualElement) {
     let action = element[event].trim();
@@ -2342,20 +2595,26 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
                 }
 
                 if (valid) {
-                    succeed.call(element, data);
-                    Event.execute(element, event + 'success', data);                                  
+                    succeed?.call(element, data);
+                    Event.execute(element, event + 'success', data);
+                    if (element.debug) {
+                        console.log(`${element.nodeName || ''} "${element.id || element.name}" ${event} event status: success. return data: ` + JSON.stringify(data));
+                    }
                 }
                 else {
-                    fail.call(element, data);
-                    Event.execute(element, event + 'failure', data);                    
+                    fail?.call(element, data);
+                    Event.execute(element, event + 'failure', data);
+                    if (element.debug) {
+                        console.warn(`${element.nodeName || ''} "${element.id || element.name}" ${event} event status: faliure. return data: ` + JSON.stringify(data));
+                    }
                 }
             })
             .catch(error => {
-                if (except != null) {
-                    except.call(element, error);
+                except?.call(element, error);
+                Event.execute(element, event + 'exception', error);
+                if (element.debug) {
+                    console.error(`${element.nodeName || ''} "${element.id || element.name}" ${event} event status: error. return message: ` + error);
                 }                
-                Event.execute(element, event + 'exception', error);                
-                console.error(error);
             })
             .finally(() => {
                 complete?.call(element);
@@ -2364,11 +2623,11 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
     }
 };
 
-$lang = (function() {
+$root.lang = (function() {
     return (navigator.language || navigator.userLanguage).substring(0, 2).toLowerCase();
 })();
 
-$mobile = (function() {
+$root.mobile = (function() {
     return navigator.userAgent.includes('Android') || navigator.userAgent.includes('iPhone');
 })();
 
@@ -2414,7 +2673,7 @@ $cookie = function () {
     //	document.cookie = 'name=value; expires=' + expiresTime.toGMTString() + '; path=/; domain=soufun.com';
     document.cookie.split('; ')
         .forEach(c => {
-            $cookie.s[c.substring(0, c.indexOf('='))] = c.substr(c.indexOf('=') + 1);
+            $cookie.s[c.substring(0, c.indexOf('='))] = c.substring(c.indexOf('=') + 1);
         });    
 }
 $cookie.s = { };
@@ -2522,7 +2781,7 @@ Enum.Entity.prototype.validate = function(value, toUpper = false) {
 }
 
 //all components
-// name -> component
+// name : component
 // name doesn't start with '#'
 document.components = new Map();
 //只是为了保存onfinish事件
@@ -2536,7 +2795,7 @@ document.components.set('$global', {
     events: new Map()
 });
 
-// id -> event-name -> [func]
+// id : event-name : [func]
 Event.s = new Map(); //暂存自定义组件事件
 
 //v1.8.113
@@ -2587,8 +2846,12 @@ Event.bind = function (tag, eventName, func) {
         id = tag.id || tag.name || '';
     }
     
-    if (tag.events != null) {
-        //原生标签或已加载完的自定义标签
+    if (tag instanceof HTMLElement) {
+        //原生标签
+        tag.on(eventName, func);
+    }
+    else if (tag.events != null) {
+        //已加载完的自定义标签
         if (!tag.events.has(eventName)) {
             tag.events.set(eventName, new Array());
         }
@@ -2611,25 +2874,12 @@ Event.await = function(tag, await) {
     .map(a => a.trim())
     .forEach(a => {
         Event.bind(a, 'onload', function() {
-            tag.await = tag.await.replace(new RegExp(a + '\\b'), '').$trim(',');
+            tag.await = tag.await.replace(new RegExp(a + '\\b'), '').trimPlus(',');
             if (tag.await == '') {
                 tag.load();
             }            
         });
     });
-}
-
-//native event
-Event.dispatch = function(tag, eventName) {
-    if (typeof (tag) == 'string') {
-        tag = $s(tag);
-    }
-    if (tag != null) {
-        let event = document.createEvent('Events');
-        // event, bubbles, cancelable
-        event.initEvent(eventName.replace(/^on/i, ''), true, false);
-        tag.dispatchEvent(event);
-    }
 }
 
 Event.execute = function (tag, eventName, ...args) {
@@ -2660,10 +2910,10 @@ Event.execute = function (tag, eventName, ...args) {
     }
 }
 
-//执行某一个具体对象的事件非bind事件，再比如对象没有name，如for和if标签
+//执行某一个具体对象的事件非监听事件，再比如对象没有name，如for和if标签
 Event.fire = function(tag, eventName, ...args) {
     eventName = eventName.trim().toLowerCase().prefix('on');
-
+    
     let final = true;
     if (tag[eventName] != null) {
         final = Event.trigger(tag, tag[eventName], ...args);
@@ -2678,7 +2928,12 @@ Event.trigger = function(tag, func, ...args) {
             final = func.call(tag, ...args);
         }
         else if (typeof (func) == 'string') {
-            final = eval('final = function() {' + func + '}').call(tag, ...args);
+            if (/^\s*function\(\s*\)\s*{/.test(func)) {
+                final = eval('final = ' + func).call(tag, ...args);
+            }
+            else {
+                final = eval('final = function() {' + func + '}').call(tag, ...args);
+            }            
         }
         if (typeof (final) != 'boolean') { final = true; };
     }
@@ -2688,9 +2943,9 @@ Event.trigger = function(tag, func, ...args) {
 Event.express = function(exp) {
     for (let sentence of exp.split(';')) {
         let value = '';
-        if (sentence.includes('->')) {
-            value = sentence.takeAfter('->').trimLeft();
-            sentence = sentence.takeBefore('->').trimRight();
+        if (sentence.includes('<-')) {
+            value = sentence.takeAfter('<-').trimLeft();
+            sentence = sentence.takeBefore('<-').trimRight();
         }
         let [method, selector] = sentence.includes(':') ? [sentence.takeBefore(':').trim(), sentence.takeAfter(':').trim()] : [sentence.trim(), ''];
         let item = '';
@@ -2779,7 +3034,7 @@ Event.interact = function(obj, element) {
     if (obj.events == null) {
         obj.events = new Map();
     }    
-    element.getAttributeNames().forEach(name => {
+    element.getAttributeNames().filter(name => name.startsWith('on') || name.endsWith('-on')).forEach(name => {
         if (/^on/i.test(name) && name.endsWith('-')) {
             //on{event}-
             Event.bind(obj, name.dropRight(1), function(...args) {
@@ -2821,9 +3076,9 @@ Event.watch = function(obj, name, watcher) {
 
     let value = '';
     //let watcher = element.getAttribute(name);
-    if (watcher.includes('->')) {
-        value = watcher.takeAfter('->').trim();
-        watcher = watcher.takeBefore('->').trim();
+    if (watcher.includes('<-')) {
+        value = watcher.takeAfter('<-').trim();
+        watcher = watcher.takeBefore('<-').trim();
     }
     let func = function() {
         obj[method](attr, value.$p(obj));
@@ -3076,7 +3331,7 @@ CustomElement.prototype.get = function(attr) {
                 //class需要从原生属性className获取
                 else if (this.carrier[attr] != undefined) {
                     //排除掉有问题的项
-                    if (!'selectedIndex,draggable'.$includes(attr)) {
+                    if (!'selectedIndex,draggable'.includes(attr)) {
                         value = this.carrier[attr];
                     }
                 }
@@ -3137,10 +3392,11 @@ NativeElement.prototype.declare = function(variables) {
             enumerable: true,
             configurable: true,
             get() {
+                //这里有个可能的坑，每次获取都会判断值是否返回默认值，默认值理论上讲只对第一次设置有效
                 let defaultValue = variables[name];
-                let value = this.getAttribute(name.replace(/^[_$]/, '').toHyphen());
-                if (value == null) {
-                    value = this.getAttribute(name);
+                let value = this.getAttribute(name);
+                if (value == null && /[A-Z]/.test(name)) {
+                    value = this.getAttribute(name.replace(/^[_$]/, '').toHyphen());
                 }
                 if (this.constructor.getterX.has(name)) {
                     value = NativeElement.executeAopFunction(this, this.constructor.getterX.get(name), value == null ? defaultValue : value);
@@ -3213,20 +3469,15 @@ NativeElement.prototype.define = function(properties) {
     return this;
 };
 
-//绑定服务器端事件
-NativeElement.prototype.extend = function(...events) {
-    events.forEach(event => {
-        [event, event + 'success', event + 'failure', event + 'exception', event + 'completion']
-            .forEach(name => {
-                Object.defineProperty(this.object, name, {
-                    get() {
-                        return this.getAttribute(name);
-                    },
-                    set (value) {
-                        this.setAttribute(name, value);
-                    }
-                });
-            });
+//绑定事件
+NativeElement.prototype.extend = function(...eventNames) {
+    eventNames.forEach(eventName => {
+        if (eventName.endsWith('+')) {
+            HTMLElement.defineSeverEvent(this.object, eventName);
+        }
+        else {
+            HTMLElement.defineCustomEvent(this.object, eventName);
+        }
     });  
     return this;
 }
@@ -3234,17 +3485,25 @@ NativeElement.prototype.extend = function(...events) {
 //声明隐式变量, 非标签中声明的参数或扩展方法，下划线开头的私有变量保存值
 NativeElement.prototype.describe = function(variables) {
     for (let name in variables) {
-        this.object['_' + name] = null;
+        let defaultValue = variables[name];        
         Object.defineProperty(this.object, name, {
             extension: true,
             get () {
-                if (this['_' + name] == null) {
-                    this['_' + name] = this.getAttribute(name) || this.getAttribute(name.toHyphen()) || variables[name];
+                if (this['_' + name] === undefined) {
+                    this[name] = this.getAttribute(name) ?? this.getAttribute(name.toHyphen()) ?? defaultValue;
                 }
                 return this['_' + name];
             },
             set (value) {
-                this['_' + name] = value;
+                if (defaultValue == '$') {
+                    this['_' + name] = value == '$' ? null : $parseElement(value, name);
+                }
+                else if (defaultValue == '$$') {
+                    this['_' + name] = value == '$$' ? [] : $parseElements(value, name);
+                }
+                else {
+                    this['_' + name] = value;
+                }                
             }
         });
         
@@ -3313,7 +3572,7 @@ Callout.Entity.prototype.right = function(element) {
 }
 
 Callout.Entity.prototype.locate = function() {
-    let callout = $s('#__Callout');
+    let callout = $('#__Callout');
     switch(this.location) {
         case 0:  //left
              return callout.setClass("callout callout-right").leftside(this.reference, this.offsetX - 12, this.offsetY);
@@ -3330,7 +3589,11 @@ Callout.Entity.prototype.locate = function() {
 
 Callout.Entity.$timer = null;
 Callout.Entity.prototype.show = function(seconds = 0) {
-    $s('#__Callout').setHTML(this.content).show().setStyle('visibility', 'hidden');
+    $('#__Callout').setHTML(this.content).show().setStyle('visibility', 'hidden');
+    if ($('#__Callout').width > 360) {
+        $('#__Callout').width = 360;
+    }
+
     let i = 0;
     while (!this.locate()) {
         this.location = (this.location + 1) % 4;
@@ -3346,14 +3609,14 @@ Callout.Entity.prototype.show = function(seconds = 0) {
             window.clearTimeout(Callout.Entity.$timer);
         }
         Callout.Entity.$timer = window.setTimeout(function() {
-            $s('#__Callout').hide();
+            $('#__Callout').hide();
             window.clearTimeout(Callout.Entity.$timer);
         }, seconds * 1000);
     }
 }
 
 Callout.hide = function() {
-    $s('#__Callout').hide();
+    $('#__Callout').hide();
 }
 
 document.on('ready', function() {
@@ -3361,7 +3624,27 @@ document.on('ready', function() {
         //<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
         document.head.appendChild($create('META', { name: 'viewport', content: 'width=device-width, initial-scale=1.0, user-scalable=no' }));
         document.documentElement.style.fontSize = ($root.visibleWidth() / 16) + 'px';
-    }    
+    }
+
+    //server event on <body>
+    document.body.getAttributeNames()
+        .map(attr => attr.toLowerCase())
+        .forEach(attr => {
+            if (attr == 'onready+') {
+                $cogo(document.body.getAttribute('onready+'), document.body)
+                    .then(data => {  
+                        document.body.removeAttribute('onready+');
+                    });
+            }
+            else if (attr == 'onpost+' || attr == 'onload+') {
+                document.on(attr.substring(2, 6), function() {
+                    $cogo(document.body.getAttribute(attr), document.body)
+                        .then(data => {  
+                        document.body.removeAttribute(attr);
+                    });
+                });
+            }
+        });
 
     //fixed
     let fixed = $a('div[fixed=yes],table[fixed=yes]');
@@ -3388,11 +3671,13 @@ document.on('ready', function() {
 //will be call in template
 $root.initialize = function() {
     $a('[visible],[hidden]').forEach(e => {
-        if (e.hasAttribute('hidden')) {
-            e.hidden = $parseBoolean(e.getAttribute('hidden'), true, this);
-        }
-        else if (e.hasAttribute('visible')) {
-            e.visible = $parseBoolean(e.getAttribute('visible'), true, this);
+        if (e.tagName != 'SET' && !e.inElement('TEMPLATE')) {
+            if (e.hasAttribute('hidden')) {
+                e.hidden = e.getAttribute('hidden');
+            }
+            else if (e.hasAttribute('visible')) {
+                e.visible = e.getAttribute('visible');
+            }
         }
     });
 }
@@ -3401,9 +3686,9 @@ document.on('post', function() {
 
     $root.initialize();
 
-    if ($s('#__Callout') == null) {
-        document.body.appendChild($create('DIV', { id: '__Callout', className: 'callout', hidden: true }));
-        $s('#__Callout').on('click', function() { this.style.display = 'none'; window.clearTimeout(Callout.Entity.$timer); });
+    if ($('#__Callout') == null) {
+        document.body.insertAfterBegin($create('DIV', { id: '__Callout', className: 'callout', hidden: true }));
+        $('#__Callout').on('click', function(ev) { this.style.display = 'none'; window.clearTimeout(Callout.Entity.$timer); ev.preventDefault(); });
     }
 
     if (document.body.getAttribute('self-adaption') != null) {        

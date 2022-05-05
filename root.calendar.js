@@ -70,14 +70,14 @@ class Calendar {
             valueFormat: 'yyyy-MM-dd',
             
             weekTitle: 'Week',
-            weekNames: $lang == 'zh' ? DateTime.miniChineseWeekNames : DateTime.shortWeekNames,
-            monthNames: $lang == 'zh' ? DateTime.fullChineseMonthNames : DateTime.fullMonthNames, //年历时使用
-            cornerNames: $lang == 'zh' ? ['假', '班'] : ['R', 'W'],
-            todayText: $lang == 'zh' ? '今天': 'Today',
-            thisWeekText: $lang == 'zh' ? '本周' : 'This Week',
-            thisMonthText: $lang == 'zh' ? '本月' : 'This Month',
-            thisYearText: $lang == 'zh' ? '今年' : 'This Year',
-            confirmText: $lang == 'zh' ? '确定' : 'OK',
+            weekNames: $root.lang == 'zh' ? DateTime.miniChineseWeekNames : DateTime.shortWeekNames,
+            monthNames: $root.lang == 'zh' ? DateTime.fullChineseMonthNames : DateTime.fullMonthNames, //年历时使用
+            cornerNames: $root.lang == 'zh' ? ['假', '班'] : ['R', 'W'],
+            todayText: $root.lang == 'zh' ? '今天': 'Today',
+            thisWeekText: $root.lang == 'zh' ? '本周' : 'This Week',
+            thisMonthText: $root.lang == 'zh' ? '本月' : 'This Month',
+            thisYearText: $root.lang == 'zh' ? '今年' : 'This Year',
+            confirmText: $root.lang == 'zh' ? '确定' : 'OK',
 
             quickSwitch: true, //年数小于4时，或月数小于 months+3时，自动关闭quickSwitch
 
@@ -256,7 +256,7 @@ class Calendar {
 
         //week 2019-1
          if (this.$week != '') {
-            this.container.selectAll('tr[week=v' + this.$week + ']')
+            this.container.$$('tr[week=v' + this.$week + ']')
                 .forEach(row => {
                     row.setClass(this.weekRowClass)
                        .first
@@ -264,7 +264,7 @@ class Calendar {
                 });                
         }
 
-        this.container.selectAll('tr[week=v' + week + ']')
+        this.container.$$('tr[week=v' + week + ']')
             .map(row => row.setClass(this.weekFocusRowClass)
                            .first
                            .setClass(this.weekOfYearFocusClass)
@@ -508,14 +508,14 @@ Calendar.prototype.onRangeCanceled = function() { }
 
 
 Calendar.prototype.setFocusDayClass = function(day) {
-    let td = this.container.select('td[day=v' + day + ']');
+    let td = this.container.$('td[day=v' + day + ']');
     td.setAttribute('class-', td.className);
     td.setClass(this.focusDayClass).removeAttribute('range');
 }
 
 Calendar.prototype.resetDayClass = function(day) {
     let selector = (day == undefined ? 'range' : 'day=v' + day);
-    let td = this.container.select('td[' + selector + ']');
+    let td = this.container.$('td[' + selector + ']');
     td.className = td.getAttribute('class-');
     td.removeAttribute('range');
 }
@@ -530,7 +530,7 @@ Calendar.prototype.setSelectionClass = function() {
         let end = new DateTime(this.endDate);
 
         while (start.before(end)) {
-            this.container.select('td[day=v' + start.get('yyyy-MM-dd') + ']')
+            this.container.$('td[day=v' + start.get('yyyy-MM-dd') + ']')
                 .setClass(this.selectionDayClass)
                 .set('range', '');
             start.plusDays(1);
@@ -904,13 +904,13 @@ Calendar.prototype.displayYear = function() {
     //显示快速切换
     title.on('click', function(ev) {
         if (ev.target.nodeName == 'A' || ev.target.nodeName == 'I') {
-            let checked = years.select('div.' + calendar.switchYearCheckedOptionClass);
+            let checked = years.$('div.' + calendar.switchYearCheckedOptionClass);
             if (checked != null && checked.html.toInt() != calendar.year) {
                 checked.className =(checked.html.toInt() != DateTime.now().getYear() ? calendar.switchYearOptionClass : calendar.switchThisYearOptionClass);                    
             }
-            years.select('div[year=v' + calendar.year + ']')?.setClass(calendar.switchYearCheckedOptionClass);
+            years.$('div[year=v' + calendar.year + ']')?.setClass(calendar.switchYearCheckedOptionClass);
             calendar.container
-                .select('div[sign=CALENDAR-YEAR-SWITCH]')
+                .$('div[sign=CALENDAR-YEAR-SWITCH]')
                 .show()
                 .setLeft(calendar.container.left + title.width / 2 - frame.width / 2)
                 .setTop(body.top - 8)
@@ -1302,13 +1302,13 @@ Calendar.prototype.displayMonth = function() {
         if (target.nodeName == 'A') {
             let month = target.getAttribute('value');
             frame.set('head', target.parentNode.getAttribute('index'));
-            let checked = years.select('td.' + calendar.switchMonthCheckedOptionClass);
+            let checked = years.$('td.' + calendar.switchMonthCheckedOptionClass);
             if (checked != null && checked.getAttribute('month') != 'v' + month) {
                 checked.className = (checked.getAttribute('month') != DateTime.now().get('vyyyy-MM') ? calendar.switchMonthOptionClass : calendar.switchThisMonthOptionClass);
             }
-            years.select('td[month=v' + month + ']').className = calendar.switchMonthCheckedOptionClass;
+            years.$('td[month=v' + month + ']').className = calendar.switchMonthCheckedOptionClass;
             calendar.container
-                .select('div[sign=CALENDAR-MONTH-SWITCH]')
+                .$('div[sign=CALENDAR-MONTH-SWITCH]')
                 .setStyle('visibility', 'visible')
                 .show()
                 .setLeft(target.left + target.width / 2 - frame.width / 2)
@@ -1422,7 +1422,7 @@ Calendar.prototype.displayMonth = function() {
         //content.rows[0].cells[i].firstChild.style.width = content.rows[0].cells[i].firstChild.offsetWidth + 'px';
     }
     body.style.width = (width + 12 * this.months + 12) + 'px';
-    this.container.select('div[sign=CALENDAR-FOOT]').width = body.offsetWidth - 20;
+    this.container.$('div[sign=CALENDAR-FOOT]').width = body.offsetWidth - 20;
 
     this.loadExtraInfo();
 
@@ -1538,7 +1538,7 @@ class CalendarCell {
     }
 
     get lunar() {
-        return this.cell.children[2].innerHTML.$trim();
+        return this.cell.children[2].innerHTML.trimPlus();
     }
 
     set lunar(lunar) {

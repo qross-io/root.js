@@ -10,7 +10,7 @@ HTMLElement.prototype.edit = function() {
 $post(function() {
 
     $a('[editable]').forEach(element => {
-        if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6'.$includes(element.nodeName)) {
+        if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6'.includes(element.nodeName)) {
             //绑定事件到 element
             if (element.getAttribute('edit-on') == null) {
                 element.setAttribute('edit-on', 'click');

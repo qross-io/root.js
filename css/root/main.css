@@ -3,6 +3,7 @@
 div,td,span,label,p,input,textarea,select { font-size: 0.875rem; font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SSm B", Consolas, Helvetica, Arial; }
 th { font-size: 0.875rem; font-family: "Times New Roman", "Microsoft YaHei"; white-space: nowrap; }
 body { margin: 0px; background-color: #FFFFFF; }
+textarea { padding: 8px; }
 
 a { color: var(--primary); text-decoration: none; }
 a:hover { color: var(--darker); text-decoration: underline; }
@@ -55,6 +56,7 @@ a:active { color: var(--lighter); text-decoration: none; }
 .w400 { width: 400px; }
 .w500 { width: 500px; }
 
+.h20 { height: 20px; }
 .h30 { height: 30px; }
 .h40 { height: 40px; }
 .h50 { height: 50px; }
@@ -113,6 +115,9 @@ input[type=switch] { display: none }
 .span-error { color: #CC3333; font-size: 0.875rem; padding-inline-start: 0.2rem; line-height: 180%; }
 .span-valid { color: #339933; font-size: 0.875rem; padding-inline-start: 0.2rem; line-height: 180%; }
 
+.tag a { color: #FFFFFF; text-decoration: none; }
+.tag a:hover { color: #CCCCCC; text-decoration: none; }
+.tag a:active { color: #E8E8E8; }
 .small-tag { font-size: 0.75rem; padding: 1px 7px 3px 6px; border-radius: 2px; color: #FFFFFF; }
 .normal-tag { font-size: 0.875rem; padding: 2px 8px 3px 7px; border-radius: 2px; color: #FFFFFF; }
 .blue-tag { background:#007FFF; background: linear-gradient(-135deg, transparent 3px, #007FFF 0px); }
@@ -124,7 +129,7 @@ input[type=switch] { display: none }
 button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SSm B", Consolas, Helvetica, Arial; }
 .large-button { font-size: 1.25rem; padding: 8px 32px; outline: none; border-width: 1px; border-radius: 6px; box-shadow: 1px 1px 1px #999999; white-space: nowrap; }
 .big-button { font-size: 1.125rem; padding: 6px 27px; outline: none; border-width: 1px; border-radius: 5px; box-shadow: 1px 1px 1px #999999; white-space: nowrap; }
-.medium-button { font-size: 0.875rem; padding: 4px 20px; outline: none; border-width: 1px; border-radius: 4px; box-shadow: 1px 1px 1px #999999; white-space: nowrap; }
+.medium-button { font-size: 1rem; padding: 4px 20px; outline: none; border-width: 1px; border-radius: 4px; box-shadow: 1px 1px 1px #999999; white-space: nowrap; }
 .normal-button { font-size: 0.875rem; padding: 3px 18px; outline: none; border-width: 1px; border-radius: 3px; box-shadow: 1px 1px 1px #999999; white-space: nowrap; }
 .small-button { font-size: 0.75rem; padding: 3px 15px; outline: none; border-width: 1px; border-radius: 2px; box-shadow: 1px 1px 1px #999999; white-space: nowrap; }
 .small-compact-button { font-size: 0.75rem; padding: 3px 6px; outline: none; border-width: 1px; border-radius: 2px; box-shadow: 1px 1px 1px #999999; }
@@ -169,7 +174,7 @@ button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SS
 .disabled-button { color: #D0D0D0; text-shadow: 1px 1px 1px #FFFFFF; }
 
 /* Callout */
-.callout { position: absolute; background-color: var(--lighter); border: 1px solid var(--darker); color: #FFFFFF; padding: 1em; border-radius: .4em; box-shadow: 2px 4px 8px #CCCCCC; position: absolute; z-index: 9999; visibility: hidden; }
+.callout { position: absolute; background-color: var(--primary); font-size: 0.875rem; border: 1px solid var(--darker); color: #FFFFFF; padding: 1em; border-radius: 0.4em; box-shadow: 2px 4px 8px #CCCCCC; position: absolute; z-index: 9999; visibility: hidden; }
 .callout-bottom::before { content: ""; position: absolute; bottom: -7px; left: 50%; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateX(-50%) rotate(45deg); }
 .callout-left::before { content: ""; position: absolute; top: 50%; left: -7px; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateY(-50%) rotate(135deg); }
 .callout-top::before { content: ""; position: absolute; top: -7px; left: 50%; padding: .35em; background: inherit; border: inherit; border-top: 0; border-left: 0; transform: translateX(-50%) rotate(225deg); }
@@ -180,9 +185,8 @@ button { font-family: "Open Sans", "Microsoft YaHei", "Gotham SSm A", "Gotham SS
 .popup-bar { background-color: var(--primary); color: #FFFFFF; padding: 5px 10px; }
 .popup-close-button { float: right; color: #FFFFFF; margin: 5px 5px; }
 .popup-close-button:hover { font-weight: bold; color: #CCCCCC; }
-.popup-title { padding: 1.25rem; font-size: 0.875rem; }
-.popup-content { padding: 0px 20px 10px 20px; }
-.popup-message { padding: 0px 20px; }
+.popup-title { font-size: 0.875rem; }
+.popup-content { padding: 20px 30px; margin: 10px; font-size: 1rem; border: 1px solid #EEEEEE; }
 .popup-item { padding: 0px 20px 10px 20px; }
 .popup-item input { border-bottom: 2px solid var(--primary); border-width: 0px 0px 2px 0px; font-size: 16xp; outline: none; }
 .popup-scroll { padding: 0px 20px 10px 20px; height: 400px; overflow: auto; }
@@ -215,13 +219,24 @@ a { color: var(--darker); text-decoration: none; margin-inline-start: 0.1rem; ma
 a:hover { color: var(--lighter); text-decoration: underline; }
 a:active { color: var(--primary); text-decoration: none; }
 span { margin-inline-start: 0.1rem; margin-inline-end: 0.1rem; }
-b, strong { color: var(--lighter); }
+b,strong { color: var(--lighter); }
 .marker-table th,table[marker] th { border-bottom: 1px solid #D0D0D0; padding: 5px 10px; }
 .marker-table td,table[marker] td { border-bottom: 1px dotted #D0D0D0; padding: 5px 10px; }
 table[marker] caption { text-align: left; }
+table[note] { background-color: #808080; }
+table[note] td { font-size: 0.875rem; background-color: #FFFFFF; padding: 8px; }
 
 div.panel { float: left; margin: 0px 20px 20px 0px; }
 div.justify { display: flex; justify-content: space-between; align-items: stretch; }
+div.column { display: flex; justify-content: space-between; }
+div.center-middle { display: flex; align-items: center; justify-content: center; }
+div.center-top { display: flex; align-items: flex-start; justify-content: center; }
+div.center-bottom { display: flex; align-items: flex-end; justify-content: center; }
+div.left-middle { display: flex; align-items: center; }
+div.right-middle { display: flex; align-items: center; justify-content: flex-end; }
+
+.form-div { margin: 16px 0px; padding: 8px 0px; }
+.form-frame > div { padding: 6px; }
 
 .tab { border-bottom: 2px solid var(--primary); margin: 20px 0px; }
 .tab-normal { width: 100px; text-align: center; cursor: default; font-size: 12px; border: 1px solid var(--primary); border-bottom-width: 0px; border-top-left-radius: 3px; border-top-right-radius: 3px; }
@@ -247,10 +262,3 @@ div.justify { display: flex; justify-content: space-between; align-items: stretc
 .score :first-child { font-size: 1.375rem; text-align: center; padding: 20px 5px; height: 32px; }
 .score .focus-name { background-color: var(--lighter); text-align: center; color: #FFFFFF; padding: 5px; white-space: nowrap;}
 .score .normal-name { background-color: #FFFFFF; text-align: center; color: var(--lighter); padding: 5px; white-space: nowrap; border-top: 1px solid var(--lighter);}
-
-.message-piece { text-align: center; padding: 5px; border-radius: 3px; font-size: 0.875rem; box-shadow: 1px 2px 3px #CCCCCC; }
-.message-red { background-color: #FFDDDD; color: #CC0000; margin: 2px auto; border: 1px solid #FF9999; }
-.message-green { background-color: #DDFFDD; color: #009900; margin: 2px auto; border: 1px solid #33CC33; }
-.message-blue { background-color: #DDDDFF; color: #0000CC; margin: 2px auto; border: 1px solid #9999FF; }
-.message-yellow { background-color: #FFFFCC; color: #CC9900; margin: 2px auto; border: 1px solid #FFCC33; }
-.message-orange { background-color: #FFCC99; color: #FF6633; margin: 2px auto; border: 1px solid #FF9966; }

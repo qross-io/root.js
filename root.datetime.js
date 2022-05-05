@@ -163,7 +163,7 @@ DateTime.formats = {
         return this.date.getFullYear().toString().substring(3);
     },
     'MMMM': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.fullChineseMonthNames[this.date.getMonth()];
         }
         else {
@@ -171,7 +171,7 @@ DateTime.formats = {
         }
     },
     'MMM': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.shortChineseMonthNames[this.date.getMonth()];
         }
         else {
@@ -230,7 +230,7 @@ DateTime.formats = {
         return this.date.getMilliseconds().toString(); 
     },
     'a': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.chineseNoonNames[Math.floor(this.date.getHours() / 12)];
         }
         else {
@@ -238,7 +238,7 @@ DateTime.formats = {
         }
     },
     'eeee': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.fullChineseWeekNames[this.getWeek()];
         }
         else {
@@ -246,7 +246,7 @@ DateTime.formats = {
         }
     },
     'EEEE': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.fullChineseWeekNames[this.getWeek()];
         }
         else {
@@ -254,7 +254,7 @@ DateTime.formats = {
         }
     },
     'eee': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.shortChineseWeekNames[this.getWeek()];
         }
         else {
@@ -262,7 +262,7 @@ DateTime.formats = {
         }
     },
     'EEE': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.shortChineseWeekNames[this.getWeek()];
         }
         else {
@@ -270,7 +270,7 @@ DateTime.formats = {
         }
     },
     'ee': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.miniChineseWeekNames[this.getWeek()];
         }
         else {
@@ -278,7 +278,7 @@ DateTime.formats = {
         }
     },
     'EE': function() {
-        if ($lang == 'zh') {
+        if ($root.lang == 'zh') {
             return DateTime.miniChineseWeekNames[this.getWeek()];
         }
         else {

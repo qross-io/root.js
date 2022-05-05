@@ -258,7 +258,7 @@ SelectButton.prototype.add = function(settingsOrOptionElement) {
     }
     this.$options.push(option);    
 
-    if (this.value.$includes(option.value) || option.$selected) {
+    if (this.value.includes(option.value) || option.$selected) {
         if (!this.multiple) {
             if (this.selectedIndex > -1) {
                 $x(this.options[this.selectedIndex].element).swap(this.options[this.selectedIndex].focusClass, this.options[this.selectedIndex].blurClass);

@@ -1,13 +1,11 @@
 
-
-
 //hide all <for> and <if>
-document.querySelector('HEAD').appendChild($create('STYLE', { 'type': 'text/css', 'innerHTML': 'model,set,for,if,elsif,else,o,template,chart { display: none; }' }));
+$root.appendClass('model,set,for,if,elsif,else,o,template,chart { display: none; }');
 
 document.models = new Object();
 //待加载的model项, 为0时触发finish事件
 document.models.$length = 0;
-//页面上的所有model是否都已经加载完成
+//页面上的所有model和相关标签是否都已经加载完成
 document.models.$loaded = false;
 
 Model = function(element) {
@@ -130,7 +128,7 @@ Model.prototype.load = function(data) {
             //first load        
             document.models.$length--;
             if (document.models.$length == 0) {
-                Model.initializeForOrIf('MODEL.LOAD');
+                Model.initializeNext('ALL MODEL LOADED');
             }
         }
     });
@@ -143,15 +141,11 @@ Model.prototype.reload = function() {
             window[this.name + '$'] = data;
             this.followers.forEach(follower => $s(follower)?.reload?.());
             $model(this.name).$set(data);            
-            Model.initializeForOrIf('MODEL.RELOAD');
+            //Model.initializeNext('A MODEL RELOAD');
             Event.execute(this, 'onreload', data);
             this.loading = false;
         });      
     }
-}
-
-RegExp.prototype.findAllIn = function(content) {
-    return (content.match(this) ?? []).distinct()
 }
 
 PlaceHolder = function(holder) {
@@ -280,7 +274,7 @@ String.prototype.placeItemData = function(data) {
             }
         });
 
-    return content.evalJsExpression();
+    return content.evalJsExpression(data);
 }
 
 // set 标签的值
@@ -307,7 +301,13 @@ Model.prototype.$set = function(data) {
                             }
                         });
 
-                    $attr($s(set.target), attr, content.evalJsExpression());
+                    let target = $s(set.target);
+                    if (target != null) {
+                        $root.__$attr(target, attr, content.evalJsExpression(data));
+                    }
+                    else {
+                        console.error('Incorrect selector ' + set.target + ' or element does not exists.');
+                    }
                 }
             }            
         }                
@@ -324,11 +324,11 @@ Model.$ForOrIf = function(tag) {
                 if (p == null || p.nodeName == 'BODY' || p.nodeName == 'HTML') {
                     break;
                 }
-                else if ('TEMPLATE,TEXT,TIP,CAP,GAP,LAP,FOR,IF'.$includes(p.nodeName)) {
+                else if ('TEMPLATE,TEXT,TIP,CAP,GAP,LAP,FOR,IF'.includes(p.nodeName)) {
                     incubating = true;
                     break;
                 }
-                else if ('TABLE,SELECT'.$includes(p.nodeName)) {
+                else if ('TABLE,SELECT'.includes(p.nodeName)) {
                     if (p.hasAttribute('data') && !p.hasAttribute('loaded')) {
                         incubating = true;
                         break;
@@ -347,7 +347,7 @@ Model.$ForOrIf = function(tag) {
     return null;
 }
 
-//properties 强制使用 setAttribute 赋值的属性
+//属性增强
 Model.boostPropertyValue = function(element, properties = '') {
     element.getAttributeNames()
         .filter(a => a.endsWith('+') && !a.startsWith('on'))
@@ -376,7 +376,7 @@ Model.boostPropertyValue = function(element, properties = '') {
 }
 
 Model.output = function(o) {
-    if (o.getAttribute('data') == null) {
+    if (!o.hasAttribute('data')) {
         if (o.innerHTML.startsWith('@')){
             //从model加载
             o.parentNode.insertBefore(document.createTextNode(o.innerHTML.placeModelData().$p()), o);
@@ -400,19 +400,19 @@ Model.output = function(o) {
     }
 }
 
-Model.initializeForOrIf = function() {
-    //find first for/if
-    let next = Model.$ForOrIf('FOR,IF,[if]');    
-    if (next == null) {
-        //nothing
-        if (!document.models.$loaded) {            
-            if (!document.templates.$loaded) {
-                //model加载完成并且页面上的for和if加载已完成, -1表示还未进行standalone检查
-                if (document.templates.$length == -1) {
-                    Model.initializeStandaloneTemplates();
-                }                
-            }
-            else {
+Model.initializeNext = function(from) {
+
+    if (!document.models.$loaded) {            
+        if (!HTMLTemplateElement._loaded) {
+            //model加载完成并且页面上的for和if加载已完成, -1表示还未进行standalone检查
+            if (HTMLTemplateElement._length == -1) {
+                Model.initializeStandaloneTemplates();
+            }                
+        }
+        else {
+            //find first for/if
+            let next = Model.$ForOrIf('FOR,IF,[if]');
+            if (next == null) {
                 //所有加载完成
                 document.models.$loaded = true;
                 Event.execute('$global', 'onpost');
@@ -430,35 +430,35 @@ Model.initializeForOrIf = function() {
                         span.initialize();
                     }
                 }
-            }            
-        }
-        //model已经加载完
-        //页面上的for和if已经加载完
-        //开始加载templates
-        //template已加载完 
-        //结束加载templates
+            }
+            else {
+                if (next.nodeName == 'FOR') {
+                    new For(next).load();
+                }
+                else {
+                    new If(next).load();
+                }
+            }
+        }            
     }
-    else  if (next.nodeName == 'FOR') {
-        //for
-        new For(next).load();
-    }
-    else {
-        //if
-        new If(next).load();
-    }
+    //model已经加载完
+    //页面上的for和if已经加载完
+    //开始加载templates
+    //template已加载完 
+    //结束加载templates
 }
 
 Model.initializeStandaloneTemplates = function() {
     let templates = document.querySelectorAll('template[data]');
-    document.templates.$length = templates.length;
-    if (templates.length > 0) {        
-        for (let template of templates) {
-            new Template(template).load();
+    HTMLTemplateElement._length = templates.length;
+    if (templates.length > 0) {
+        for (let template of templates) {            
+            template.initialize();
         }
     }
     else {
-        document.templates.$loaded = true;
-        Model.initializeForOrIf('MODEL.TEMPLATE.STANDALONE');
+        HTMLTemplateElement._loaded = true;
+        Model.initializeNext('NO STANDALONE TEMPLATE TO LOAD');
     }
 }
 
@@ -471,7 +471,7 @@ Model.initializeAll = function() {
         }
     }
     else {
-        Model.initializeForOrIf('INITIALIZE');
+        Model.initializeNext('NO MODEL TO LOAD');
     }
 }
 
@@ -553,10 +553,10 @@ For.prototype.load = function(data) {
         else if (this.data.startsWith('$template.')) {
             let name = this.data.takeAfter('.'); //templateName
             if (name.includes('.')) {
-                this.data = $template(name.takeBefore('.')).vars['.' + name.takeAfter('.')];
+                this.data = $(name.takeBefore('.')).vars['.' + name.takeAfter('.')];
             }
             else {
-                this.data = $template(name).vars[''];
+                this.data = $(name).vars[''];
             }            
         }
     }
@@ -587,7 +587,7 @@ For.prototype.load = function(data) {
             this.element.removeAttribute('interpreting');
         }
 
-        Model.initializeForOrIf('FOR');
+        Model.initializeNext('A FOR LOADED');
     });
 
     return this;
@@ -620,7 +620,7 @@ For.prototype.$eachOf = function(data) {
             }
         });
 
-        html.push(content.evalJsExpression());
+        html.push(content.evalJsExpression(item));
     }
 
     return html.join('');
@@ -674,7 +674,7 @@ For.prototype.$eachIn = function(data) {
             }
         });
         
-        html.push(content.evalJsExpression());
+        html.push(content.evalJsExpression(value));
     }
     
     return html.join('');    
@@ -819,51 +819,44 @@ If.prototype.load = function() {
         this.if.removeAttribute('interpreting');
     }
 
-    Model.initializeForOrIf('IF');
+    Model.initializeNext('AN IF LOAD');
 }
 
 //在替换完占位符之后再执行js表达式
-String.prototype.evalJsExpression = function() {
+String.prototype.evalJsExpression = function(data) {
 
-    let data = this.toString();
+    let content = this.toString();
 
     let hasForHolders = function (expression) {
         // @hello, @[hello]
         return /@[a-z_][a-z0-9_]*/i.test(expression) || /@\[[^\[\]]+?\]/i.test(expression);
-    }
+    };
 
     //~{{complex expression}}
-    //must return a value 
-    let complex = data.match(/\~\{\{([\s\S]+?)\}\}/g);
-    if (complex != null) {
-        complex.forEach(holder => {
+    //must return a value    
+    /\~?\{\{([\s\S]+?)\}\}/g.findAllIn(content)
+        .forEach(holder => {
             if (!hasForHolders(holder)) {
-                let exp = holder.substring(3);
-                exp = exp.substring(0, exp.length - 2);
-                data = data.replace(holder, eval('_ = function() { ' + exp.decode() + ' }();'));
+                content = content.replace(holder, eval('_ = function(data) { ' + holder.drop('~').trimPlus('{{', '}}').decode() + ' }').call(null, data));
             }
         });
-    }
 
     //~{simple expression}
-    let simple = data.match(/\~\{([\s\S]+?)\}/g);
-    if (simple != null) {
-        simple.forEach(holder => {
+    /\~?\{([\s\S]+?)\}/g.findAllIn(content)
+        .forEach(holder => {
             if (!hasForHolders(holder)) {
-                let exp = holder.substring(2);
-                exp = exp.substring(0, exp.length - 1);
-                data = data.replace(holder, eval('_ = function() { return ' + exp.decode() + '; }();'));
+                content = content.replace(holder, eval('_ = function(data) { return ' + holder.drop('~').trimPlus('{', '}').decode() + '; }').call(null, data));
             }
         });
-    }
 
-    return data;
+    return content;
 }
 
 $enhance(HTMLSpanElement.prototype)
     .declare({
         data: '',
         await: '',
+        copyText: '',
 
         onload: null,
         onreload: null
@@ -896,7 +889,7 @@ HTMLSpanElement.prototype.copy = function() {
     this.nextElementSibling.select();
     document.execCommand('Copy');
     this.nextElementSibling.remove();
-    Callout($lang == 'zh' ? '已复制。' : 'Copied.').position(this, 'up').show(3);
+    Callout(this.copyText || ($root.lang == 'zh' ? '已复制。' : 'Copied.')).position(this, 'up').show(3);
 }
 
 HTMLSpanElement.prototype.initialize = function() {
@@ -919,75 +912,154 @@ HTMLSpanElement.prototype.initialize = function() {
     Event.interact(this, this);
 }
 
-//new Template(element)
-//template.setData(data).asArray().load(func);
+HTMLTemplateElement._length = -1;
+HTMLTemplateElement._loaded = false;
 
-document.templates = new Object();
-//页面上独立的template元素, 未检查之前初始值为-1
-document.templates.$length = -1;
-//独立的template是否都加载完成
-document.templates.$loaded = false;
+$enhance(HTMLTemplateElement.prototype)
+    .declare({
+        name: '',
 
-//parentName 内嵌模板的父级名称, null表示独立template
-Template = function(element, container, parentName) {
+        data: '',
+
+        increment: '',
+        lazyLoad: false,
+        autoRefresh: false,
+        interval: 2000,
+        terminal: 'false',
+        clearOnRefresh: true
+    })
+    .extend('onload', 'onreload', 'onlazyload', 'ondone', 'onteminate')
+    .define({
+        'content': {
+            get() {
+                if (this._content == null) {
+                    this._content = this.innerHTML.trim();
+                }
+                return this._content;
+            },
+            set(content) {
+                this._content = content;
+            }
+        },
+        'var': {
+            get() {
+                if (this._var == null) {
+                    this.var = this.getAttribute('var') ?? this.getAttribute('let') ?? '';
+                }
+                return this._var;
+            },
+            set(vs) {
+                if (this._var == null) {
+                    this._var = {
+                        item: 'item',
+                        key: 'key',
+                        value: 'value'
+                    };
+                }
+
+                if (vs.includes(',')) {
+                    this._var.key = vs.takeBefore(',').trim();
+                    this._var.value = vs.takeAfter(',').trim();                    
+                }
+                else if (vs != '') {
+                    this._var.item = vs.trim();                    
+                }
+            }
+        },
+        'as': {
+            get() {
+                let as = (this.getAttribute('as') || 'object').trim().toLowerCase();
+                if (as != 'object') {
+                    if (/^(list|for|loop)$/.test(as)) {
+                        as = 'array';
+                    }
+                    if (as != 'array') {
+                        as = 'object';
+                    }
+                }
+                return as;
+            },
+            set(as) {
+                this.setAttribute('as', as);
+            }
+        },
+        'initPage': {
+            get() {
+                return $parseInt(this.getAttribute('page') ?? this.getAttribute('init-page'), 0);
+            },
+            set(page) {
+                this.setAttribute('page', page);
+            }
+        },
+        'page': {
+            get() {
+                if (this._page == -1) {
+                    this._page = this.initPage;
+                }
+                return this._page;
+            },
+            set(page) {
+                this._page = page;
+            }
+        },
+        'initOffset': {
+            get() {
+                return $parseInt(this.getAttribute('offset') ?? this.getAttribute('init-offset'), 0);
+            },
+            set(offset) {
+                this.setAttribute('offset', offset);
+            }
+        },
+        'offset': {
+            get() {
+                if (this._offset == -1) {
+                    this._offset = this.initOffset;
+                }
+                return this._offset;
+            },
+            set(offset) {
+                this._offset = offset;
+            }
+        }
+    });
+
+HTMLTemplateElement.prototype._content = null;
+HTMLTemplateElement.prototype._var = null;
+HTMLTemplateElement.prototype._page = -1;
+HTMLTemplateElement.prototype._offset = -1;
+HTMLTemplateElement.prototype._deferral = 0; //延长次数, 默认延长3次, 不可设置
+
+HTMLTemplateElement.prototype.vars = null; //中间变量
+HTMLTemplateElement.prototype.container = null; //容器元素
+HTMLTemplateElement.prototype.position = 'beforeBegin';
+
+HTMLTemplateElement.prototype.loading = false; //是否正在加载
+HTMLTemplateElement.prototype.loaded = false; //是否第一次加载已完成
+HTMLTemplateElement.prototype.done = false; //是否已经到底了
+HTMLTemplateElement.prototype.empty = true; //加载的数据是否为空
+
+HTMLTemplateElement.prototype.owner = null; //非独立模板的主元素，执行事件时call的对象
+
+HTMLTemplateElement.prototype.initialize = function(container) {
+
+    if (this.name == '') {
+        if (this.id != '') {
+            this.name = this.id;
+        }
+        else {
+            this.name = 'Tempalte_' + document.components.size;
+        }
+    }
+    if (this.id == '') {
+        this.id = this.name;
+    }
     
-    this.name = element.getAttribute('name') || element.id || 'Template_' + document.components.size; //必须有 name
-    if (parentName != null) {
-        this.name = parentName + ':' + this.name;
-    }
-    this.id = this.name;
-
-    this.data = element.getAttribute('data') || ''; //原始值
-    element.removeAttribute('data');
-
-    this.content = element.innerHTML.trim();
-    this.$as = element.getAttribute('as') || 'object';
-    this.var = element.getAttribute('var') || element.getAttribute('let');
-    if (this.var == null) {
-        this.var = {
-            item: 'item',
-            key: 'key',
-            value: 'value'
-        };
-    }
-    else if (this.var.includes(',')) {
-        this.var = {
-            item: 'item',
-            key: this.var.takeBefore(',').trim(),
-            value: this.var.takeAfter(',').trim()            
-        };
-    }
-    else {
-        this.var = {
-            item: this.var.trim(),
-            key: 'key',
-            value: 'value'
-        };
-    }
-
-    //pagination
-    this.$page = $parseInt(element.getAttribute('page'), 0); //$page 是初始值
-    this.page = this.$page; //page 是当前值
-    this.increment = element.getAttribute('increment') || '';
-    this.$offset = $parseInt(element.getAttribute('offset'), 0); //初始值
-    this.offset = this.$offset; //当前值
-    this.lazyLoad = $parseBoolean(element.getAttribute('lazy-load') ?? element.getAttribute('lazyLoad'), false, this);
-        
-    this.autoRefresh = $parseBoolean(element.getAttribute('auto-refresh') ?? element.getAttribute('autoRefresh'), false, this);
-    this.interval = $parseFloat(element.getAttribute('interval'), 2000);
-    this.terminal = element.getAttribute('terminal') || 'false';
-    this.deferral = 0; //延长次数, 默认延长3次, 不可设置
-    this.clearOnRefresh = $parseBoolean(element.getAttribute('clear-on-refresh') ?? element.getAttribute('clearOnRefresh') ?? element.getAttribute('clear-on-reload') ?? element.getAttribute('clearOnReload'), true, this);
-    
-    //中间变量
     this.vars = new Object();
 
-    //一些配置或数据会保存在元素上
-    this.ownerElement = element;
     if (container == null) {
-        this.container = element;
+        this.container = this;
         this.position = 'beforeBegin';
-        this.setIrremovable(element.parentNode.children);        
+        this.setIrremovable(this.parentNode.children);
     }
     else {
         this.container = container;
@@ -995,78 +1067,35 @@ Template = function(element, container, parentName) {
         this.setIrremovable(container.children);
     }
 
-    if (/(list|array|for|loop|collection)/i.test(this.$as)) {
-        this.asArray();
-    }    
-
-    this.nodeName = 'TEMPLATE';
-    this.tagName = 'TEMPLATE';
-    this.nodeType = 0;
-    document.components.set(this.name, this);    
-
     if (this.lazyLoad) {
-        this.ownerElement.setAttribute('page', this.$page);
-        this.ownerElement.setAttribute('offset', this.$offset);
-        Template.listen(this.name, this.position == 'beforeBegin' ? element.parentNode : container); 
+        HTMLTemplateElement.listen(this, this.position == 'beforeBegin' ? this.parentNode : this.container);
     }
     else if (this.autoRefresh && this.interval > 0) {
         this.refresh();      
     }
+    else {
+        this.load();
+    }
 
-    this.onload = element.getAttribute('onload');
-    this.onreload = element.getAttribute('onreload');
-    this.ondone = element.getAttribute('ondone');
-
-    Event.interact(this, element);
+    Event.interact(this, this);
 }
 
-Template.listen = function(name, element) {
+HTMLTemplateElement.listen = function(template, element) {
     window.on(window.ontouchmove == null ? 'scroll' : 'touchmove', function(ev) {
         if($root.scrollTop + $root.visibleHeight >= element.bottom - 100) {            
-            if (!$template(name).loading && !$template(name).done) {
-                $template(name).load();
+            if (!template.loading && !template.done) {
+                template.load();
             }
         }
     });
 }
 
-//执行事件时call的对象
-Template.prototype.owner = null;
-//每次加载完成后触发
-Template.prototype.onload = null; //function(data) { };
-//仅每次增量加载完成后触发
-Template.prototype.onreload = null; //function(data) { };
-Template.prototype.onterminate = null; //function() { };
-//所有数据加载完成之后触发
-Template.prototype.ondone = null; //function() { };
-
-
-//是否正在加载
-Template.prototype.loading = false;
-//是否已经到底了
-Template.prototype.done = false;
-
-Template.prototype.nonEmpty = function() {
-    this.ownerElement.innerHTML.trim() != '';
-}
-
-Template.prototype.on = function(eventName, func) {
-    Event.bind(this, eventName, func);
-    return this;
-}
-
-Template.prototype.of = function(owner, ownerElement) {
+HTMLTemplateElement.prototype.of = function(owner) {
     this.owner = owner;
-    if (ownerElement != null) {
-        this.ownerElement = ownerElement;
-    }
-    else if (owner.element != null) {
-        this.ownerElement = owner.element;
-    }
     return this;
 }
 
-Template.prototype.extend = function(ahead, latter) {
+HTMLTemplateElement.prototype.extend = function(ahead, latter) {
     if (ahead != null) {
         this.content = ahead + this.content;
     }
@@ -1076,17 +1105,17 @@ Template.prototype.extend = function(ahead, latter) {
     return this;
 }
 
-Template.prototype.setContainer = function(container) {
+HTMLTemplateElement.prototype.setContainer = function(container) {
     this.container = container;
     return this.setPosition('beforeEnd').setIrremovable(container.children);
 }
 
-Template.prototype.setPosition = function(position) {
+HTMLTemplateElement.prototype.setPosition = function(position) {
     this.position = position;
     return this;
 }
 
-Template.prototype.setIrremovable = function(children) {
+HTMLTemplateElement.prototype.setIrremovable = function(children) {
     //for (let child of element.parentNode.children) {   //旧一点浏览器不支持 children 的 of 遍历
     for (let i = 0; i < children.length; i++) {
         children[i].setAttribute('irremovable', '');
@@ -1094,7 +1123,7 @@ Template.prototype.setIrremovable = function(children) {
     return this;
 }
 
-Template.prototype.$represent = function(data) {
+HTMLTemplateElement.prototype.$represent = function(data) {
 
     let content = this.content;
 
@@ -1110,10 +1139,10 @@ Template.prototype.$represent = function(data) {
             let ph = new PlaceHolder(holder).analyze();
             let v = ph.place(data);
             if (v != null) {
-                //array也是对象, 但基本数据类型数字、字符串、布尔不是对象
+                //array 也是对象, 但基本数据类型数字、字符串、布尔不是对象
                 if (v instanceof Array || v instanceof Object) {
                     this.vars[ph.path] = v;
-                    content = content.replaceAll(holder, '$template.' + this.name + ph.path);
+                    content = content.replaceAll(holder, '$template#' + this.id + ph.path);
                 }
                 else {
                     content = content.replaceAll(holder, v);
@@ -1121,10 +1150,14 @@ Template.prototype.$represent = function(data) {
             }
         });
 
-    return content.evalJsExpression();
+    return content.evalJsExpression(data);
 }
 
-Template.prototype.$eachOf = function(data) {
+HTMLTemplateElement.prototype.$eachOf = function(data) {
+
+    if (this.page == this.initPage) {
+        this.empty = data.length == 0;
+    }
 
     let html = [];
     // @[name]
@@ -1144,11 +1177,10 @@ Template.prototype.$eachOf = function(data) {
             }        
         });
     
-        html.push(content.evalJsExpression());
+        html.push(content.evalJsExpression(item));
 
         if (this.increment != '') {
             this.offset = Math.max(this.offset, $parseInt(Json.find(item, this.increment), 0));
-            this.ownerElement.setAttribute('offset', this.offset);
         }
     }
    
@@ -1156,7 +1188,11 @@ Template.prototype.$eachOf = function(data) {
 }
 
 //each in
-Template.prototype.$eachIn = function(data) {
+HTMLTemplateElement.prototype.$eachIn = function(data) {
+
+    if (this.page == this.initPage) {
+        this.empty = Object.keys(data).length == 0;
+    }
 
     let html = [];
     // @key!
@@ -1180,55 +1216,52 @@ Template.prototype.$eachIn = function(data) {
             }
         });
         
-        html.push(content.evalJsExpression());
+        html.push(content.evalJsExpression(value));
     }
 
     return html.join('');
 }
 
-Template.prototype.setData = function(data) {
+HTMLTemplateElement.prototype.setData = function(data) {
     if (data != null) {
         this.data = data;
     }    
     return this;
 }
 
-Template.prototype.asArray = function() {
-    this.$as = 'array';    
+HTMLTemplateElement.prototype.asArray = function() {
+    this.as = 'array';    
     return this;
 }
 
-Template.prototype.asLoop = function() {
+HTMLTemplateElement.prototype.asLoop = function() {
     return this.asArray();
 }
 
-Template.prototype.asList = function() {
+HTMLTemplateElement.prototype.asList = function() {
     return this.asArray();
 }
 
-Template.prototype.asObject = function() {
-    this.$as = 'object';
+HTMLTemplateElement.prototype.asObject = function() {
+    this.as = 'object';
     return this;
 }
 
-Template.prototype.setPage = function(page) {
+HTMLTemplateElement.prototype.setPage = function(page) {
     this.page = page;
-    if (this.ownerElement != null) {
-        this.ownerElement.setAttribute('page', 0);
-    }    
     return this;
 }
 
-Template.prototype.setOffset = function(offset) {
+HTMLTemplateElement.prototype.setOffset = function(offset) {
     this.offset = offset;
     return this;
 }
 
-Template.prototype.clear = function() {
+HTMLTemplateElement.prototype.clear = function() {
     if (this.position == 'beforeBegin') {
         let children = this.container.parentNode.children;
         for (let i = children.length - 1; i >= 0; i--) {
-            if (children[i].getAttribute('irremovable') == null) {
+            if (!children[i].hasAttribute('irremovable')) {
                 children[i].remove();
             }
         }
@@ -1236,47 +1269,45 @@ Template.prototype.clear = function() {
     else if (this.position == 'beforeEnd') {
         let children = this.container.children;
         for (let i = children.length - 1; i >= 0; i--) {
-            if (children[i].getAttribute('irremovable') == null) {
+            if (!children[i].hasAttribute('irremovable')) {
                 children[i].remove();
             }
         }
     }
 
     //分页回到初始值
-    this.ownerElement.setAttribute('page', this.$page);
-    this.page = this.$page;
+    this.page = this.initPage;
     if (this.increment != '') {
-        this.ownerElement.setAttribute('offset', this.$offset);
-        this.offset = this.$offset;
+        this.offset = this.initOffset;
     }
     this.done = false;
 
     return this;
 }
 
-Template.prototype.refresh = function() {
+HTMLTemplateElement.prototype.refresh = function() {
     let template = this;
     let refresher = window.setInterval(
         function() {                        
             if (template.terminal.toBoolean(false, template)) {
                 //再尝试3次, 有时会出现结束但仍有数据产生的情况
-                if (template.deferral < 3) {
-                    if (template.deferral == 0) {
+                if (template._deferral < 3) {
+                    if (template._deferral == 0) {
                         Event.execute(template, 'onterminate');
                     }
-                    template.deferral ++;
+                    template._deferral ++;
                 }
                 else {
                     //done
                     window.clearInterval(refresher);                  
                     template.done = true;
                     Event.execute(template, 'ondone');
-                    template.deferral = 0;
+                    template._deferral = 0;
                 }
             }
             else {
-                if (template.deferral > 0) {
-                    template.deferral = 0;
+                if (template._deferral > 0) {
+                    template._deferral = 0;
                 }
 
                 template.reload();
@@ -1285,26 +1316,26 @@ Template.prototype.refresh = function() {
     return this;
 }
 
-Template.prototype.reload = function() {
+HTMLTemplateElement.prototype.reload = function() {
     if (this.clearOnRefresh) {
         this.clear();
     }
     this.load();
 }
 
-Template.prototype.load = function(func) {
+HTMLTemplateElement.prototype.load = function(func) {
 
     if (!this.loading) {
         this.loading = true;
 
-        $TAKE(this.data, this.ownerElement, this, function(data) {
+        $TAKE(this.data, this, this, function(data) {
 
             if (!this.lazyLoad && !this.autoRefresh) {
                 this.done = true;
             }
 
             //显示内容
-            if (this.$as == 'array') {
+            if (this.as == 'array') {
                 if (data instanceof Array) {
                     this.container.insertAdjacentHTML(this.position, this.$eachOf(data));
 
@@ -1317,7 +1348,6 @@ Template.prototype.load = function(func) {
 
                     //即使不支持懒加载也会增加页码, 以保证手工加载正常
                     this.page ++;
-                    this.ownerElement.setAttribute('page', this.page);
                 }
                 else if (typeof(data) == 'object') {                    
                     this.container.insertAdjacentHTML(this.position, this.$eachIn(data));
@@ -1330,18 +1360,22 @@ Template.prototype.load = function(func) {
                 this.container.insertAdjacentHTML(this.position, this.$represent(data));
             }        
 
-            if (document.templates.$length > 0) {
-                document.templates.$length--;
-                if (document.templates.$length == 0) {
-                    document.templates.$loaded = true;
+            if (HTMLTemplateElement._length > 0) {
+                HTMLTemplateElement._length --;
+                if (HTMLTemplateElement._length == 0) {
+                    HTMLTemplateElement._loaded = true;
                 }
             }
                      
             //当前值大于初始值为"增量加载" 
-            if (this.page > this.$page) {
-                Event.execute(this.name, 'onreload', data);
+            if (this.page > this.initPage + 1) {
+                Event.execute(this, 'onlazyload', data);
+            }
+            else if (this.loaded) {
+                Event.execute(this, 'onreload', data);
             }
             else {
+                this.loaded = true;
                 Event.execute(this, 'onload', data);
             }
             
@@ -1356,14 +1390,14 @@ Template.prototype.load = function(func) {
 
             this.loading = false;
 
-            Model.initializeForOrIf('TEMPLATE');
-            Template.reloadComponents(this.ownerElement);
+            Model.initializeNext('A TEMPLATE LOADED');
+            HTMLTemplateElement.reloadComponents(this);
         });
     }
 }
 
 //重载editor和其他组件
-Template.reloadComponents = function(container) {
+HTMLTemplateElement.reloadComponents = function(container) {
     [
         { class: '$editor', method: 'reapplyAll' },
         { class: 'HTMLAnchorElement', method: 'initializeAll' },
@@ -1374,16 +1408,6 @@ Template.reloadComponents = function(container) {
     ].forEach(component => {
         window[component.class]?.[component.method]?.(container);
     });
-}
-
-$template = function(name) {
-    let template = $t(name);
-    if (template != null && template.tagName == 'TEMPLATE') {
-        return template;
-    }
-    else {
-        return null;
-    }
 }
 
 document.on('ready', function() {

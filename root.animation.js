@@ -94,15 +94,15 @@ Animation.Entity = function (settings, element) {
 }
 
 Animation.Entity.prototype.on = function(eventName, func) {
-    eventName = eventName.toLowerCase();
-    if (!eventName.startsWith('on')) {
-        eventName = 'on' + eventName;
-    }
+    // if (eventName == 'start') {
+    //     this.element.onanimationstart = func;
+    // }
+    // else if (eventName == 'stop') {
+    //     this.element.onanimationend = func;
+    // }
 
-    if (this.hasOwnProperty(eventName)) {
-        this[eventName] = func;
-    }
-
+    this[eventName.toLowerCase().prefix('on')] = func;
+    
     return this;
 }
 
@@ -138,7 +138,7 @@ Animation.Entity.prototype.play = function (ev) {
             delete Animation.timer[this.element.id];
         }
         Event.fire(this, 'start', this.element);
-
+        
         let prefix = '';
         // if (Animation.getBrowser().name == 'chrome' || Animation.getBrowser().name == 'safari') {
         //     prefix = '-webkit-';
@@ -237,8 +237,8 @@ Animation.Entity.prototype.play = function (ev) {
                         a.element.classList.remove('Animation_' + a.element.id);
                         //移除样式表标签<style>
                         $s('#__AnimationStyleSheet_' + a.element.id).remove();
-                    }   
-                    Event.fire(a, 'stop', a.element);
+                    }
+                    Event.fire(a, 'stop', a.element);              
                     window.clearTimeout(Animation.timer[a.element.id]);
                     delete Animation.timer[a.element.id];
                 }, Animation.parseTimeOut(this.settings.duration, this.settings.delay));
@@ -664,24 +664,36 @@ Animation.getBrowser = function () {
     return { name: name, version: parseInt(version) };
 }
 
+//未来考虑使用 Element.animate 方法代替
+HTMLElement.prototype.play = function(settings) {
+    Animation(settings).apply(this).play();
+    return this;
+}
+
+HTMLElement.prototype.resetAnimation = function() {
+    this.classList.remove('Animation_' + this.id);
+}
+
+HTMLElement.prototype.move = function(distanceX = 100, distanceY = 0, duration = 0.6) {
+    Animation(`timing-function: ease; duration: ${duration}s; from-position: x(0).y(0); to-position: x(${distanceX}).y(${distanceY}); fill-mode: forwards;`).apply(this).play();
+    return this;
+}
+
 //opacity 0 ~ 1
 HTMLElement.prototype.fadeIn = function(opacity = 0, duration = 0.6) {
+    
     if (this.hidden) {
         this.hidden = false;
     }
-    if (this.style.display == 'none') {
-        this.style.display = '';
-    }
 
-    if (this.style.opacity != '' && this.style.opacity < 1) {
-        Animation('timing-function: ease; duration: ' + duration + 's; from-opacity: ' + ($parseFloat(opacity, 0) * 100) + '%; to-opacity: 100%; fill-mode: forwards;')
-            .apply(this)
-            .resetOnStop()
-            .on('stop', function(element) {
-                element.style.opacity = 1;
-            })
-            .play();
-    }    
+    Animation('timing-function: ease; duration: ' + duration + 's; from-opacity: ' + ($parseFloat(opacity, 0) * 100) + '%; to-opacity: 100%; fill-mode: forwards;')
+        .apply(this)
+        .resetOnStop()
+        .on('stop', function(element) {
+            element.style.opacity = 1;
+        })
+        .play();
+
     return this;
 }
 
@@ -689,14 +701,14 @@ HTMLElement.prototype.fadeIn = function(opacity = 0, duration = 0.6) {
 HTMLElement.prototype.fadeOut = function(opacity = 0, duration = 0.6) {
     opacity = $parseFloat(opacity, 0) * 100;
 
-    if (this.style.display != 'none' && !this.hidden && (this.style.opacity == '' || this.style.opacity > 0)) {
+    if (this.visible) {
         Animation('timing-function: ease; duration: ' + duration + 's; from-opacity: 100%; to-opacity: ' + opacity + '%; fill-mode: forwards;')
         .apply(this)
         .resetOnStop()
         .on('stop', function(element) {            
             element.style.opacity = opacity / 100;
             if (opacity == 0 && element.style.position == 'absolute') {
-                element.style.display = 'none';
+                element.hidden = true;
             }
         }).play();
     }
@@ -704,46 +716,72 @@ HTMLElement.prototype.fadeOut = function(opacity = 0, duration = 0.6) {
     return this;
 }
 
-HTMLElement.prototype.slideIn = function(from = 'left') {
-    let start = 'x(-120).y(0)';
-    if (from == 'right') {
-        start = 'x(120).y(0)';
+HTMLElement.prototype.slideIn = function(distanceX = '-w', distanceY = 0, duration = 0.6) {
+   
+    if (typeof(distanceX) == 'string') {
+        distanceX = distanceX.replace('w', this.offsetWidth).toInt();
     }
-    else if (from == 'up') {
-        start = 'x(0).y(-100)';        
+
+    if (distanceX > 0) {
+        distanceX = distanceX.max(120).min(500);
     }
-    else if (from == 'down') {
-        start = 'x(0).y(100)';
+    else if (distanceX < 0) {
+        distanceX = distanceX.min(-120).max(-500);
+    }
+
+    if (typeof(distanceY) == 'string') {
+        distanceY = distanceY.replace('h', this.offsetHeight).toInt();
+    }
+
+    if (distanceY > 0) {
+        distanceY = distanceY.max(100).min(400);
+    }
+    else if (distanceY < 0) {
+        distanceY = distanceY.min(-100).max(-400);
     }
     
+    duration = duration.max(Math.abs(distanceX) / 400).max(Math.abs(distanceY) / 400).round(1);
+
     this.hidden = false;
-    Animation('timing-function: ease; duration: 0.6s; from: ' + start + ' 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;').apply(this).play();
+    Animation('timing-function: ease; duration: ' + duration + 's; from: x(' + distanceX + ').y(' + distanceY + ') 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;').apply(this).play();
 
     return this;
 }
 
-HTMLElement.prototype.slideOut = function(to = 'left', remove = false) {
-    let end = 'x(-120).y(0)';
-    if (to == 'right') {
-        end = 'x(120).y(0)';
-    }
-    else if (to == 'up') {
-        end = 'x(0).y(-100)';
-    }
-    else if (to == 'down') {
-        end = 'x(0).y(100)';
+HTMLElement.prototype.slideOut = function(distanceX = 'w', distanceY = 0, duration = 0.6, hidden = false) {
+
+    if (typeof(distanceX) == 'string') {
+        distanceX = distanceX.replace('w', this.offsetWidth).toInt();
     }
 
-    Animation('timing-function: ease; duration: 0.6s; from: x(0).y(0) 100% 100%; to: ' + end + ' 100% 0%; fill-mode: forwards;')
-    .apply(this)
-    .on('stop', function(element) {
-        if (remove) {
-            element.remove();
+    if (distanceX > 0) {
+        distanceX = distanceX.max(120).min(500);
+    }
+    else if (distanceX < 0) {
+        distanceX = distanceX.min(-120).max(-500);
+    }
+
+    if (typeof(distanceY) == 'string') {
+        distanceY = distanceY.replace('h', this.offsetHeight).toInt();
+    }
+
+    if (distanceY > 0) {
+        distanceY = distanceY.max(100).min(400);
+    }
+    else if (distanceY < 0) {
+        distanceY = distanceY.min(-100).max(-400);
+    }
+
+    duration = duration.max(Math.abs(distanceX) / 400).max(Math.abs(distanceY) / 400).round(1);
+
+    Animation('timing-function: ease; duration: ' + duration + 's; from: x(0).y(0) 100% 100%; to: x(' + distanceX + ').y(' + distanceY + ') 100% 0%; fill-mode: forwards;').apply(this).play();
+
+    this.onanimationend = function() {
+        if (hidden) {
+            this.hidden = true;
         }
-        else {
-            element.hidden = true;
-        }            
-    }).play();
+        this.onanimationend = null;
+    }
 
     return this;
 }
@@ -781,7 +819,7 @@ Message.Entity.prototype.show = function(seconds = 0) {
         let element = $create('DIV', { className: 'message-piece message-' + this.color, innerHTML: this.message }, { }, { sign: 'PIECE' });
         box.insertAdjacentElement('afterBegin', element);
 
-        element.slideIn('up');
+        element.slideIn(-100);
         if (seconds > 0) {
             Message.$hide(element, seconds);
         }
@@ -817,7 +855,7 @@ Message.$play = function(target) {
     }
     Animation('timing-function: ease; duration: 0.8s; from: x(0).y(0) 100% 100%; to: ' + to + ' 100% 0%; fill-mode: forwards;')
         .apply(target)
-        .on('stop', function() {            
+        .on('stop', function() {      
             if (target.parentNode.children.length == 1) {
                 target.parentNode.hidden = true;
             }
@@ -830,4 +868,13 @@ document.on('ready', function() {
     $s('#__MessageBox').on('click', function(ev) {
         Message.$hide(ev.target);
     });
+
+    $root.appendClass(`
+        .message-piece { text-align: center; padding: 12px 16px; border-radius: 3px; font-size: 0.875rem; box-shadow: 1px 2px 3px #CCCCCC; }
+        .message-red { background-color: #FFDDDD; color: #CC0000; margin: 2px auto; border: 1px solid #FF9999; }
+        .message-green { background-color: #DDFFDD; color: #009900; margin: 2px auto; border: 1px solid #33CC33; }
+        .message-blue { background-color: #DDDDFF; color: #0000CC; margin: 2px auto; border: 1px solid #9999FF; }
+        .message-yellow { background-color: #FFFFCC; color: #CC9900; margin: 2px auto; border: 1px solid #FFCC33; }
+        .message-orange { background-color: #FFCC99; color: #FF6633; margin: 2px auto; border: 1px solid #FF9966; }
+    `);
 });

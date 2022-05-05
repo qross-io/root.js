@@ -7,7 +7,7 @@
 
 HTMLElement.prototype.editor = null;
 HTMLElement.prototype.edit = function(ev) {
-    if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6,TD,TH'.$includes(this.nodeName)) {
+    if ('SPAN,A,P,DIV,FONT,B,I,LABEL,H1,H2,H3,H4,H5,H6,TD,TH'.includes(this.nodeName)) {
         if (this.editor.editable && !this.editor.editing && this.editor.execute('onedit', this.editor, ev)) {
             this.editor.editing = true;
             if (this.editor.editInPrompt) {
@@ -402,9 +402,9 @@ Editor.INPUT = {
             }
         }
 
-        // textBox.size = textBox.value.$length(3) + 2;
+        // textBox.size = textBox.value.unicodeLength.max(3) + 2;
         // textBox.onkeyup = function (ev) {
-        //     this.size = this.value.$length(3) + 2;
+        //     this.size = this.value.unicodeLength.max(3) + 2;
         // }
 
         element.innerHTML = '';
@@ -1021,9 +1021,9 @@ Editor.PERCENT = function (editor, element) {
                 }
             }
 
-            textBox.size = textBox.value.$length(4);
+            textBox.size = textBox.value.unicodeLength.max(4);
             textBox.onkeyup = function (ev) {
-                this.size = this.value.$length(4);
+                this.size = this.value.unicodeLength.max(4);
             }
 
             element.innerHTML = '';

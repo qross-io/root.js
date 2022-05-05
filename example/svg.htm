@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>TABLE</title>
+    <title>SVG</title>
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.table.js"></script>
@@ -19,6 +19,23 @@
     </style>
 </head>
 <body>
+<greeting onclick="alert(1)">Hello!</greeting>
+<div id="container">
+    没什么卵用的文字 1
+    <span slot="main1">坑位1</span>
+    <i slot="main2">坑位2</i>
+    没什么卵用的文字 2</div>
+  <template id="sample">Template Begin | 
+    <slot name="main1">Slot 1</slot>
+    <slot name="main2">Slot 2</slot>
+    | Template End
+</template>
+<script type="text/javascript">
+var root = $('#con').attachShadow({mode:'open'});
+var con = $("#tpl").content.cloneNode(true);
+root.appendChild(con);
+</script>
+
 <div style="height: 1300px;">
     <svg width="100%" height="100%" style="background-color: #009900; border: 1px solid #0000FF; background-color: #FFFF00;" onkeydown="alert(1)">
         <g id="A" draggable="true" oncontextmenu="alert(1)">

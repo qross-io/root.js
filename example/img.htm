@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IMG</title>
+    <script type="text/javascript" src="/root.js" onload="console.log($guid())"></script>
+    <script type="text/javascript" src="/root.animation.js"></script>
+    <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
+</head>
+<body onready="alert(1)">
+<img id="P" onload="console.log('img-load');" onhello="console.log(4444)" onerror="console.log('img-error');" />
+<input id="T" onchange="console.log('changed')" />
+<button id="B">Button</button>
+<script type="text/javascript">
+
+let a = function() {
+    alert(1);
+};
+
+$('#B').addEventListener('click', a);
+
+console.log(window.getEventListeners($('#B')));
+
+
+$('#T').onanimationstart = function() {
+    console.log('animation start');
+}
+
+$('#T').onanimationend = function() {
+    console.log('animation end');
+}
+
+$('#T').onchange = function() {
+    console.log('property changed.');
+}
+
+$('#T').dispatchEvent(new Event('change'));
+
+const event = new CustomEvent('hello+world', {
+    detail: { },
+    world: 213
+});
+
+$('img').addEventListener('hello', function(e) {
+    console.log(e.detail.a + ' ' + e.detail.b);
+    return false;
+});
+
+$('img').addEventListener('hello-world', function(e) {
+    console.log(e.detail.b + ' ' + e.detail.a);
+    return false;
+});
+
+//event.detail = { a: 121, b: 212 };
+event.detail.a = 333;
+event.detail.b = 444;
+let e = $('img').dispatchEvent(new CustomEvent('hello', {
+    detail: { 
+        a: 'HELLO',
+        b: 'WORLD'
+     },
+     bubbles: true,
+     cancelable: true
+}));
+console.log('e: ' + e);
+
+document.on('ready', function() {
+    console.log('page-ready');
+});
+
+document.on('load', function() {
+    console.log('page-load');
+});
+</script>
+<script type="text/javascript">
+    window.setTimeout(function() {
+        console.log('after-img');
+        //$('img').src = '/images/blank.gif';
+    }, 1000);
+</script>
+</body>
+</html>

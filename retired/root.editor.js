@@ -1184,7 +1184,7 @@ Editor['checkbutton'] = function(editor, element) {
                     value: option.value,
                     enabledClass: option.enabledClass || 'new',
                     disabledClass: option.disabledClass || 'old',
-                    enabled: element.getAttribute('value').$includes(option.value) ? 'yes' : 'no',
+                    enabled: element.getAttribute('value').includes(option.value) ? 'yes' : 'no',
                     sign: 'checkbutton'
                 });
 
@@ -1251,7 +1251,7 @@ Editor['checkbutton'] = function(editor, element) {
         for (let i = 0; i < element.children.length; i++) {
             let enabledClass = element.children[i].getAttribute('enabledClass');
             let disabledClass = element.children[i].getAttribute('disabledClass');
-            if (element.getAttribute('value').$includes(element.children[i].getAttribute('value'))) {
+            if (element.getAttribute('value').includes(element.children[i].getAttribute('value'))) {
                 if (i == 0) {
                     element.children[i].className = 'button-left ' + enabledClass;
                 }
@@ -1608,7 +1608,7 @@ Editor['starbutton'].change = function(element, button) {
                 }                
             }
             if ((button != undefined && element.children[i] == button)
-                 || (button == undefined && element.getAttribute('value').$includes(element.children[i].getAttribute('value')))
+                 || (button == undefined && element.getAttribute('value').includes(element.children[i].getAttribute('value')))
                 ) {
                 found = true;
             }            

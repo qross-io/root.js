@@ -103,7 +103,7 @@ Tab.prototype.selectedElement = null;
 String.prototype.$css = function(element) {
     let css = this.toString();
     if (css.startsWith('[') && css.endsWith(']')) {
-        css = css.$trim('[', ']');
+        css = css.trimPlus('[', ']');
         css = element[css] || element.getAttribute(css);
     }
     return css;

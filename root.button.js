@@ -4,8 +4,6 @@
 $enhance(HTMLButtonElement.prototype)
     .declare({
         type: 'normal|switch|confirm',
-        enabledClass: '', //normal-button blue-button,
-        disabledClass: '', //normal-button optional-button,
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
 
         confirmText: '', //确定提醒文字
@@ -28,20 +26,21 @@ $enhance(HTMLButtonElement.prototype)
         errorTextClass: 'error',
         validTextClass: 'correct',
 
-        hint: null,
-        callout: null,
-        message: null,
+        alert: null,
 
         disableOnClick: true,
         enableOnSuccess: true,
 
-        scale: 'normal', //little/small/normal/big/large
-        color: 'blue', //prime/green/red/maroon/purple/blue/orange/gray/white
+        //switch only
+        enabledClass: '', //normal-button blue-button,
+        enabledText: 'Enabled',
+        enabledValue: 'yes',
+        disabledClass: '', //normal-button optional-button,
+        disabledText: 'Disabled',
+        disabledValue: 'no',
 
-        'onclick-enabled': null, //for switch only
-        'onclick-disabled': null, //for switch only
-        'onclick-confirm': null, //for confirm only
-        'onclick-cancel': null //for confirm only
+        scale: 'normal', //little/small/normal/big/large
+        color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
     })
     .getter({
         'scale': value => value.toLowerCase(),
@@ -62,7 +61,7 @@ $enhance(HTMLButtonElement.prototype)
             }            
         }
     })
-    .extend('onclick+')
+    .extend('onclick+', 'onclick-enabled', 'onclick-disabled', 'onclick-confirm', 'onclick-cancel') //for switch & confirm
     .define({
         'text': {
             get () {            
@@ -74,63 +73,86 @@ $enhance(HTMLButtonElement.prototype)
                 }
             }
         },
+        'hintElement': {
+            get() {
+                if (this._hintElement === undefined) {
+                    this.hintElement = this.getAttribute('hint') ?? this.getAttribute('hint-element') ?? this.getAttribute('hintElement');
+                }
+                return this._hintElement;
+            },
+            set(element) {
+                this._hintElement = $parseElement(element, 'hintElement');
+            }
+        },
+        'calloutPosition': {
+            get() {
+                return this.getAttribute('callout-position') ?? this.getAttribute('calloutPosition') ?? this.getAttribute('callout');
+            },
+            set(position) {
+                this.setAttribute('callout-position', position);
+            }
+        },
+        'messageDuration': {
+            get() {
+                return this.getAttribute('message-duration') ?? this.getAttribute('messageDuration') ?? this.getAttribute('message');
+            },
+            set(duration) {
+                this.setAttribute('message-duration', duration);
+            }
+        },
         'hintText': {
             set (text) {                
-                if (this.hintSpan != null) {
-                    this.hintSpan.innerHTML = text;
+                if (this.hintElement != null) {
+                    this.hintElement.innerHTML = text;
                     if (this.status == $button.status.success) {
-                        this.hintSpan.className = this.validTextClass;
+                        this.hintElement.className = this.validTextClass;
                     }
                     else if (this.status == $button.status.acting) {
-                        this.hintSpan.className = this.textClass;
+                        this.hintElement.className = this.textClass;
                     }
                     else {
-                        this.hintSpan.className = this.errorTextClass;
+                        this.hintElement.className = this.errorTextClass;
                     }                    
-                    this.hintSpan.hidden = text == '';
+                    this.hintElement.hidden = text == '';
                 }
                 
                 if (this.status < $button.status.acting) {
                     if (text != '') {
-                        if (this.callout != null) {
-                            Callout(text).position(this, this.callout).show();
+                        if (this.calloutPosition != null) {
+                            Callout(text).position(this, this.calloutPosition).show();
                         }
 
-                        if (this.message != null) {
-                            window.Message?.[this.status != $button.status.success ? 'red' : 'green'](text).show(this.message.toFloat(0));
+                        if (this.messageDuration != null) {
+                            window.Message?.[this.status != $button.status.success ? 'red' : 'green'](text).show(this.messageDuration.toFloat(0));
+                        }
+
+                        if (this.alert != null) {
+                            $root.alert?.(text) ?? window.alert(text);
                         }
                     }                    
                 }
             }
         },
-        //switch only
-        'options': {
-            get () {
-                if (this._options == null) {
-                    let options = this.getAttribute('options');
-                    if (options != null) {
-                        options = options.trim();
-                        if ((options.startsWith('{') && options.endsWith('}')) || (options.startsWith('[') && options.endsWith(']'))) {
-                            options = Json.eval(options);
-                        }
-                        else {
-                            options = options.toMap();
-                        }
-                        if (!(options instanceof Array)) {
-                            this._options = [];
-                            for (let text in options) {
-                                this._options.push({ text: text, value: options[text] });
-                            }
-                        }
-                        else {
-                            this._options = options;
-                        }
-                    }
-                    else {
-                        this._options = [{ text : 'Enabled', value: 'yes' }, { text: 'Disabled', value: 'no' }];
+        'disabled': {
+            get() {
+                return $parseBoolean(this.getAttribute('disabled'), false);
+            },
+            set(disabled) {
+                if (typeof(disabled) != 'boolean') {
+                    disabled = $parseBoolean(enabled, true, this);
+                }
+                if (disabled) {
+                    this.setAttribute('disabled', '');
+                    if (this.type != 'switch') {
+                        this.className = this.disabledClass;
                     }
                 }
-                return this._options;
+                else {
+                    this.removeAttribute('disabled');
+                    if (this.type != 'switch') {
+                        this.className = this.enabledClass;
+                    }
+                }
             }
         },
         'enabled': {
@@ -142,9 +164,19 @@ $enhance(HTMLButtonElement.prototype)
                     enabled = $parseBoolean(enabled, true, this);
                 }
                 this.disabled = !enabled;
-                if (this.type != 'switch') {
-                    this.className = this.disabled ? this.disabledClass : this.enabledClass;                
+            }
+        },
+        'relations': {
+            get() {
+                if (this._relations == null) {
+                    this._relations = new Map();
                 }
+                return this._relations;
+            }
+        },
+        'satisfied': {
+            get() {
+                return [...this.relations.values()].filter(v => v == 0).length == 0;
             }
         }
     });
@@ -158,28 +190,23 @@ $button = {
     }
 }
 
-HTMLButtonElement.prototype.onclick_ = null; // onclick 的值
-HTMLButtonElement.prototype._options = null;
-//1 success 0 failure -1 exception 2 acting
+HTMLButtonElement.prototype.onclick_ = null; // onclick 属性的值
+HTMLButtonElement.prototype._hintElement = undefined;
 HTMLButtonElement.prototype.status = $button.status.success;
-HTMLButtonElement.prototype.relatived = 0;
-HTMLButtonElement.prototype.satisfied = 0;
-HTMLButtonElement.prototype.relations = null;
+HTMLButtonElement.prototype._relations = null;
 
 HTMLButtonElement.prototype.enable = function() {
     if (this.disabled) {
-        this.className = this.enabledClass;
         this.disabled = false;
     }
 
     if (this.type == 'confirm') {
-        this.slideIn('up');
+        this.slideIn(-100);
     }
 }
 
 HTMLButtonElement.prototype.disable = function() {
     if (!this.disabled) {
-        this.className = this.disabledClass;
         this.disabled = true;
     }
 }
@@ -205,22 +232,16 @@ HTMLButtonElement.prototype.hide = function() {
 }
 
 //响应用户输入
-HTMLButtonElement.prototype.response = function(correct) {
-    if (this.relatived > 0) {
-        if (correct == 0) {
-            correct = -1;
-        }
-        if (correct > 0) {
-            this.satisfied ++;
-        }
-        else if (this.satisfied > 0) {
-            this.satisfied --;
-        }
-        if (this.satisfied < this.relatived) {
-            this.disable();
-        }
-        else {
+HTMLButtonElement.prototype.response = function(input, correct) {
+    if (this.relations.size > 0) {
+
+        this.relations.set(input, correct > 0 ? 1 : 0);
+
+        if (this.satisfied) {
             this.enable();
+        }
+        else {            
+            this.disable();
         }
     }
     else {
@@ -248,7 +269,9 @@ HTMLButtonElement.prototype.go = function() {
                 }
                 else {
                     this.text = this.defaultText;
-                    this.enable();
+                    if (this.enableOnSuccess) {
+                        this.enable();
+                    }                    
                 }
             }, 
             function(data) {
@@ -258,7 +281,7 @@ HTMLButtonElement.prototype.go = function() {
                 this.enable();
             },
             function(error) {
-                this.status = $button.status.exception;            
+                this.status = $button.status.exception;  
                 this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
                 this.text = this.defaultText;
                 this.enable();
@@ -268,22 +291,23 @@ HTMLButtonElement.prototype.go = function() {
 }
 
 HTMLButtonElement.prototype.switch = function() {
-    if (this.value == this.options[0].value) {
-        this.text = this.options[1].text;
-        this.value = this.options[1].value;
+    if (this.value == this.enabledValue) {
+        this.text = this.disbaledText;
+        this.value = this.disabledValue;
         this.className = this.disabledClass;
 
-        Event.execute(this, 'onclick-disabled');
+        this.dispatchCustomEvent('onclick-disabled', { 'event': ev });
     }
     else {
-        this.text = this.options[0].text;
-        this.value = this.options[0].value;
+        this.text = this.enabledText;
+        this.value = this.enabledValue;
         this.className = this.enabledClass;
 
-        Event.execute(this, 'onclick-enabled');
+        this.dispatchCustomEvent('onclick-enabled', { 'event': ev });
     }
 }
 
+// input -> buttons
 HTMLButtonElement.relationByInput = new Map();
 
 HTMLButtonElement.prototype.initialize = function() {
@@ -309,32 +333,22 @@ HTMLButtonElement.prototype.initialize = function() {
     }
 
     if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
-        if (this.hint != null || (this.callout == null && this.alert == null && this.message == null)) {
-            if (this.hintSpan == null) {
-                if (this.hint != null && this.hint != '') {
-                    this.hintSpan = $s(this.hint);
-                    if (this.hintSpan == null) {
-                        throw new Error('Wrong Selector: ' + this.hint);
-                    }
-                }
-                else {
-                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { marginLeft: '30px' });
-                    this.insertAdjacentElement('afterEnd', this.hintSpan);
-                }
-            }
+        if (this.hintElement == null && this.calloutPosition == null && this.alert == null && this.messageDuration == null) {
+            this.hintElement = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { marginLeft: '30px' });
+            this.insertAdjacentElement('afterEnd', this.hintElement);            
         }
     }
 
     if (this.type == 'switch') {
-        if (this.text == this.options[0].value || this.value == this.options[0].value || this.text == this.options[0].text) {
+        if (this.text == this.enabledValue || this.value == this.enabledValue || this.text == this.enabledText) {
             this.className = this.enabledClass;
-            this.text = this.options[0].text;
-            this.value = this.options[0].value;            
+            this.text = this.enabledText;
+            this.value = this.enabledValue;
         }
         else {
             this.className = this.disabledClass;
-            this.text = this.options[1].text;
-            this.value = this.options[1].value;
+            this.text = this.disabledText;
+            this.value = this.disabledValue;
         }
 
         this.on('click', function(ev) {
@@ -343,25 +357,25 @@ HTMLButtonElement.prototype.initialize = function() {
                     if (this.disableOnClick) {
                         this.disabled = true;
                     }                    
-                    this.switch();
+                    this.switch(ev);
                     $FIRE(this, 'onclick+', 
                         function(data) {                            
                             this.hintText = this.successText.$p(this, data);                            
                         }, 
                         function(data) {                            
                             this.hintText = this.failureText.$p(this, data);                            
-                            this.switch();
+                            this.switch(ev);
                         },
                         function(error) {
                             this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-                            this.switch();
+                            this.switch(ev);
                         },
                         function() {
                             this.disabled = false;
                         });
                 }
                 else {
-                    this.switch();
+                    this.switch(ev);
                 }
             }
             else {
@@ -393,15 +407,15 @@ HTMLButtonElement.prototype.initialize = function() {
         this.style.marginLeft = (- this.offsetWidth / 2) + 'px';
 
         this.on('click', function() {
-            button.slideOut('down');
-            confirm.slideIn('left');
-            cancel.slideIn('right');
+            button.slideOut(100);
+            confirm.slideIn(-100);
+            cancel.slideIn(120);
         });
 
         confirm.on('click', function(ev) {
 
-            confirm.slideOut('left');
-            cancel.slideOut('right');
+            confirm.slideOut(-120);
+            cancel.slideOut(120);
 
             if (Event.fire(button, 'onclick_'), ev) {
                 if (button['onclick+'] != null) {
@@ -428,21 +442,19 @@ HTMLButtonElement.prototype.initialize = function() {
                     );
                 }
 
-                Event.execute(button, 'onclick-confirm');
+                button.dispatchCustomEvent('onclick-confirm', { event: ev });
             }            
         });
 
-        cancel.on('click', function() {
-            confirm.slideOut('left');
-            cancel.slideOut('right');
-            button.slideIn('up');
+        cancel.on('click', function(ev) {
+            confirm.slideOut(-120);
+            cancel.slideOut(120);
+            button.slideIn(-100);
 
-            Event.execute(button, 'onclick-cancel');            
+            button.dispatchCustomEvent('onclick-cancel', { event: ev });            
         });
     }
-    else if (this['onclick+'] != null)  {
-
-        this.relations = new Set();
+    else if (this['onclick+'] != null || this.hasAttribute('watch'))  {
 
         let todo = [];
 
@@ -450,9 +462,9 @@ HTMLButtonElement.prototype.initialize = function() {
             this.watch.split(',').map(tag => tag.trim()).forEach(tag => todo.push(tag));
         }
     
-        let holders = this['onclick+'].match(/\$\(#[^)]+\)/ig);
-        if (holders != null) {
-            holders.map(tag => tag.$trim('$(', ')')).forEach(tag => todo.push(tag));
+        if (this['onclick+'] != null) {
+            /\$\(#[^)]+\)/ig.findAllIn(this['onclick+'])
+                .map(tag => tag.trimPlus('$(', ')')).forEach(tag => todo.push(tag));
         }
 
         todo.forEach(tag => {
@@ -460,36 +472,37 @@ HTMLButtonElement.prototype.initialize = function() {
                 HTMLButtonElement.relationByInput.set(tag, new Set());
             }
             HTMLButtonElement.relationByInput.get(tag).add(this);
-            this.relations.add(tag);
+            this.relations.set(tag, 0);
         });
 
-        this.relatived = this.relations.size;
-        if (this.relatived > 0) {
+        if (this.relations.size > 0) {
             this.disable();
         }
 
-        this.on('click', function(ev) {
-            if (Event.fire(this, 'onclick_'), ev) {
-                if (this.confirmText != '') {
-                    if ($root.confirm != null) {
-                        let button = this;
-                        $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
-                            .on('confirm', function() {                            
-                                button.go();      
-                            });
+        if (this['onclick+'] != null) {
+            this.on('click', function(ev) {
+                if (Event.fire(this, 'onclick_'), ev) {
+                    if (this.confirmText != '') {
+                        if ($root.confirm != null) {
+                            let button = this;
+                            $root.confirm(this.confirmText.$p(this), this.confirmButtonText, this.cancelButtonText, this.confirmTitle)
+                                .on('confirm', function() {
+                                    button.go();      
+                                });
+                        }
+                        else if (window.confirm(this.confirmText.$p(this))) {
+                            this.go();         
+                        }
                     }
-                    else if (window.confirm(this.confirmText.$p(this))) {
-                        this.go();         
+                    else {
+                        this.go();
                     }
                 }
                 else {
-                    this.go();
+                    this.hintText = this.invalidText.$p(this);
                 }
-            }
-            else {
-                this.hintText = this.invalidText.$p(this);
-            }
-        });
+            });
+        }
     }
     else if (this.getAttribute('href') != null) {
         this.on('click', function() {
@@ -497,7 +510,7 @@ HTMLButtonElement.prototype.initialize = function() {
         });
     }
 
-    Event.interact(this, this);
+    HTMLElement.interactEvents(this);
 
     if (this.hasAttribute('disabled')) {
         this.disabled = $parseBoolean(this.getAttribute('disabled'), false, this);
@@ -513,20 +526,20 @@ HTMLButtonElement.observe = function() {
     for (let [name, buttons] of HTMLButtonElement.relationByInput) {
         let tag = $s(name);
         
-        if (tag != null && tag.$required) {
+        if (tag != null && (tag.$required ?? tag.required)) {
             buttons.forEach(button => tag.relations.add(button));
-            HTMLInputElement.setterX.set('status', function(value) {
-                this.relations.forEach(button => button.response(value));
+            window[tag.constructor.name].setterX.set('status', function(value) {
+                this.relations.forEach(button => button.response('#' + this.id, value));
             });
             
             if (tag.status == 1) {
-                buttons.forEach(button => button.response(1));
+                buttons.forEach(button => button.response(name, 1));
             }
         }
         else {
             buttons.forEach(button => {
-                button.satisfied ++;
-                if (button.satisfied == button.relatived) {
+                button.relations.set(name, 1);
+                if (button.satisfied) {
                     button.enable();
                 }
             });
@@ -535,6 +548,7 @@ HTMLButtonElement.observe = function() {
         HTMLButtonElement.relationByInput.delete(name);        
     }
 
+    //retry times
     HTMLButtonElement._observed += 1;
 
     if (HTMLButtonElement.relationByInput.size > 0) {
@@ -542,8 +556,8 @@ HTMLButtonElement.observe = function() {
             window.setTimeout(HTMLButtonElement.observe, 200);
         }
         else {
-            HTMLButtonElement.relationByInput.forEach((button, input) => {
-                console.warn(input + ' may be incorrect.');
+            [...HTMLButtonElement.relationByInput.keys()].forEach(input => {
+                console.warn('Selector "' + input + '" may be incorrect.');
             });
         }
     }
@@ -552,15 +566,16 @@ HTMLButtonElement.observe = function() {
 HTMLButtonElement.initializeAll = function(container) {
     for (let button of (container ?? document).querySelectorAll('button')) {
         // root 设置为 button 表示组件已初始化
-        if (!button.hasAttribute('root-button')) {
-            button.setAttribute('root-button', '');            
+        if (!button.hasAttribute('root-button')) {            
+            button.setAttribute('root-button', '');
+
             window.Model?.boostPropertyValue(button);            
 
             if (button.hasAttribute('onclick+') || button.hasAttribute('watch') || button.hasAttribute('type') || button.hasAttribute('href')) {
                 button.initialize();
             }
             else {
-                Event.interact(button, button);
+                HTMLElement.interactEvents(button);
             }
         }
     }
@@ -568,6 +583,6 @@ HTMLButtonElement.initializeAll = function(container) {
     HTMLButtonElement.observe();
 }
 
-document.on('post', function () {
-    HTMLButtonElement.initializeAll();
+document.on('load', function () {    
+    HTMLButtonElement.initializeAll();    
 });

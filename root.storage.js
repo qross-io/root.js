@@ -25,7 +25,7 @@ $cookie = function (name, value, expires, path, domain) {
 			for(let i = 0; i < c.length; i++)	{
 				if(c[i].indexOf('=') > 0)	{
 					//cookie = c[i].split('=');
-					$cookie[c[i].substring(0, c[i].indexOf('='))] = c[i].substr(c[i].indexOf('=')+1);
+					$cookie[c[i].substring(0, c[i].indexOf('='))] = c[i].substring(c[i].indexOf('=')+1);
 				}
 			}
 		}
@@ -63,32 +63,40 @@ $cookie.remove = function(name) {
 	$cookie(name, '', -1);
 }
 
-$local = function(name, value) {
+$storage = {};
 
-    if (value === undefined) {
-        //get
-        return window.localStorage.getItem(name)
-    }
-    else {
-        //set
-        window.localStorage.setItem(name, value);
-    }
+$storage.get = function(name, defaultValue) {
+	return window.localStorage.getItem(name) ?? defaultValue;
 }
 
-$local.clear = function() {
+$storage.set = function(name, value) {
+	window.localStorage.setItem(name, value);
+}
+
+$storage.setifo = function(name, value) {
+	if (window.localStorage.getItem(name) == null) {
+		window.localStorage.setItem(name, value);
+	}
+};
+
+$storage.setifo('guid', $guid());
+
+$storage.remove = function(name) {
+    window.localStorage.removeItem(name);
+}
+
+$storage.clear = function() {
     window.localStorage.clear();
 }
 
-$session = function(name, value) {
+$session = {};
 
-    if (value === undefined) {
-        //get
-        return window.sessionStorage.getItem(name)
-    }
-    else {
-        //set
-        window.sessionStorage.setItem(name, value);
-    }
+$session.get = function(name) {
+	return window.sessionStorage.getItem(name);
+}
+
+$session.set = function(name, value) {
+	window.sessionStorage.setTime(name, value);
 }
 
 $session.clear = function() {

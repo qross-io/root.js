@@ -11,6 +11,15 @@ HTMLDivElement.layJustify = function(justify) {
     justify.classList.add('justify');
 }
 
+HTMLDivElement.layColumn = function(frame) {
+    frame.classList.add('column');
+    for (let div of frame.children) {
+        div.style.width = 'calc(' + div.getAttribute('width') + ')';
+        /* width:calc(40% - 15px);
+        width:calc(60% - 15px); */
+    }
+}
+
 HTMLDivElement.initializeAll = function() {
     $a('div[display]').forEach(p => {
         let display = p.getAttribute('display');
@@ -21,6 +30,8 @@ HTMLDivElement.initializeAll = function() {
             case 'justify':
                 HTMLDivElement.layJustify(p);
                 break;
+            case 'column':
+                HTMLDivElement.layColumn(p);
         }        
     });
 }

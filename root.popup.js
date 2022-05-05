@@ -1,74 +1,68 @@
-//-----------------------------------------------------------------------
 // www.qross.io
 //-----------------------------------------------------------------------
 // root.popup.js
 // popup in window
 
-/// <global type="Popup">页面上正在打开的 Popup 对象</global>
+// 页面上正在打开的 Popup 对象
 document.popup = null;
 
-Popup = function (element) {
+class HTMLPopupElement extends HTMLElement { 
+    #initialized = false;
+
+    initialize() {
+        if (!this.#initialized) {
+            this.hidden = true;
+            this.style.visibility = 'hidden';
+            this.style.overflow = (this.querySelector('div.popup-scroll') == null ? 'auto' : 'hidden');
+            this.#initialized = true;
     
-    $initialize(this)
-    .with(element)
+            if (this.openButton == null) {
+                this.openButton = $('#' + this.id + '_OpenButton');
+            }
+            if (this.closeButton == null) {
+                this.closeButton = $('#' + this.id + '_CloseButton');
+            }
+            if (this.confirmButton == null) {
+                this.confirmButton = $('#' + this.id + '_ConfirmButton');
+            }
+            if (this.cancelButton == null) {
+                    this.cancelButton = $('#' + this.id + '_CancelButton');
+                }
+            
+            if (this.openingAnimation == '') {
+                this.openingAnimation = this.animation;
+            }
+            if (this.closingAnimation == '') {
+                this.closingAnimation = 'direction: reverse; ' + this.openingAnimation;
+            }
+       
+            let popup = this;
+            this.openButton?.on('click', ev => popup.open(ev));
+            this.closeButton?.on('click', ev => popup.close(ev));
+            this.confirmButton?.on('click', ev => popup.confirm(ev));
+            this.cancelButton?.on('click', ev => popup.cancel(ev));
+    
+            HTMLElement.interactEvents(this);
+    
+            PopupMask.initialize();
+        }
+    }
+}
+
+window.customElements.define('pop-up', HTMLPopupElement);
+
+$root.appendClass(`
+    pop-up { display: block; border: 1px solid #808080; padding: 1px; background-color: #FFFFFF; box-shadow: 2px 4px 6px #999999; position: absolute; z-index: 1001 }
+`);
+
+$enhance(HTMLPopupElement.prototype)
     .declare({
-        name: 'Popup_' + document.components.size,
-        position: function(position) {
-            //event
-            //left|center|right.top|middle|bottom
-            //x.y
-            /// <value type="String" values="|event|x.y" defaultValue="" mayBeNull="true">坐标类型, 居中/事件/坐标, 默认居中页面</value>
-            if (typeof (position) == 'string') {
-                position = position.toLowerCase().replace(/\s/g, '');
-                if (position.includes(',')) {
-                    position = {
-                        x: position.takeBefore(','),
-                        y: position.takeAfter(','),
-                    }
-                }
-                else if (position.includes(".")) {
-                    position = {
-                        x: position.takeBefore('.'),
-                        y: position.takeAfter('.'),
-                    }
-                }
-                else {
-                    switch(position) {
-                        case 'left': 
-                            position = { x: 'left', y: 'middle' };
-                            break;
-                        case 'right':
-                            position = { x: 'right', y: 'middle' };
-                            break;
-                        case 'top':
-                            position = { x: 'center', y: 'top' };
-                            break;
-                        case 'bottom':
-                            position = { x: 'center', y: 'bottom' };
-                            break;
-                        case 'event':
-                            position = { x: 'event', y: 'event' };
-                            break;
-                        default:
-                            position = { x: 'center', y: 'middle' };
-                            break;
-                    }                    
-                }                
-            }
-            else if (position == null || typeof(position) != 'object' || position.x == null || position.y == null) {
-                position = { x: 'center', y: 'middle' };
-            }
-            return position;
-        },
+        type: 'window|sidebar|menu',
+
         offsetX: 0,
         offsetY: 0,
-
-        source: null,
-
-        openButton: '$s',
-        closeButton: '$s',
-        confirmButton: '$s',
-        cancelButton: '$s',
+        modal: true,
+        noScrolling: false,
 
         animation: 'timing-function: ease; duration: 0.8s; from: random(x(0).y(-150),x(0).y(150),x(-150).y(0),x(150).y(0)) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;',
         openingAnimation: '',
@@ -88,150 +82,244 @@ Popup = function (element) {
         closingToScale: '100%', //0-100
         closingDuration: '0.8s', //1s, 800ms
 
-        //animationStyle: '', //预设的动画样式
-        popup: 'window|sidebar|menu', //window/sidebar/menu
-        reference: '$s', //
-
-        modal: true,
-        hidings: '$a',
-        disableScrolling: true,
-
-        onopen: null,
-        onclose: null,
-        onconfirm: null,
-        oncancel: null,
-        onshow: null,
-        onhide: null,
-        onlocate: null,
-
         maskColor: '#999999',
-        maskOpacity: 3, 
-
-        visibility: 'hidden|visible'
+        maskOpacity: 0.4
     })
-    .elementify(element => {
-        this.element = element;
-
-        //将对象初始化
-        this.element.hidden = true;
-        this.element.style.position = 'absolute';
-        this.element.style.zIndex = '1001';
-        this.element.style.visibility = 'hidden';
-        this.element.style.overflow = (this.element.querySelector('div.popup-scroll') == null ? 'auto' : 'hidden');
-
-        this.element.setAttribute('root', 'POPUP');
+    .extend('onshow', 'onhide', 'onopen', 'onclose', 'onconfirm', 'oncancel', 'onconfirm+')
+    .define({
+        positionX: {
+            get() {
+                let x = (this.getAttribute('position-x') || this.getAttribute('positionX') || 'center').trim().toLowerCase();
+                if (/^(center|left|right|event)$/.test(x)) {
+                    return x;                    
+                }
+                else if (/^-?\d+/.test(x)) {
+                    return $parseFloat(x, 0);
+                }
+                else {
+                    return 'center';
+                }
+            },
+            set(x) {
+                this.setAttribute('position-x', x);
+            }
+        },
+        positionY: {
+            get() {
+                let y = (this.getAttribute('position-y') || this.getAttribute('positionY') || 'middle').trim().toLowerCase();
+                if (/^(middle|top|bottom|event)$/.test(y)) {
+                    return y;
+                }
+                else if (/^-?\d+/.test(y)) {
+                    return $parseFloat(y, 0);
+                }
+                else {
+                    return 'middle';
+                }
+            },
+            set(y) {
+                this.setAttribute('position-y', y);
+            }
+        }
+    })
+    .describe({        
+        openButton: '$',
+        closeButton: '$',
+        confirmButton: '$',
+        cancelButton: '$',
+        hidings: '$$',
+        reference: '$'
     });
 
-    if (this.openButton == null) {
-        this.openButton = $s('#' + this.name + '_OpenButton');
+HTMLPopupElement.prototype.show = function(quick, ev) {
+    //如果有其他的popup显示，就隐藏	
+    if(document.popup != null) {
+        document.popup.hide(true);
     }
-    if (this.closeButton == null) {
-        this.closeButton = $s('#' + this.name + '_CloseButton');
+
+    //是否快速显示
+    if (!quick) {
+        quick = (window.Animation == null || Animation.Entity == null || this.animation == '');
     }
-    if (this.confirmButton == null) {
-        this.confirmButton = $s('#' + this.name + '_ConfirmButton');
+
+    //隐藏影响popup显示的元素
+    this.hidings.forEach(e => e.hide());
+
+    //禁用滚动
+    if (this.noScrolling) {
+        document.body.style.overflow = 'hidden';
+    }    
+
+    //显示Mask
+    if(this.modal) {
+        PopupMask.show(this.maskColor, this.maskOpacity);
     }
-    if (this.cancelButton == null) {
-            this.cancelButton = $s('#' + this.name + '_CancelButton');
+
+    //显示
+    this.hidden = false;
+    this.locate(ev);
+    this.style.visibility = 'visible';		
+    if(!quick) {
+        if (window.Animation != null && Animation.Entity != null) {
+            Animation(this.$getOpeningAnimation(ev))
+                .apply(this)
+                .play(ev);
         }
-    
-    if (this.openingAnimation == '') {
-        this.openingAnimation = this.animation;
-    }
-    if (this.closingAnimation == '') {
-        this.closingAnimation = 'direction: reverse; ' + this.openingAnimation;
     }
 
-    let popup = this;
-    this.openButton?.on('click', ev => popup.open(ev));
-    this.closeButton?.on('click', ev => popup.close(ev));
-    this.confirmButton?.on('click', ev => popup.confirm(ev));
-    this.cancelButton?.on('click', ev => popup.cancel(ev));
-     
-    Event.interact(this, this.element);
+    document.popup = this;
+}
 
-    if (this.visibility == 'visible') {
-        this.open();
+
+HTMLPopupElement.prototype.hide = function(quick, ev) {
+
+    if(this.visible) {
+        //是否快速隐藏
+        if (quick == null) {
+            quick = (window.Animation == null || Animation.Entity == null || this.animation == '');
+        }
+        
+        if(!quick && window.Animation != null && Animation.Entity != null) {
+            //动画
+            Animation(this.$getClosingAnimation(ev))
+                .apply(this)
+                .on('stop', function (popup) {
+                    popup.style.visibility = 'hidden';
+                    popup.hidden = true;
+                    //启用滚动
+                    if (popup.noScrolling) {
+                        document.body.style.overflow = 'auto';
+                    }                        
+                }).play(ev);
+        }
+        else {		
+            //立即隐藏
+            this.hidden = true;
+            this.style.visibility = 'hidden';
+                            
+            //启用滚动
+            if (this.noScrolling) {
+                document.body.style.overflow = 'auto';                
+            }
+        }
+        
+        //如果有Mask，隐藏
+        if(this.modal) {
+            PopupMask.hide(this.maskOpacity);
+        }
+        
+        //显示popup打开时隐藏的元素
+        this.hidings.forEach(e => e.show());
+
+        document.popup = null;
     }
 }
 
-$popup = function(name) {
-    let popup = $t(name);
-    if (popup != null && popup.tagName == 'POPUP') {
-        return popup;
+HTMLPopupElement.prototype.open = function(ev) {
+
+    this.initialize();
+
+    if(document.popup == null || document.popup.id != this.id) {
+        if(this.dispatchCustomEvent('onopen', { 'event': ev })) {
+            this.show(false, ev);			
+            this.dispatchCustomEvent('onshow', { 'event': ev });
+        }
     }
-    else {
-        return null;
-    }
+    return this;
 }
 
-Popup.prototype.locate = function(ev) {
+HTMLPopupElement.prototype.close = function(ev) {
+
+    if(document.popup == null || document.popup.id == this.id) {
+        if(this.dispatchCustomEvent('onclose', { 'event': ev })) {
+            this.hide(false, ev);
+            this.dispatchCustomEvent('onhide', { 'event': ev });
+        }
+    }
+    return this;
+}
+
+HTMLPopupElement.prototype.confirm = function(ev) {
+    if(document.popup == null || document.popup.id == this.id) {
+        if(this.dispatchCustomEvent('onconfirm', { 'event': ev })) {
+            this.hide(this, false, ev);
+            this.dispatchCustomEvent('onhide', { 'event': ev });
+        }
+    }
+    return this;
+}
+
+HTMLPopupElement.prototype.cancel = function(ev) {
+    if(document.popup == null || document.popup.id == this.id) {
+        if(this.dispatchCustomEvent('oncancel', { 'event': ev })) {
+            this.hide(false, ev);
+            this.dispatchCustomEvent('onhide', { 'event': ev });
+        }
+    }
+    return this;
+}
+
+HTMLPopupElement.prototype.locate = function(ev) {
 	/// <summary>为popup定位</summary>
 	/// <param name="ev" type="EventArgs"></param>
     
     //自动调整边栏的宽高
-    if (this.popup == 'sidebar') {
-        if (this.position.x == 'center') {
+    if (this.type == 'sidebar') {
+        if (this.positionX == 'center') {
             //上中下边栏全宽
-            let width = window.innerWidth;
-            if (this.element.offsetWidth != width) {
-                this.element.style.width = width + 'px';
-            }
+            this.width = window.innerWidth;            
         }
         else {            
-            //左右边栏全高, 4是浏览器中的一个间隔
-            let height = window.innerHeight - 4;
-            if (this.element.offsetHeight != height) {
-                this.element.style.height = height + 'px';
-            }
+            //左右边栏全高, `4`是浏览器中的一个间隔
+            this.height = window.innerHeight - 4;            
 
-            if (this.element.querySelector('div.popup-scroll') != null) {
+            if (this.$('div.popup-scroll') != null) {
                 let fixed = 0;
-                for (let element of this.element.children) {
+                for (let element of this.children) {
                     if (element.className != 'popup-scroll') {                
                         fixed += element.offsetHeight;
                     }
                 }
-                let height = window.innerHeight - fixed
+                let height = window.innerHeight - fixed;
                 if (height < 400) {
                     height = 400;
                 }
-                this.element.querySelector('div.popup-scroll').style.height = height + 'px';
+                this.$('div.popup-scroll').height = height;
             }            
         }        
     }
 
-    let x = this.getPositionX(this.position.x, ev) + this.offsetX;
-    let y = this.getPositionY(this.position.y, ev) + this.offsetY;
+    let x = this.getPositionX(this.positionX, ev) + this.offsetX;
+    let y = this.getPositionY(this.positionY, ev) + this.offsetY;
 
     if (x < 0) x = 0;
     if (y < 0) y = 0;
 
-    this.element.style.left = x + 'px';
-    this.element.style.top = y + 'px';
+    this.left = x;
+    this.top = y;
 
-    this.execute('onlocate', x, y);
+    this.dispatchCustomEvent('onlocate', { 'x': x, 'y': y });
 }
 
-Popup.prototype.$getOpeningAnimation = function(ev) {
-    if (this.popup == 'sidebar') {
+HTMLPopupElement.prototype.$getOpeningAnimation = function(ev) {
+    if (this.type == 'sidebar') {
         //sidebar的自定义动画无效
-        if (this.position.x == 'center') {
-            if (this.position.y == 'top') {
-                return 'timing-function: ease; duration: 0.6s; from: x(0).y(-' + this.element.offsetHeight + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; ';
+        if (this.positionX == 'center') {
+            if (this.positionY == 'top') {
+                return 'timing-function: ease; duration: 0.6s; from: x(0).y(-' + this.height + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; ';
             }
             else if (this.position.y == 'bottom') {
-                return 'timing-function: ease; duration: 0.6s; from: x(0).y(' + this.element.offsetHeight + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
+                return 'timing-function: ease; duration: 0.6s; from: x(0).y(' + this.height + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
             }
             else {
                 return 'timing-function: ease; duration: 0.5s; from: x(0).y(0) 100% 50%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
             }
         }
-        else if (this.position.x == 'left') {
-            return 'timing-function: ease; duration: 0.6s; from: x(-' + this.element.offsetWidth + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
+        else if (this.positionX == 'left') {
+            return 'timing-function: ease; duration: 0.6s; from: x(-' + this.width + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
         }
         else {
-            return 'timing-function: ease; duration: 0.6s; from: x(' + this.element.offsetWidth + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
+            return 'timing-function: ease; duration: 0.6s; from: x(' + this.width + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
         }
     }
     else {
@@ -248,25 +336,25 @@ Popup.prototype.$getOpeningAnimation = function(ev) {
     }    
 }
 
-Popup.prototype.$getClosingAnimation = function(ev) {
-    if (this.popup == 'sidebar') {
+HTMLPopupElement.prototype.$getClosingAnimation = function(ev) {
+    if (this.type == 'sidebar') {
         //sidebar的自定义动画无效
-        if (this.position.x == 'center') {
-            if (this.position.y == 'top') {
-                return 'timing-function: ease; duration: 0.6s; from: x(0).y(-' + this.element.offsetHeight + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
+        if (this.positionX == 'center') {
+            if (this.positionY == 'top') {
+                return 'timing-function: ease; duration: 0.6s; from: x(0).y(-' + this.height + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
             }
-            else if (this.position.y == 'bottom') {
-                return 'timing-function: ease; duration: 0.6s; from: x(0).y(' + this.element.offsetHeight + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
+            else if (this.positionY == 'bottom') {
+                return 'timing-function: ease; duration: 0.6s; from: x(0).y(' + this.height + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
             }
             else {
                 return 'timing-function: ease; duration: 0.5s; from: x(0).y(0) 100% 50%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
             }
         }
-        else if (this.position.x == 'left') {
-            return 'timing-function: ease; duration: 0.6s; from: x(-' + this.element.offsetWidth + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
+        else if (this.positionX == 'left') {
+            return 'timing-function: ease; duration: 0.6s; from: x(-' + this.width + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
         }
         else {
-            return 'timing-function: ease; duration: 0.6s; from: x(' + this.element.offsetWidth + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
+            return 'timing-function: ease; duration: 0.6s; from: x(' + this.width + ').y(0) 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards; direction: reverse;';
         }
     }
     else {
@@ -283,138 +371,7 @@ Popup.prototype.$getClosingAnimation = function(ev) {
     }
 }
 
-Popup.prototype.show = function(quick, ev) {
-	/// <summary>显示</summary>
-	/// <param name="quick" type="Boolean">是否快速显示</param>
-	/// <param name="ev" type="EventArgs">事件参数</param>
-	
-	//如果有其他的popup显示，就隐藏	
-	if(document.popup != null) {
-		document.popup.hide(true);
-	}
-	
-	//是否快速显示
-	if (quick == null) {
-        quick = (window.Animation == null || Animation.Entity == null || this.animation == '');
-    }
-
-	//隐藏影响popup显示的元素
-    this.hidings.forEach(e => e.hide());
-
-    //禁用滚动
-    if (this.disableScrolling) {
-        document.body.style.overflow = 'hidden';
-    }    
-	
-	//显示Mask
-	if(this.modal) {
-		PopupMask.show(this.maskColor, this.maskOpacity);
-	}
-	
-    //显示
-	this.element.hidden = false;
-	this.locate(ev);
-	this.element.style.visibility = 'visible';		
-	if(!quick) {
-	    if (window.Animation != null && Animation.Entity != null) {
-            Animation(this.$getOpeningAnimation(ev))
-                .apply(this.element)
-                .play(ev);
-	    }
-    }
-	
-	//保存状态
-	this.visibility = 'visible';
-	document.popup = this;
-}
-
-Popup.prototype.hide = function(quick, ev) {
-	/// <summary>隐藏</summary>
-	/// <param name="quick" type="Boolean">是否快速隐藏</param>
-
-	if(this.visibility == 'visible') {
-		//是否快速隐藏
-	    if (quick == null) {
-	        quick = (window.Animation == null || Animation.Entity == null || this.animation == '');
-	    }
-        
-		if(!quick) {
-			//动画
-		    if (window.Animation != null && Animation.Entity != null) {
-                let popup = this;
-                Animation(this.$getClosingAnimation(ev))
-                    .apply(this.element)
-                    .on('stop', function () {
-                        popup.element.style.visibility = 'hidden';
-                        popup.element.hidden = true;
-                        //启用滚动
-                        document.body.style.overflow = 'auto';
-                    }).play(ev);
-		    }
-		}
-		else {		
-			//立即隐藏
-			this.element.hidden = true;
-            this.element.style.visibility = 'hidden';
-                            
-            //启用滚动
-            if (this.disableScrolling) {
-                document.body.style.overflow = 'auto';                
-            }
-		}
-		
-		//如果有Mask，隐藏
-		if(this.modal) {
-			PopupMask.hide(this.maskOpacity);
-		}
-		
-		//显示popup打开时隐藏的元素
-        this.hidings.forEach(e => e.show());
-
-		document.popup = null;
-		this.visibility = 'hidden';
-	}
-}
-
-Popup.prototype.open = function(ev) {
-    if(document.popup == null || document.popup.id != this.id) {
-		if(this.execute('onopen', ev)) {
-			this.show(null, ev);			
-            this.execute('onshow', ev);
-		}
-    }
-    return this;
-};
-	
-Popup.prototype.close = function(ev) {
-    if(document.popup == null || document.popup.id == this.id) {
-		if(this.execute('onclose', ev)) {
-			this.hide(null, ev);
-            this.execute('onhide', ev);
-		}
-    }
-    return this;
-};
-	
-Popup.prototype.confirm = function(ev) {
-	if(document.popup == null || document.popup.id == this.id) {
-		if(this.execute('onconfirm', ev)) {
-			this.hide(null, ev);
-		}
-    }
-    return this;
-};
-	
-Popup.prototype.cancel = function(ev) {
-	if(document.popup == null || document.popup.id == this.id) {
-		if(this.execute('oncancel', ev)) {
-			this.hide(null, ev);
-		}
-    }
-    return this;
-};
-
-Popup.prototype.getPositionX = function (x, ev) {
+HTMLPopupElement.prototype.getPositionX = function (x, ev) {
     /// <summary>从文本解析坐标X值</summary>
     // <value name="x" type="String">x坐标值</value>
 
@@ -422,10 +379,10 @@ Popup.prototype.getPositionX = function (x, ev) {
         return x;
     }
     else if (typeof (x) == 'string') {
-        if (this.popup != 'menu') {
+        if (this.type != 'menu') {
             switch(x) {
                 case 'event':
-                    x = this.getEventX(ev);
+                    x = Math.round($root.scrollLeft + (ev == null ? 0 : ev.clientX));
                     break;
                 case 'left':
                     x = this.getOffsetLeft('left');
@@ -459,7 +416,7 @@ Popup.prototype.getPositionX = function (x, ev) {
     }
 }
 
-Popup.prototype.getPositionY = function (y, ev) {
+HTMLPopupElement.prototype.getPositionY = function (y, ev) {
     /// <summary>从文本解析坐标X值</summary>
     // <value name="x" type="String">x坐标值</value>
 
@@ -467,10 +424,10 @@ Popup.prototype.getPositionY = function (y, ev) {
         return y;
     }
     else if (typeof (y) == 'string') {
-        if (this.popup != 'menu') {
+        if (this.type != 'menu') {
             switch(y) {
                 case 'event':
-                    y = this.getEventY(ev);
+                    y = Math.round($root.scrollTop + (ev?.clientY ?? 0));
                     break;
                 case 'top':
                     y = this.getOffsetTop('top');
@@ -501,52 +458,35 @@ Popup.prototype.getPositionY = function (y, ev) {
     }
 }
 
-Popup.prototype.getEventX = function (ev) {
-    /// <summary>获得事件的x坐标</summary>
-    return Math.round($root.scrollLeft + (ev == null ? 0 : ev.clientX));
-}
-
-Popup.prototype.getEventY = function (ev) {
-    /// <summary>获得事件的y坐标</summary>
-    return Math.round($root.scrollTop + (ev == null ? 0 : ev.clientY));
-}
-
-Popup.prototype.getOffsetLeft = function (p) {
+HTMLPopupElement.prototype.getOffsetLeft = function (p) {
     /// <summary>获得x轴的坐标位置</summary>
 
     let v = $root.scrollLeft; //left
     if (p == 'center') {
         //document.documentElement.clientWidth
-        v = (window.innerWidth - this.element.offsetWidth) / 2 + $root.scrollLeft;
+        v = (window.innerWidth - this.width) / 2 + $root.scrollLeft;
     }
     else if (p == 'right') {
-        v = window.innerWidth - this.element.offsetWidth + $root.scrollLeft;
+        v = window.innerWidth - this.width + $root.scrollLeft;
     }
     return Math.round(v);
 }
 
-Popup.prototype.getOffsetTop = function (p) {
+HTMLPopupElement.prototype.getOffsetTop = function (p) {
     /// <summary>获得y轴的坐标位置</summary>
 
     let v = $root.scrollTop; //top
     if (p == 'middle') {
         //document.documentElement.clientHeight
-        v = (window.innerHeight - this.element.offsetHeight) / 2 + $root.scrollTop;
+        v = (window.innerHeight - this.height) / 2 + $root.scrollTop;
     }
     else if (p == 'bottom') {
-        v = window.innerHeight - this.element.offsetHeight + $root.scrollTop;
+        v = window.innerHeight - this.height + $root.scrollTop;
     }
     return Math.round(v);
 }
 
-Popup.prototype.clearEvents = function() {
-    if (this.events != null) {
-        this.events.clear();
-    }
-    return this;
-}
-
-Popup.resize = function() {
+HTMLPopupElement.resize = function() {
 	/// <summary>当可见窗口大小改变时</summary>	
 	//重设Mask层的大小
 	PopupMask.resize();
@@ -558,18 +498,24 @@ Popup.resize = function() {
 
 PopupMask = {};
 
+PopupMask.initialize = function() {
+    if ($('#__PopupMask') == null) {
+        document.body.insertAdjacentHTML('beforeEnd', '<div id="__PopupMask" style="background-color:#666666; z-index:1000; position:absolute; visibility:hidden; left:0; top:0;" hidden>&nbsp;</div>');
+    }
+}
+
 PopupMask.show = function(color, opacity) {
     /// <summary>显示 Mask<summary>
     PopupMask.resize();
 
-    $s('#__PopupMask')
+    $('#__PopupMask')
         .show()
         .setStyle('visibility', 'visible')
         .setStyle('backgroundColor', color)
-        .setStyle('opacity', opacity / 10);
+        .setStyle('opacity', opacity);
 
     if (window.Animation != null && Animation.Entity != null) {
-        Animation('timing-function: ease; duration: 0.5s; from:x(0).y(0) 100% 20%; to:x(0).y(0) 100% ' + (opacity * 10) + '%; fill-mode: forwards;')
+        Animation('timing-function: ease; duration: 0.5s; from:x(0).y(0) 100% 20%; to:x(0).y(0) 100% ' + (opacity * 100) + '%; fill-mode: forwards;')
          .apply('#__PopupMask')
          .play();
     }
@@ -579,15 +525,15 @@ PopupMask.hide = function(opacity) {
 
     /// <summary>隐藏 Mask<summary>
     if (window.Animation != null && Animation.Entity != null) {
-        Animation('timing-function: ease; duration: 0.5s; from:x(0).y(0) 100% ' + (opacity * 10) + '%; to:x(0).y(0) 100% 0%; fill-mode: forwards;')
+        Animation('timing-function: ease; duration: 0.5s; from:x(0).y(0) 100% ' + (opacity * 100) + '%; to:x(0).y(0) 100% 0%; fill-mode: forwards;')
                  .apply('#__PopupMask')
                  .on('stop', function() {
-                                 $s('#__PopupMask').setStyle('visibility', 'hidden').hide();
+                                 $('#__PopupMask').setStyle('visibility', 'hidden').hide();
                               })
                  .play();
     }
     else {
-        $s('#__PopupMask')
+        $('#__PopupMask')
         .setStyle('visibility', 'hidden')
         .hide()
     }
@@ -604,119 +550,117 @@ PopupMask.resize = function() {
         sy = document.body.scrollHeight;
     }
 
-    $s('#__PopupMask')
+    $('#__PopupMask')
         .setStyle('width', sx - 1 + 'px')
         .setStyle('height', sy - 1 + 'px');
 }
 
+
 $root.alert = function(message, confirmButton, title, ev) {
-    if ($s('#AlertPopup') == null) {
-        let div = $create('DIV', { 'id': 'AlertPopup', className: 'popup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-tixingshixin"></i> &nbsp; <span id="AlertPopupTitle">Message</span>' }));
-        div.appendChild($create('DIV', { id: 'AlertContent', className: 'popup-title' }, { textAlign: 'center', color: 'var(--primary)' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="AlertPopup_ConfirmButton" type="button" class="normal-button prime-button"> OK </button' }));
+    if ($('#AlertPopup') == null) {
+        let div = $create('POP-UP', { 'id': 'AlertPopup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
+        div.insertBeforeEnd('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
+        div.insertBeforeEnd('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-warning-circle"></i> <span id="AlertPopupTitle" class="popup-title">Message</span>' });
+        div.insertBeforeEnd('DIV', { id: 'AlertContent', className: 'popup-content' }, { textAlign: 'center', color: 'var(--primary)' });
+        div.insertBeforeEnd('DIV', { className: 'popup-button', innerHTML: '<button id="AlertPopup_ConfirmButton" type="button" class="normal-button gray-button">  OK  </button' });
         document.body.appendChild(div);
 
-        Popup.apply($s('#AlertPopup'));
+        if ($('#AlertPopup_ConfirmButton').width < 80) {
+            $('#AlertPopup_ConfirmButton').width = 80;
+        }
     }
 
     if (title != null) {
-        $s('#AlertPopupTitle').html = title;
+        $('#AlertPopupTitle').html = title;
     }
 
-    message ??= '';
-    if (typeof (message) == 'string') {
-        message = { 'text': message };
+    $('#AlertContent').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
+    $('#AlertPopup').style.display = '';
+    if ($('#AlertPopup').width < 360) {
+        $('#AlertPopup').width = 360;
     }
-    $s('#AlertContent').setHTML(message.text).setClass(message.class ?? '.');
 
     if (confirmButton != null) {
         if (typeof(confirmButton) == 'string') {
             confirmButton = { text: confirmButton };
         }
-        $s('#AlertPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
+        $('#AlertPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? ' OK ') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
     }
 
-    return $popup('AlertPopup').clearEvents().open(ev);
+    return $('#AlertPopup').open(ev);
 }
 
 $root.confirm = function(message, confirmButton, cancelButton, title, ev = null) {
-    if ($s('#ConfirmPopup') == null) {
-        let div = $create('DIV', { 'id': 'ConfirmPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-message"></i> &nbsp; <span id="ConfirmPopupTitle">Confirm</span>' }));
-        div.appendChild($create('DIV', { id: 'ConfirmContent', className: 'popup-title' }, { textAlign: 'center' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="ConfirmPopup_ConfirmButton" type="button" class="normal-button prime-button"> OK </button> &nbsp; &nbsp; <button id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button"> Cancel </button>' }));
+    if ($('#ConfirmPopup') == null) {
+        let div = $create('POP-UP', { 'id': 'ConfirmPopup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
+        div.insertBeforeEnd('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
+        div.insertBeforeEnd('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-question-circle"></i> <span id="ConfirmPopupTitle" class="popup-title">Confirm</span>' });
+        div.insertBeforeEnd('DIV', { id: 'ConfirmContent', className: 'popup-content' }, { textAlign: 'center' });
+        div.insertBeforeEnd('DIV', { className: 'popup-button', innerHTML: '<button id="ConfirmPopup_ConfirmButton" type="button" class="normal-button gray-button"> OK </button> &nbsp; &nbsp; <button id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button"> Cancel </button>' });
         document.body.appendChild(div);
 
-        let w = Math.max($s('#ConfirmPopup_ConfirmButton').width, $s('#ConfirmPopup_CancelButton').width);
-        $s('#ConfirmPopup_ConfirmButton').width = w;
-        $s('#ConfirmPopup_CancelButton').width = w;
-
-        Popup.apply($s('#ConfirmPopup'));
+        let w = Math.max($('#ConfirmPopup_ConfirmButton').width, $('#ConfirmPopup_CancelButton').width);
+        $('#ConfirmPopup_ConfirmButton').width = w;
+        $('#ConfirmPopup_CancelButton').width = w;
     }
 
     if (title != null) {
-        $s('#ConfirmPopupTitle').html = title;
+        $('#ConfirmPopupTitle').html = title;
     }
 
-    message ??= '';
-    if (typeof (message) == 'string') {
-        message = { 'text': message };
+    $('#ConfirmContent').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
+    $('#ConfirmPopup').style.display = '';
+    if ($('#ConfirmPopup').width < 360) {
+        $('#ConfirmPopup').width = 360;
     }
-    $s('#ConfirmContent').setHTML(message.text).setClass(message.class ?? '.');
 
     if (confirmButton != null) {
         if (typeof(confirmButton) == 'string') {
             confirmButton = { text: confirmButton };
         }
-        $s('#ConfirmPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
+        $('#ConfirmPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
     }
 
     if (cancelButton != null) {
         if (typeof(cancelButton) == 'string') {
             cancelButton = { text: cancelButton };
         }
-        $s('#ConfirmPopup_ConfirmButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
+        $('#ConfirmPopup_CancelButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
     }
 
-    return $popup('ConfirmPopup').clearEvents().open(ev);
+    return $('#ConfirmPopup').open(ev);
 }
 
 $root.prompt = function(message, input, confirmButton, cancelButton, title, ev) {
-    if ($s('#PromptPopup') == null) {
-        let div = $create('DIV', { 'id': 'PromptPopup', className: 'popup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.appendChild($create('DIV', { id: 'PromptPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' }));
-        div.appendChild($create('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-edit"></i> <span id="PromptPopupTitle">Prompt</span>' }));
-        div.appendChild($create('DIV', { id: 'PromptContent', className: 'popup-title' }));
-        div.appendChild($create('DIV', { id: 'PromptInput', className: 'popup-content' }));
-        div.appendChild($create('DIV', { className: 'popup-message', innerHTML: '<div id="PromptMessage"></div>' }));
-        div.appendChild($create('DIV', { className: 'popup-button', innerHTML: '<button id="PromptPopup_ConfirmButton" watch="#PromptTextBox" class="normal-button prime-button">OK</button> &nbsp; &nbsp; <input id="PromptPopup_CancelButton" type="button" class="normal-button gray-button" value="Cancel">' }));
+    if ($('#PromptPopup') == null) {
+        let div = $create('POP-UP', { 'id': 'PromptPopup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
+        div.insertBeforeEnd('DIV', { id: 'PromptPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
+        div.insertBeforeEnd('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-edit"></i> <span id="PromptPopupTitle" class="popup-title">Prompt</span>' });
+        div.insertBeforeEnd('DIV', { id: 'PromptContent', className: 'popup-content' });
+        div.insertBeforeEnd('DIV', { className: 'popup-button', innerHTML: '<button id="PromptPopup_ConfirmButton" watch="#PromptTextBox" class="normal-button gray-button"> OK </button> &nbsp; &nbsp; <button id="PromptPopup_CancelButton" type="button" class="normal-button gray-button"> Cancel </button' });
         document.body.appendChild(div);
 
-        let w = Math.max($s('#PromptPopup_ConfirmButton').width, $s('#PromptPopup_CancelButton').width);
-        $s('#PromptPopup_ConfirmButton').width = w;
-        $s('#PromptPopup_CancelButton').width = w;
+        $('#PromptContent').insertBeforeEnd('DIV', { id: 'PromptMessage' }, {})
+            .insertBeforeEnd('DIV', { id: 'PromptInput' }, { margin: '10px 0px 6px 0px' })
+            .insertBeforeEnd('DIV', { id: 'PromptHint' }, { fontSize: '0.875rem' });
 
-        Popup.apply($s('#PromptPopup'));
+        let w = Math.max($('#PromptPopup_ConfirmButton').width, $('#PromptPopup_CancelButton').width);
+        $('#PromptPopup_ConfirmButton').width = w;
+        $('#PromptPopup_CancelButton').width = w;
     }
 
     if (title != null) {
-        $s('#PromptPopupTitle').html = title;
+        $('#PromptPopupTitle').html = title;
     }
 
-    message ??= '';
-    if (typeof (message) == 'string') {
-        message = { 'text': message };
-    }
-    $s('#PromptContent').setHTML(message.text).setClass(message.class ?? '.');
+    $('#PromptMessage').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
 
     input ??= 'text';
-    if (typeof(input) == 'string') {
+    if (typeof(input) != 'object') {
         input = { 'type': input };
     }
-    let textBox = $create('INPUT', { id: 'PromptTextBox', size: 50, hint: '#PromptMessage' });
+
+    let textBox = $create('INPUT', { id: 'PromptTextBox', size: 50, hint: '#PromptHint' });
     for (let name in input) {
         if (textBox[name] !== undefined) {
             textBox[name] = input[name];
@@ -726,65 +670,50 @@ $root.prompt = function(message, input, confirmButton, cancelButton, title, ev) 
         }
     }    
     textBox.initializeInputable?.();
-    $s('#PromptInput').innerHTML = '';
-    $s('#PromptInput').appendChild(textBox);
+    $('#PromptInput').innerHTML = '';
+    $('#PromptInput').appendChild(textBox);
 
     if (confirmButton != null) {
         if (typeof(confirmButton) == 'string') {
             confirmButton = { text: confirmButton };
         }
-        $s('#PromptPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
+        $('#PromptPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
     }
-    $s('#PromptPopup_ConfirmButton').initialize?.();
+    $('#PromptPopup_ConfirmButton').initialize?.();
    
     if (cancelButton != null) {
         if (typeof(cancelButton) == 'string') {
             cancelButton = { text: cancelButton };
         }
-        $s('#PromptPopup_CancelButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
+        $('#PromptPopup_CancelButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
     }
 
-    return $popup('PromptPopup').clearEvents().on('show', function() {
-        $s('.popup-message').width = $s('.popup-message').width;
+    return $('#PromptPopup').on('show', function() {
         textBox.focus();
     }).open(ev);
 }
 
 $root.prompt.getInputValue = function() {
-    return $s('#PromptTextBox').value;
+    return $('#PromptTextBox').value;
 }
 
 $root.prompt.setInputValue = function(value) {
-    $s('#PromptTextBox').value = value;
+    $('#PromptTextBox').value = value;
 }
 
-Popup.apply = function (element) {
-    if (element.getAttribute('root') == null) {
-        new Popup(element);
-    }    
-}
+document.on('ready', function () {
 
-Popup.initializeAll = function () {
+    $$('pop-up').forEach(p => p.initialize());
 
-    document.body.insertAdjacentHTML('beforeEnd', '<div id="__PopupMask" style="background-color:#666666; z-index:1000; position:absolute; visibility:hidden; left:0; top:0;" hidden>&nbsp;</div>');
+    window.on('resize', HTMLPopupElement.resize);
 
-    window.on('resize', Popup.resize);
-
+    PopupMask.initialize();
     PopupMask.resize();
 
-    $a('div[popup]').forEach(div => {
-        Popup.apply(div);
-    });
-}
-
-document.on('post', function () {
-    Popup.initializeAll();    
     window.on('message', function(ev) {
         switch(ev.data) {
             case 'CLOSE-POPUP': 
-                if (document.popup != null) {
-                    document.popup.close();
-                }
+                document.popup?.close();
                 break;
             default:
                 break;
