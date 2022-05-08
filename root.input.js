@@ -117,7 +117,12 @@ $enhance(HTMLInputElement.prototype)
                     if (this._blured) {                    
                         if (this.hintElement != null) {
                             this.hintElement.text = text;
-                            this.hintElement.className = (this.status != $input.status.valid ? this.errorTextClass : this.validTextClass);
+                            if (this.status != $input.status.valid) {
+                                this.hintElement.removeClass(this.validTextClass).addClass(this.errorTextClass);
+                            }
+                            else {
+                                this.hintElement.removeClass(this.errorTextClass).addClass(this.validTextClass);
+                            }
                             this.hintElement.hidden = text == '';
                         }
                         
@@ -871,6 +876,10 @@ HTMLInputElement.prototype.initializeCheckable = function() {
     }
     else if (this.hasAttribute('enabled')) {
         this.enabled = this.getAttribute('enabled');
+    }
+
+    if (this.hasAttribute('checked')) {
+        this.checked = this.getAttribute('checked');
     }
 
     document.on('load', function() {

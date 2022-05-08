@@ -30,6 +30,8 @@ $enhance(HTMLButtonElement.prototype)
 
         disableOnClick: true,
         enableOnSuccess: true,
+        enableOnFailure: true,
+        enableOnException: true,
 
         //switch only
         enabledClass: '', //normal-button blue-button,
@@ -105,13 +107,13 @@ $enhance(HTMLButtonElement.prototype)
                 if (this.hintElement != null) {
                     this.hintElement.innerHTML = text;
                     if (this.status == $button.status.success) {
-                        this.hintElement.className = this.validTextClass;
+                        this.hintElement.removeClass(this.textClass, this.errorTextClass).addClass(this.validTextClass);
                     }
                     else if (this.status == $button.status.acting) {
-                        this.hintElement.className = this.textClass;
+                        this.hintElement.removeClass(this.errorTextClass, this.validTextClass).addClass(this.textClass);
                     }
                     else {
-                        this.hintElement.className = this.errorTextClass;
+                        this.hintElement.removeClass(this.textClass, this.validTextClass).addClass(this.errorTextClass);
                     }                    
                     this.hintElement.hidden = text == '';
                 }
@@ -278,13 +280,17 @@ HTMLButtonElement.prototype.go = function() {
                 this.status = $button.status.failure;
                 this.hintText = this.failureText.$p(this, data);            
                 this.text = this.defaultText;
-                this.enable();
+                if (this.enableOnFailure) {
+                    this.enable();
+                }                
             },
             function(error) {
                 this.status = $button.status.exception;  
                 this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
                 this.text = this.defaultText;
-                this.enable();
+                if (this.enableOnException) {
+                    this.enable();
+                }                
             }
         );
     }

@@ -860,6 +860,16 @@ $enhance(HTMLSpanElement.prototype)
 
         onload: null,
         onreload: null
+    })
+    .define({
+        'messageDuration': {
+            get() {
+                return this.getAttribute('message-duration') ?? this.getAttribute('messageDuration') ?? this.getAttribute('message');
+            },
+            set(duration) {
+                this.setAttribute('message-duration', duration);
+            }
+        }
     });
 
 HTMLSpanElement.prototype.loaded = false;
@@ -889,7 +899,13 @@ HTMLSpanElement.prototype.copy = function() {
     this.nextElementSibling.select();
     document.execCommand('Copy');
     this.nextElementSibling.remove();
-    Callout(this.copyText || ($root.lang == 'zh' ? '已复制。' : 'Copied.')).position(this, 'up').show(3);
+
+    if (this.hidden || this.messageDuration != null) {
+        window.Message?.green(this.copyText || ($root.lang == 'zh' ? '已复制。' : 'Copied.')).show(this.messageDuration.toInt(6));
+    }
+    else {
+        Callout(this.copyText || ($root.lang == 'zh' ? '已复制。' : 'Copied.')).position(this, 'up').show(3);
+    }
 }
 
 HTMLSpanElement.prototype.initialize = function() {

@@ -387,13 +387,23 @@ HTMLElement.prototype.setClass = function (className) {
     return this;
 }
 
-HTMLElement.prototype.removeClass = function(className) {
-    this.classList.remove(className);
+HTMLElement.prototype.removeClass = function(...classes) {
+    classes.flatMap(classNames => classNames.trim().split(/\s+/))
+        .forEach(className => {
+            if (className != '') {
+                this.classList.remove(className);
+            }
+        });    
     return this;
 }
 
-HTMLElement.prototype.addClass = function(className) {
-    this.classList.add(className);
+HTMLElement.prototype.addClass = function(...classes) {
+    classes.flatMap(classNames => classNames.trim().split(/\s+/))
+        .forEach(className => {
+            if (className != '') {
+                this.classList.add(className);
+            }        
+        });
     return this;
 }
 
@@ -1339,33 +1349,15 @@ String.prototype.$p = function(element, data) {
     // $:<0
     // $:[attr]
     if (element != null) {
-        let holders = str.match(/\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig);
-        if (holders != null) {
-            for (let holder of holders) {
-                let s = holder, p, a, d;
-                if (s.includes('[')) {
-                    a = s.substring(s.indexOf('[') + 1, s.indexOf(']'));
-                    p = s.substring(2, s.indexOf('['));
-                    s = s.substring(s.indexOf(']') + 1);
-                }
-                if (s.includes('(')) {
-                    d = s.substring(s.indexOf('('), s.indexOf(')'));
-                    if (s.startsWith('$:')) {
-                        p = s.substring(2, s.indexOf('('));
-                    }
-                    s = '';
-                }
-                if (s.startsWith('$:')) {
-                    p = s.substring(2);
-                }
-                str = str.replace(holder, $root.__$select(element, p, a, d).encodeURIComponent(holder.endsWith('%')));
-            }
-        }
+        /\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(str)
+            .forEach(match => {
+                str = str.replace(holder, $root.__$select(element, match[1], match[3], match[5]).encodeURIComponent(match[6] == '%'));
+            });        
     }
 
     //~{{complex expression}}
     //must return a value 
-    /\~?\{\{([\s\S]+?)\}\}%?/g.findAllMatchIn(str)
+    /\~?\{\{(.+?)\}\}%?/sg.findAllMatchIn(str)
         .forEach(match => {
             let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $root.__$data(element, data), $root.__$value(element, data), $root.__$text(element, data));
             if (typeof(result) != 'string') {
@@ -1378,7 +1370,7 @@ String.prototype.$p = function(element, data) {
         });
 
     //~{simple expression}
-    /\~?\{([\s\S]+?)\}%?/g.findAllMatchIn(str)
+    /\~?\{(.+?)\}%?/sg.findAllMatchIn(str)
         .forEach(match => {
             let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $root.__$data(element, data), $root.__$value(element, data), $root.__$text(element, data));
             if (typeof(result) != 'string') {
@@ -1388,6 +1380,12 @@ String.prototype.$p = function(element, data) {
                 result = encodeURIComponent(result);
             }
             str = str.replace(match[0], result);
+        });
+
+    //%
+    /(?<==)(.*?)%(?=(?:&|#|$))/sg.findAllMatchIn(str)
+        .forEach(match => {
+            str = str.replace(match[0], encodeURIComponent(match[1]));
         });
     
     return str;
@@ -1702,105 +1700,33 @@ $root.__$select = function(t, p, a, d = 'null') {
 
 // private
 $root.__$value = function(t, data) {
-    if (t.value != undefined) {
-        return t.value;
-    }
-    else if (t.getAttribute('value') != null) {
-        return t.getAttribute('value');
-    }
-    else if (data != null) {
-        if (data.value != null) {
-            return data.value;
-        }
-        else if (data.text != null) {
-            return data.text;
-        }
-        else if (data.data != null) {
-            return data.data;
-        }
-        else {
-            return data;
-        }
-    }
-    else if (t.innerHTML != null) {
-        return t.innerHTML;
-    }
-    else if (t.text != null) {
-        return t.text;
-    }
-    else if (t.textContent != null) {
-        return t.textContent;
+    if (t != null) {
+        return t.value ?? t.getAttribute('value') ?? data?.value ?? data?.text ?? data?.data ?? data ?? t.innerHTML ?? t.text ?? t.textContent;
     }
     else {
-        return null;
-    }
+        return data?.value ?? data?.text ?? data?.data ?? data;
+    }    
 }
 
 $root.__$text = function(t, data) {
-    if (t.text != undefined) {
-        return t.text;
-    }
-    else if (t.getAttribute('text') != null) {
-        return t.getAttribute('text');
-    }
-    else if (data != null) {
-        if (data.text != null) {
-            return data.text;
-        }
-        else if (data.value != null) {
-            return data.value;
-        }
-        else if (data.data != null) {
-            return data.data;
-        }
-        else {
-            return data;
-        }
-    }
-    else if (t.textContent != null) {
-        return t.textContent;
-    }
-    else if (t.innerHTML != null) {
-        return t.innerHTML;
-    }
-    else if (t.value != null) {
-        return t.value;
+    if (t != null) {
+        return t.text ?? t.getAttribute('text') ?? data?.text ?? data?.value ?? data?.data ?? data ?? t.textContent ?? t.innerHTML ?? t.value;
     }
     else {
-        return null;
+        return data?.text ?? data?.value ?? data?.data ?? data;
     }
 }
 
 $root.__$data = function(t, data) {
     if (data != null) {
-        if (data.data != null) {
-            return data;
-        }
-        else {
-            return data;
-        }
+        return data.data ?? data;        
     }
-    else if (t.data != undefined) {
-        return t.data;
-    }
-    else if (t.getAttribute('data') != null) {
-        return t.getAttribute('data');
-    }
-    else if (t.value != null) {
-        return t.value;
-    }
-    else if (t.text != null) {
-        return t.text;
-    }
-    else if (t.textContent != null) {
-        return t.textContent;
-    }
-    else if (t.innerHTML != null) {
-        return t.innerHTML;
+    else if (t != null) {
+        return t.data ?? t.getAttribute('data') ?? t.value ?? t.text ?? t.textContent ?? t.innerHTML;        
     }
     else {
         return null;
-    }    
+    }
 }
 
 // private
@@ -2648,12 +2574,12 @@ $query = function () {
 $query.s = { };
 $query.get = function(n) {
     if ($query.s[n] != null) {
-        return $query.s[n];
+        return $query.s[n].decode();
     }
     else {
         for (let k in $query.s) {
             if (new RegExp('^' + n + '$', 'i').test(k)) {
-                return $query.s[k];
+                return $query.s[k].decode();
             }
         }
         return null;

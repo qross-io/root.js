@@ -176,7 +176,7 @@ class Coder {
                                          display: 'none', float: 'right' });
         this.frame.insertAdjacentElement('afterEnd', this.hintSpan)
 
-        if (textArea.hidden) {
+        if (textArea.hasAttribute('hidden')) {
             this.frame.hidden = true;    
         }
         textArea.setAttribute('hidden', 'always');

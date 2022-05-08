@@ -13,9 +13,15 @@
 <button id="B">Button</button>
 <script type="text/javascript">
 
-let a = function() {
-    alert(1);
+let test = function() {
+    var test1 = 'a';
+    let test2 = 'b';
+    const test3 = 'c';
+    test4 = 'd';
+    this.test5 = 'property';
 };
+
+test();
 
 $('#B').addEventListener('click', a);
 
