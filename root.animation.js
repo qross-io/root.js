@@ -137,7 +137,7 @@ Animation.Entity.prototype.play = function (ev) {
             window.clearTimeout(Animation.timer[this.element.id]);
             delete Animation.timer[this.element.id];
         }
-        Event.fire(this, 'start', this.element);
+        Event.fire(this, 'onstart', this.element);
         
         let prefix = '';
         // if (Animation.getBrowser().name == 'chrome' || Animation.getBrowser().name == 'safari') {
@@ -238,7 +238,7 @@ Animation.Entity.prototype.play = function (ev) {
                         //移除样式表标签<style>
                         $s('#__AnimationStyleSheet_' + a.element.id).remove();
                     }
-                    Event.fire(a, 'stop', a.element);              
+                    Event.fire(a, 'onstop', a.element);              
                     window.clearTimeout(Animation.timer[a.element.id]);
                     delete Animation.timer[a.element.id];
                 }, Animation.parseTimeOut(this.settings.duration, this.settings.delay));
@@ -821,26 +821,34 @@ Message.Entity.prototype.show = function(seconds = 0) {
 
         element.slideIn(-100);
         if (seconds > 0) {
-            Message.$hide(element, seconds);
+            Message.hide(element, seconds);
         }
     }
 }
 
-Message.$hide = function(target, seconds = 0) {
+Message.Entity.prototype.hideLast = function() {
+    let last = $s('#__MessageBox').lastElementChild;
+    if (last != null) {
+        Message.play(last);
+    }    
+    return this;
+}
+
+Message.hide = function(target, seconds = 0) {
     if (target.hasAttribute('sign')) {
         if (target.timer == undefined) {
             if (seconds > 0) {
                 target.timer = window.setTimeout(function() {
-                    Message.$play(target);
+                    Message.play(target);
                 }, seconds * 1000);
             }
             else {
-                Message.$play(target);
+                Message.play(target);
             }
         }
         else {
             window.clearTimeout(target.timer);
-            Message.$play(target);
+            Message.play(target);
         }
     }
     else if (target.children.length == 0) {
@@ -848,7 +856,7 @@ Message.$hide = function(target, seconds = 0) {
     }
 }
 
-Message.$play = function(target) {
+Message.play = function(target) {
     let to = 'x(0).y(60)';
     if (target.nextElementSibling != null) {
         to = 'x(120).y(0)';
@@ -866,7 +874,7 @@ Message.$play = function(target) {
 document.on('ready', function() {
     document.body.appendChild($create('DIV', { id: '__MessageBox' }, { position: 'fixed', top: '60px', width: '500px', left: '0px', right: '0px', margin: '0px auto' }));
     $s('#__MessageBox').on('click', function(ev) {
-        Message.$hide(ev.target);
+        Message.hide(ev.target);
     });
 
     $root.appendClass(`

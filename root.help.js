@@ -21,7 +21,7 @@ Help$initialize = function(a) {
             $s('#HelpPopup').width = width;
             $s('#HelpContentFrame').width = width;
         }        
-        $popup('HelpPopup').show();
+        $('#HelpPopup').show();
     }
 }
 

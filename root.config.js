@@ -1,5 +1,4 @@
 window.localStorage.setItem('$root.configuration', JSON.stringify({
-    "debug": false,
     "ajax": {
         "/api/": {
             "fields": ["code", "data", "message"], //for identity

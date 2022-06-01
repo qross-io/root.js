@@ -4,7 +4,7 @@ class Log {
         $initialize(this)
         .with(element)
         .declare({
-			name: 'Log_' + document.components.size,
+			name: 'Log_' + String.shuffle(7),
 			
             loadingText: 'Loading...',
             autoStart: true,
@@ -105,7 +105,7 @@ Log.prototype.load = function() {
 
                             if (!log.terminated) {
                                 if (log.terminal != '') {
-                                    if (eval(log.terminal.placeModelData().$p(log.element))) {
+                                    if (eval(log.terminal.$p(log.element))) {
                                         //达到中止条件                                            
                                         if (log.loadUntilEmpty) {
                                             //日志量为 0 并不中断，因为可能有的日志还没有生成

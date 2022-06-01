@@ -4,7 +4,7 @@ class Clock {
         $initialize(this)
         .with(elementOrSettings)
         .declare({
-            name: 'Clock_' + document.components.size,
+            name: 'Clock_' + String.shuffle(7),
            
             $value: 'HH:mm:ss',
 

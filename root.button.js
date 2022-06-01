@@ -2,7 +2,7 @@
 // 按钮扩展
 
 $enhance(HTMLButtonElement.prototype)
-    .declare({
+    .defineProperties({
         type: 'normal|switch|confirm',
         watch: '', //监视表单元素的变化，当验证通过时自动启用按钮，只支持逗号分隔的 id 列表
 
@@ -41,30 +41,33 @@ $enhance(HTMLButtonElement.prototype)
         disabledText: 'Disabled',
         disabledValue: 'no',
 
-        scale: 'normal', //little/small/normal/big/large
-        color: 'blue' //prime/green/red/maroon/purple/blue/orange/gray/white
-    })
-    .getter({
-        'scale': value => value.toLowerCase(),
-        'color': value => value.toLowerCase()
-    })
-    .setter({
-        'scale': function(value) {
-            this.enabledClass = this.enabledClass.replace(this.scale + '-button', value + '-button');
-            this.disabledClass = this.disabledClass.replace(this.scale + '-button', value + '-button');
-            this.classList.remove(this.scale + '-button');
-            this.classList.add(value + '-button');            
+        scale: {
+            get () {
+                return Enum('normal|little|small|medium|big|large').validate(this.getAttribute('scale'));
+            },
+            set (value) {
+                this.setAttribute('scale', value);
+
+                this.enabledClass = this.enabledClass.replace(this.scale + '-button', value + '-button');
+                this.disabledClass = this.disabledClass.replace(this.scale + '-button', value + '-button');
+                this.classList.remove(this.scale + '-button');
+                this.classList.add(value + '-button');                 
+            }
         },
-        'color': function(value) {
-            this.enabledClass = this.enabledClass.replace(this.color + '-button', value + '-button');
-            if (!this.disabled) {
-                this.classList.remove(this.color + '-button');
-                this.classList.add(value + '-button');
-            }            
-        }
-    })
-    .extend('onclick+', 'onclick-enabled', 'onclick-disabled', 'onclick-confirm', 'onclick-cancel') //for switch & confirm
-    .define({
+        color: {
+            get() {
+                return Enum('blue|prime|green|red|maroon|purple|orange|gray|white').validate(this.getAttribute('color'));
+            },
+            set(value) {
+                this.setAttribute('color', value);
+
+                this.enabledClass = this.enabledClass.replace(this.color + '-button', value + '-button');
+                if (!this.disabled) {
+                    this.classList.remove(this.color + '-button');
+                    this.classList.add(value + '-button');
+                }
+            }
+        },
         'text': {
             get () {            
                 return this.innerHTML;
@@ -78,7 +81,7 @@ $enhance(HTMLButtonElement.prototype)
         'hintElement': {
             get() {
                 if (this._hintElement === undefined) {
-                    this.hintElement = this.getAttribute('hint') ?? this.getAttribute('hint-element') ?? this.getAttribute('hintElement');
+                    this.hintElement = this.getAttribute('hint') ?? this.getAttribute('hint-element');
                 }
                 return this._hintElement;
             },
@@ -88,7 +91,7 @@ $enhance(HTMLButtonElement.prototype)
         },
         'calloutPosition': {
             get() {
-                return this.getAttribute('callout-position') ?? this.getAttribute('calloutPosition') ?? this.getAttribute('callout');
+                return this.getAttribute('callout-position') ?? this.getAttribute('callout');
             },
             set(position) {
                 this.setAttribute('callout-position', position);
@@ -96,7 +99,7 @@ $enhance(HTMLButtonElement.prototype)
         },
         'messageDuration': {
             get() {
-                return this.getAttribute('message-duration') ?? this.getAttribute('messageDuration') ?? this.getAttribute('message');
+                return this.getAttribute('message-duration') ?? this.getAttribute('message');
             },
             set(duration) {
                 this.setAttribute('message-duration', duration);
@@ -181,7 +184,8 @@ $enhance(HTMLButtonElement.prototype)
                 return [...this.relations.values()].filter(v => v == 0).length == 0;
             }
         }
-    });
+    })
+    .defineEvents('onclick+', 'onclick-enabled', 'onclick-disabled', 'onclick-confirm', 'onclick-cancel'); //for switch & confirm
 
 $button = {
     status: {
@@ -302,14 +306,14 @@ HTMLButtonElement.prototype.switch = function() {
         this.value = this.disabledValue;
         this.className = this.disabledClass;
 
-        this.dispatchCustomEvent('onclick-disabled', { 'event': ev });
+        this.dispatch('onclick-disabled', { 'event': ev });
     }
     else {
         this.text = this.enabledText;
         this.value = this.enabledValue;
         this.className = this.enabledClass;
 
-        this.dispatchCustomEvent('onclick-enabled', { 'event': ev });
+        this.dispatch('onclick-enabled', { 'event': ev });
     }
 }
 
@@ -448,7 +452,7 @@ HTMLButtonElement.prototype.initialize = function() {
                     );
                 }
 
-                button.dispatchCustomEvent('onclick-confirm', { event: ev });
+                button.dispatch('onclick-confirm', { event: ev });
             }            
         });
 
@@ -457,7 +461,7 @@ HTMLButtonElement.prototype.initialize = function() {
             cancel.slideOut(120);
             button.slideIn(-100);
 
-            button.dispatchCustomEvent('onclick-cancel', { event: ev });            
+            button.dispatch('onclick-cancel', { event: ev });            
         });
     }
     else if (this['onclick+'] != null || this.hasAttribute('watch'))  {
@@ -516,7 +520,7 @@ HTMLButtonElement.prototype.initialize = function() {
         });
     }
 
-    HTMLElement.interactEvents(this);
+    Event.interact(this);
 
     if (this.hasAttribute('disabled')) {
         this.disabled = $parseBoolean(this.getAttribute('disabled'), false, this);
@@ -575,13 +579,13 @@ HTMLButtonElement.initializeAll = function(container) {
         if (!button.hasAttribute('root-button')) {            
             button.setAttribute('root-button', '');
 
-            window.Model?.boostPropertyValue(button);            
+            HTMLElement.boostPropertyValue(button);            
 
             if (button.hasAttribute('onclick+') || button.hasAttribute('watch') || button.hasAttribute('type') || button.hasAttribute('href')) {
                 button.initialize();
             }
             else {
-                HTMLElement.interactEvents(button);
+                Event.interact(button);
             }
         }
     }

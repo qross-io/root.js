@@ -4,7 +4,7 @@ class Calendar {
         $initialize(this)
         .with(elementOrSettings)
         .declare({
-            name: 'Calendar_' + document.components.size,
+            name: 'Calendar_' + String.shuffle(7),
             //单日/周/日期期间
             mode: 'day|week|range|none',
             //显示的月数

@@ -21,7 +21,7 @@
 
 $enhance(HTMLTableElement.prototype)
     .declare({
-        name: 'Table_' + document.components.size,
+        name: 'Table_' + String.shuffle(7),
         excludes: '', //0, -1
 
         captionClass: '', //caption
@@ -57,7 +57,7 @@ $enhance(HTMLTableElement.prototype)
         reloadOnFilter: false,
         reloadOnSort: false
     })
-    .extend('onrowdblclick+',
+    .defineEvents('onrowdblclick+',
         onrowhover, //function(row) { },
         onrowleave, //function(row) { },
         onrowfocus, //function(row) { },
@@ -536,7 +536,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                                 .filter(tr => tr.cells[0].nodeName == 'TD')
                                 .map(tr => { 
                                     let v = tr.cells[col.index].textContent;
-                                    if (v.isNumberString() || v.isTimeString()) {
+                                    if (v.isNumberString || v.isTimeString) {
                                         v = v.toFloat(0);
                                     }
                                     return { row: tr.rowIndex, score: v };
@@ -634,7 +634,7 @@ HTMLTableElement.prototype.appendOrRenew = function(index, data) {
         let tr = $create('TR');
         for (let i = 0; i < this.cols.length; i++) {
             let col = this.cols[i];
-            tr.appendChild($create('TD', { innerHTML: col.template.placeItemData(data), className: col.className.placeItemData(data) }));
+            tr.appendChild($create('TD', { innerHTML: col.template.placeData({"data": data}), className: col.className.placeData({"data": data}) }));
         }
         this.tBodies[0].appendChild(tr);
     }
@@ -642,8 +642,8 @@ HTMLTableElement.prototype.appendOrRenew = function(index, data) {
         let tr = this.tBodies[0].children[index];
         for (let i = 0; i < this.cols.length; i++) {
             let col = this.cols[i];
-            tr.cells[i].innerHTML = col.template.placeItemData(data);
-            tr.cells[i].className = col.className.placeItemData(data);
+            tr.cells[i].innerHTML = col.template.placeData({"data": data});
+            tr.cells[i].className = col.className.placeData({"data": data});
             tr.cells[i].removeAttribute('formatted');
         }
     }
@@ -769,12 +769,12 @@ $enhance(HTMLTableColElement.prototype)
             set(value) {
                 if (value != null) {
                     if (typeof(value) == 'string') {
-                        if (value.isCogoString()) {
+                        if (value.isCogoString) {
                             this.promise = $cogo(value, this);
                             this.mapping = 'promise';
                         }
                         else if (value.startsWith('@')) {
-                            this.data = value.placeModelData();
+                            this.data = value.followModel('#' + this.id);
                         }
                         else {
                             this.data = value.toMap();

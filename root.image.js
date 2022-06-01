@@ -1,7 +1,7 @@
 
 //loading="auto|eager|lazy"
 
-$enhance(HTMLImageElement.prototype).extend('onload+', 'onerror+');
+$enhance(HTMLImageElement.prototype).defineEvents('onload+', 'onerror+');
 
 HTMLImageElement.prototype.initialize = function() {
     let img = this;
@@ -17,26 +17,26 @@ HTMLImageElement.prototype.initialize = function() {
             $FIRE(this, 'onerror+');
         });
     }
-
-    Event.interact(img, img);
 }
 
 document.on('post', function() {
-    $$('img:not([src])').forEach(img => {
+    $$('img').forEach(img => {
         if (!img.hasAttribute('root-image')) {
             img.setAttribute('root-image', '');
-            if (img.hasAttribute('onload+') || img.hasAttribute('onerror+')) {
-                img.initialize();
-            }
-            else if (img.hasAttribute('onload-') || img.hasAttribute('onerror-')) {
-                HTMLElement.interactEvents(img);
-            }
-
-            window.Model?.boostPropertyValue(img);
-
+            
             if (!img.hasAttribute('src')) {
+                if (img.hasAttribute('onload+') || img.hasAttribute('onerror+')) {
+                    img.initialize();
+                    Event.interact(img);
+                }
+                else if (img.hasAttribute('onload-') || img.hasAttribute('onerror-')) {
+                    Event.interact(img);
+                }
+
                 img.src = '';
             }
+
+            HTMLElement.boostPropertyValue(img);
         }
     })
 });

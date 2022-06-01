@@ -5,7 +5,7 @@ class DateTimePicker {
         $initialize(this)
         .with(element)
         .declare({
-            name: 'DateTimePicker_' + document.components.size,
+            name: 'DateTimePicker_' + String.shuffle(7),
             title: '',
             tip: '',
 

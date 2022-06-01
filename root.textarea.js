@@ -2,8 +2,8 @@
 HTMLTextAreaElement.prototype.cursor = 0;
 
 $enhance(HTMLTextAreaElement.prototype)
-    .extend('onmatch')
-    .define({
+    .defineEvents('onmatch')
+    .defineProperties({
         'readonly': {
             get() {
                 return $parseBoolean(this.getAttribute('readonly'), false, this);
@@ -120,7 +120,7 @@ HTMLTextAreaElement.prototype.find = function(strOrRegex, reset = false) {
             this.cursor = 0;
         }
 
-        this.dispatchCustomEvent('onmatch', { matched: this.cursor != 0 });
+        this.dispatch('onmatch', { matched: this.cursor != 0 });
     }
     
     return this;
@@ -149,7 +149,7 @@ HTMLTextAreaElement.prototype.findAll = function(strOrRegex) {
     if (result.length > 0) {
         this.selectRange(result[0].index, result[0].lastIndex);
 
-        this.dispatchCustomEvent('onmatch', { matched: true });
+        this.dispatch('onmatch', { matched: true });
     }
 
     return result;
@@ -217,11 +217,11 @@ HTMLTextAreaElement.initializeAll = function(container) {
         if (!textarea.hasAttribute('root-textarea')) {
             textarea.setAttribute('root-textarea', '');
             
-            window.Model?.boostPropertyValue(textarea);
+            HTMLElement.boostPropertyValue(textarea);
             
             textarea.initialize();
 
-            HTMLElement.interactEvents(textarea);
+            Event.interact(textarea);
         }
     });
 }

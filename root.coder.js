@@ -1,16 +1,11 @@
-class Coder {
+class HTMLCoderElement extends HTMLCustomElement {
     constructor(textArea) {
-
-        this.name = textArea.id;
-        if (this.name == '') {
-            this.name = 'Coder_' + document.components.size;
-            textArea.id = this.name;
-        }
+        super(textArea);
 
         this.textArea = textArea;
-        this.$readOnly = textArea.getAttribute('readonly') ?? textArea.getAttribute('read-only') ?? 'false';
-        if (this.$readOnly != 'nocursor') {
-            this.$readOnly = this.$readOnly.toBoolean(false, this);
+        this.#readOnly = textArea.getAttribute('read-only') ?? 'false';
+        if (this.#readOnly != 'nocursor') {
+            this.#readOnly = this.#readOnly.toBoolean(false, this);
         }
 
         this.options = {
@@ -31,38 +26,15 @@ class Coder {
         };
 
         //最小行数
-        this.$rows = 0;
-        this.limited = false;
-        
-        this.onsave = textArea.getAttribute('onsave'); //客户端事件
-        this['onsave+'] = textArea.getAttribute('onsave+'); //服务器端事件
-        this['onsave+success'] = textArea.getAttribute('onsave+success');
-        this['onsave+failure'] = textArea.getAttribute('onsave+failure');
-        this['onsave+exception'] = textArea.getAttribute('onsave+exception');
-        this['onsave+completion'] = textArea.getAttribute('onsave+completion');
-        this.onfocus = textArea.getAttribute('onfocus');
-        this.onblur = textArea.getAttribute('onblur');
+        this.#rows = 0;
+        this.#limited = false;
 
-        this.saveText = textArea.getAttribute('save-text') || textArea.getAttribute('saveText') || '';
-        this.savingText = textArea.getAttribute('saving-text') || textArea.getAttribute('savingText') || '';
-        this.savedText = textArea.getAttribute('saved-text') || textArea.getAttribute('savedText') || '';
-        this.requiredText = textArea.getAttribute('required-text') || textArea.getAttribute('requiredText') || ''; //必填项，不能为空
-        this.invalidText = textArea.getAttribute('invalid-text') || textArea.getAttribute('invalidText') || ''; //当输入值不能格式要求时，这里指 validator 验证        
-        this.validText = textArea.getAttribute('valid-text') || textArea.getAttribute('validText') || '';
-        this.successText = textArea.getAttribute('success-text') || textArea.getAttribute('successText') || this.savedText;
-        this.failureText = textArea.getAttribute('failure-text') || textArea.getAttribute('failureText') || ''; //后端验证失败后的提醒文字，如语法不正确
-        this.exceptionText = textArea.getAttribute('exception-text') || textArea.getAttribute('exceptionText') || '';
-
-        this.hintTextClass = 'span-hint';
-        this.errorTextClass = 'span-error';
-        this.validTextClass = 'span-valid';
-
-        this.$mode = (textArea.getAttribute('mode') || textArea.getAttribute('coder') || 'pql').toLowerCase();
-        if (Coder.mineTypes[this.$mode] != null) {
-            this.options['mode'] = Coder.mineTypes[this.$mode];
+        this.#mode = (textArea.getAttribute('coder') || textArea.getAttribute('mode') || 'pql').toLowerCase();
+        if (HTMLCoderElement.mineTypes[this.#mode] != null) {
+            this.options['mode'] = HTMLCoderElement.mineTypes[this.#mode];
         }
         else {
-            this.options['mode'] = this.$mode;
+            this.options['mode'] = this.#mode;
         }
 
         //预设的验证器  array/object/object-array
@@ -70,7 +42,7 @@ class Coder {
 
         for (let attr of textArea.getAttributeNames()) {
             if (attr == 'rows') {                
-                this.$rows = textArea.rows;
+                this.#rows = textArea.rows;
             }
             else if (attr == 'keys') {
                 let keys = textArea.getAttribute(attr).toMap(';', '->');
@@ -84,136 +56,128 @@ class Coder {
                     CodeMirror.commands[event] = window[event];
                 }
             }
-            else if (!Coder.reserved.has(attr) && !attr.toLowerCase().endsWith('text')) {
+            else if (!HTMLCoderElement.reserved.has(attr) && !attr.toLowerCase().endsWith('text')) {
                 this.options[attr.toCamel()] = textArea.getAttribute(attr).recognize();
             }                
         }
  
-        this.mirror = CodeMirror.fromTextArea(textArea, this.options);
-        this.frame = textArea.nextElementSibling;
-        this.frame.style.height = 'auto';
+        this.#mirror = CodeMirror.fromTextArea(textArea, this.options);
+        this.#frame = textArea.nextElementSibling;
+        this.#frame.style.height = 'auto';
 
         if (this.rows > 0) {
-            if (this.mirror.lineCount() < this.rows) {
-                this.frame.style.height = (this.rows * 25 + 10) + 'px';
-                this.limited = true;
+            if (this.#mirror.lineCount() < this.rows) {
+                this.#frame.style.height = (this.rows * 25 + 10) + 'px';
+                this.#limited = true;
             }
             else {
-                this.frame.style.height = 'auto';
+                this.#frame.style.height = 'auto';
             }
 
-            this.mirror.on('keyup', function(cm, e) {
+            this.#mirror.on('keyup', function(cm, e) {
                 if ((!e.ctrlKey && e.key == 'Enter') || e.key == 'Backspace' || e.key == 'Delete' || (e.ctrlKey && (e.key == 'v' || e.key == 'x'))) {
-                    let coder = $coder(textArea.id);                   
+                    let coder = $s('#' + textArea.id);
                     if (cm.lineCount() == coder.rows) {
-                        if (!coder.limited) {
-                            coder.frame.style.height = (coder.rows * 25 + 10) + 'px';
-                            coder.limited = true;
+                        if (!coder.#limited) {
+                            coder.#frame.style.height = (coder.rows * 25 + 10) + 'px';
+                            coder.#limited = true;
                         }
                         else {
-                            coder.frame.style.height = 'auto';
-                            coder.limited = false;
+                            coder.#frame.style.height = 'auto';
+                            coder.#limited = false;
                         }
                     }
                     else if (cm.lineCount() < coder.rows) {
-                        if (!coder.limited) {
-                            coder.frame.style.height = (coder.rows * 25 + 10) + 'px';
-                            coder.limited = true;
+                        if (!coder.#limited) {
+                            coder.#frame.style.height = (coder.rows * 25 + 10) + 'px';
+                            coder.#limited = true;
                         }
                     }
                     else if (cm.lineCount() > coder.rows) {
-                        if (coder.limited) {
-                            coder.frame.style.height = 'auto';
-                            coder.limited = false;
+                        if (coder.#limited) {
+                            coder.#frame.style.height = 'auto';
+                            coder.#limited = false;
                         }
                     }
                 }
             });
 
-            this.mirror.on('keydown', function(cm, e) {
+            this.#mirror.on('keydown', function(cm, e) {
                 if (e.key == 'Enter') {
                     let coder = $coder(textArea.id);
                     if (cm.lineCount() == coder.rows) {
-                        if (coder.limited) {
-                            coder.frame.style.height = 'auto';
-                            coder.limited = false;
+                        if (coder.#limited) {
+                            coder.#frame.style.height = 'auto';
+                            coder.#limited = false;
                         }
                     }
                 }
             });
         }
+    }
 
-        this.nodeName = 'CODER';
-        this.tagName = 'CODER';
-        this.nodeType = 0;
-        document.components.set(this.name, this);       
+    #mode = null;
+    #rows = null;
+    #limited = false;
+    #readOnly = null;
+    #hintSpan = null;
+    #mirror = null;
+    #frame = null;
 
-        //save
-        CodeMirror.commands[this.name + '-save'] = Coder.save;
-        
-        let coder = this;
-        this.mirror.on('change', function(cm) {
-            coder.hintText = coder.saveText.$p(this);
-        });        
+    get nodeName() {
+        return 'CODER';
+    }
 
-        this.mirror.on('focus', function(cm) {
-            if (cm.getOption('readOnly') == false) {
-                cm.setOption('cursorBlinkRate', 530);
+    get tagName() {
+        return 'CODER';
+    }
+
+    get name() {
+        if (this.textArea.id == '') {
+            if (this.textArea.name != '') {
+                this.textArea.id = this.textArea.name;
             }
-
-            Event.execute(coder.name, 'onfocus');
-        });
-        this.mirror.on('blur', function(cm) {
-            cm.setOption('cursorBlinkRate', -1);
-            Coder.save(cm);
-
-            Event.execute(coder.name, 'onblur');
-        });
-
-        this.hintSpan = $create('DIV', { id: this.name + '_Hint', className: 'hintTextClass' }, 
-                                       { marginTop: '-35px', padding: '5px 10px', textAlign: 'right', position: 'relative',
-                                         borderRadius: '3px', fontSize: '0.625rem', display: 'none', 
-                                         display: 'none', float: 'right' });
-        this.frame.insertAdjacentElement('afterEnd', this.hintSpan)
-
-        if (textArea.hasAttribute('hidden')) {
-            this.frame.hidden = true;    
+            else {
+                this.textArea.id = 'Coder_' + String.shuffle(7);
+            }            
         }
-        textArea.setAttribute('hidden', 'always');
-        textArea.hidden = true;
-        this.frame.id = this.name + '_Code';
-        textArea.setAttribute('relative', `#${this.name}_Code,#${this.name}_Hint`);
-
-        if (this.saveText != '') {
-            this.hintText = this.saveText;
+        if (this.textArea.name == '') {
+            this.textArea.name = this.textArea.id;
         }
         
-        Event.interact(this, textArea);
+        return this.textArea.name;        
+    }
+
+    set name(name) {
+        this.textArea.name = name;
+        if (this.textArea.id == '') {
+            this.textArea.id = name;
+        }
     }
 
     get mode() {
-        return this.$mode;
+        return this.#mode;
     }
 
     set mode(mode) {
         mode = mode.toLowerCase();
-        this.$mode = mode;
-        if (Coder.mineTypes[mode] != null) {
-            mode = Coder.mineTypes[mode];
+        this.#mode = mode;
+        if (HTMLCoderElement.mineTypes[mode] != null) {
+            mode = HTMLCoderElement.mineTypes[mode];
         }        
-        this.mirror.setOption('mode', mode);
+        this.#mirror.setOption('mode', mode);
     }
 
     get value() {
-        return this.mirror.getValue();
+        return this.#mirror.getValue();
     }
 
     set value(value) {
-        this.mirror.setValue(value);
+        this.#mirror.setValue(value);
     }
 
     get readOnly() {
-        return this.$readOnly;
+        return this.#readOnly;
     }
 
     set readOnly(readOnly) {
@@ -221,76 +185,289 @@ class Coder {
             readOnly = readOnly.toBoolean();
         }
         if (readOnly == true || readOnly == 'nocursor') {
-            this.mirror.setOption('readOnly', true);
-            this.mirror.setOption('cursorBlinkRate', -1);
+            this.#mirror.setOption('readOnly', true);
+            this.#mirror.setOption('cursorBlinkRate', -1);
         }
         else {
-            this.mirror.setOption('readOnly', false);
-            this.mirror.setOption('cursorBlinkRate', 530);
+            this.#mirror.setOption('readOnly', false);
+            this.#mirror.setOption('cursorBlinkRate', 530);
         }
     }
 
     get rows() {
-        return this.$rows;
+        return this.#rows;
     }
 
     set rows(rows) {
-        this.$rows = rows;
-        if (this.mirror.lineCount() < rows) {
-            this.frame.style.height = (rows * 25 + 10) + 'px';
+        this.#rows = rows;
+        if (this.#mirror.lineCount() < rows) {
+            this.#frame.style.height = (rows * 25 + 10) + 'px';
         }
         else {
-            this.frame.style.height = 'auto';
+            this.#frame.style.height = 'auto';
         }
+    }
+
+    get messageDuration() {
+        return this.getAttribute('message-duration') ?? this.getAttribute('message');
+    }
+    
+    set messageDuration(duration) {
+        this.setAttribute('message-duration', duration);
+    }
+
+    get saveText() {
+        return this.textArea.getAttribute('save-text') ?? '';
+    }
+
+    set saveText(text) {
+        this.textArea.setAttribute('save-text', text);
+    }
+
+    get savingText() {
+        return this.textArea.getAttribute('saving-text') ?? '';
+    }
+
+    set savingText(text) {
+        this.textArea.setAttribute('saving-text', text);
+    }
+    
+    get savedText() {
+        return this.textArea.getAttribute('saved-text') ?? '';
+    }
+
+    set savedText(text) {
+        this.textArea.setAttribute('saved-text', text);
+    }
+    
+    get requiredText() {
+        return this.textArea.getAttribute('required-text') ?? ''; //必填项，不能为空
+    }
+
+    set requiredText(text) {
+        this.textArea.setAttribute('required-text', text);
+    }
+    
+    get invalidText() {
+        return this.textArea.getAttribute('invalid-text') ?? ''; //当输入值不能格式要求时，这里指 validator 验证
+    }
+
+    set invalidText(text) {
+        this.textArea.setAttribute('invalid-text', text);
+    }
+
+    get validText() {
+        return this.textArea.getAttribute('valid-text') ?? '';
+    }
+
+    set validText(text) {
+        this.textArea.setAttribute('valid-text', text);
+    }
+    
+    get successText() {
+        return this.textArea.getAttribute('success-text') ?? this.savedText;
+    }
+
+    set successText(text) {
+        this.textArea.setAttribute('success-text', text);
+    }
+
+    get failureText() {
+        return this.textArea.getAttribute('failure-text') ?? ''; //后端验证失败后的提醒文字，如语法不正确
+    }
+
+    set failureText(text) {
+        this.textArea.setAttribute('failure-text', text);
+    }
+
+    get exceptionText() {
+        return this.textArea.getAttribute('exception-text') ?? '';
+    }
+
+    set exceptionText(text) {
+        this.textArea.setAttribute('exception-text', text);
+    }    
+
+    get hintTextClass() {
+        return this.textArea.getAttribute('hint-text-class') ?? 'span-hint';
+    }
+
+    set hintTextClass(className) {
+        this.textArea.setAttribute('hint-text-class', className);
+    }
+
+    get errorTextClass() {
+        return this.textArea.getAttribute('error-text-class') ?? 'span-error';
+    }
+
+    set errorTextClass(className) {
+        this.textArea.setAttribute('error-text-class', className);
+    }
+
+    get validTextClass() {
+        return this.textArea.getAttribute('valid-text-class') ?? 'span-valid';
+    }
+
+    set validTextClass(className) {
+        this.textArea.setAttribute('valid-text-class', className);
     }
 
     get hidden() {
-        return this.frame.hidden;
+        return this.#frame.hidden;
     }
 
     set hidden(value) {
-        this.frame.hidden = value;
-        this.hintSpan.hidden = value;
+        this.#frame.hidden = value;
+        this.#hintSpan.hidden = value;
     }
 
     set hintText(text) {
-        if (this.hintSpan.style.display == 'none') {
-            this.hintSpan.style.display = '';
+        if (this.messageDuration != null && window.Message != null) {
+            window.Message.blue(text).hideLast().show(this.messageDuration.toFloat(0));
         }
-        this.hintSpan.innerHTML = text;
-        this.hintSpan.className = this.hintTextClass;
+        else {
+            if (this.#hintSpan.style.display == 'none') {
+                this.#hintSpan.style.display = '';
+            }
+            this.#hintSpan.innerHTML = text;
+            this.#hintSpan.className = this.hintTextClass;
+        }
     }
 
     set errorText(text) {
-        if (this.hintSpan.style.display == 'none') {
-            this.hintSpan.style.display = '';
+        if (this.messageDuration != null && window.Message != null) {
+            window.Message.red(text).hideLast().show(this.messageDuration.toFloat(0));
         }
-        this.hintSpan.innerHTML = text;
-        this.hintSpan.className = this.errorTextClass;
+        else {
+            if (this.#hintSpan.style.display == 'none') {
+                this.#hintSpan.style.display = '';
+            }
+            this.#hintSpan.innerHTML = text;
+            this.#hintSpan.className = this.errorTextClass;
+        }
     }
 
     set correctText(text) {
-        if (this.hintSpan.style.display == 'none') {
-            this.hintSpan.style.display = '';
+        if (this.messageDuration != null && window.Message != null) {
+            window.Message.green(text).hideLast().show(this.messageDuration.toFloat(0));
         }
-        this.hintSpan.innerHTML = text;
-        this.hintSpan.className = this.validTextClass;
+        else {
+            if (this.#hintSpan.style.display == 'none') {
+                this.#hintSpan.style.display = '';
+            }
+            this.#hintSpan.innerHTML = text;
+            this.#hintSpan.className = this.validTextClass;
+        }
+    }
+
+    save() {
+        HTMLCoderElement.save(this.#mirror);
+    }
+
+    clear() {
+        this.value = '';
+    }
+
+    copy() {
+        this.textArea.select();
+        document.execCommand('Copy');
+    }
+
+   setOption (option, value) {
+        this.options[option] = value;
+        this.#mirror.setOption(option, value);
+    }
+    
+    setAttribute(attr, value) {
+        if (this[attr] != undefined) {
+            this[attr] = value;
+        }
+        else if (this.options[attr] != undefined) {
+            this.options[attr] = value;
+            this.#mirror.setOption(attr, value);
+        }
+        else {
+            this.textArea.setAttribute(attr, value);
+        }
+    }
+    
+    getAttribute(attr) {
+        if (this[attr] != undefined) {
+            return this[attr];
+        }
+        else if (this.options[attr] != undefined) {
+            return this.options[attr];
+        }
+        else {
+            return this.textArea.getAttribute(attr);
+        }
+    }
+    
+    set (property, value) {
+        this.setAttribute(property, value);
+        return this;
+    }
+    
+    update (value) {
+        this.value = value;
+        return this;
+    }
+
+    initialize() {
+        //save
+        CodeMirror.commands[this.name + '-save'] = HTMLCoderElement.save;
+        
+        let coder = this;
+        this.#mirror.on('change', function(cm) {
+            coder.hintText = coder.saveText.$p(this);
+        });        
+
+        this.#mirror.on('focus', function(cm) {
+            if (cm.getOption('readOnly') == false) {
+                cm.setOption('cursorBlinkRate', 530);
+            }
+
+            coder.dispatch('onfocus');
+        });
+        this.#mirror.on('blur', function(cm) {
+            cm.setOption('cursorBlinkRate', -1);
+            HTMLCoderElement.save(cm);
+
+            coder.dispatch('onblur');
+        });
+
+        this.#hintSpan = $create('DIV', { id: this.name + '_Hint', className: 'hintTextClass' }, 
+                                       { marginTop: '-35px', padding: '5px 10px', textAlign: 'right', position: 'relative',
+                                         borderRadius: '3px', fontSize: '0.625rem', display: 'none', 
+                                         display: 'none', float: 'right' });
+        this.#frame.insertAdjacentElement('afterEnd', this.#hintSpan)
+
+        if (this.textArea.hasAttribute('hidden')) {
+            this.#frame.hidden = true;    
+        }
+        this.textArea.setAttribute('hidden', 'always');
+        this.textArea.hidden = true;
+        this.#frame.id = this.name + '_Code';
+        this.textArea.setAttribute('relative', `#${this.name}_Code,#${this.name}_Hint`);
+
+        if (this.saveText != '') {
+            this.hintText = this.saveText;
+        }
+        
+        Event.interact(this, this.textArea);
     }
 }
 
-$coder = function(name) {
-    let coder = $t(name);
-    if (coder != null && coder.tagName == 'CODER') {
-        return coder;
-    }
-    else {
-        return null;
-    }
-}
+HTMLCustomElement.defineEvents(HTMLCoderElement.prototype, [
+    'onsave',
+    'onsave+',
+    'onfocus',
+    'onblur'
+]);
 
-Coder.reserved = new Set(['coder', 'class', 'mode', 'readonly', 'read-only', 'validator', "alternative"]);
+HTMLCoderElement.reserved = new Set(['coder', 'class', 'mode', 'readonly', 'read-only', 'validator', "alternative"]);
 
-Coder.mineTypes = {
+HTMLCoderElement.mineTypes = {
     'sh': 'text/x-sh',
     'shell': 'text/x-sh',
     'xml': 'text/xml',
@@ -306,26 +483,8 @@ Coder.mineTypes = {
     'csharp': 'text/x-csharp'
 }
 
-Coder.prototype.on = function(eventName, func) {
-    Event.bind(this, eventName, func);
-    return this;
-}
-
-Coder.prototype.save = function() {
-    Coder.save(this.mirror);
-}
-
-Coder.prototype.clear = function() {
-    this.value = '';
-}
-
-Coder.prototype.copy = function() {
-    this.textArea.select();
-    document.execCommand('Copy');
-}
-
-Coder.save = function(cm) {
-    let coder = $coder(cm.getTextArea().id);
+HTMLCoderElement.save = function(cm) {
+    let coder = $s('#' + cm.getTextArea().id);
 
     let valid = 1;
     if (coder.value == '') {
@@ -378,7 +537,7 @@ Coder.save = function(cm) {
     }
 
     if (valid == 1 && !coder.readOnly && coder.textArea.value != coder.value) {
-        if (Event.execute(coder.name, 'onsave')) {
+        if (coder.dispatch('onsave')) {
             if (coder['onsave+'] != null) {
                 if (coder['onsave+'].endsWith('=')) {
                     coder['onsave+'] = coder['onsave+'] + '{value}%';
@@ -404,50 +563,12 @@ Coder.save = function(cm) {
     }
 }
 
-Coder.prototype.setOption = function(option, value) {
-    this.options[option] = value;
-    this.mirror.setOption(option, value);
-}
-
-Coder.prototype.setAttribute = function(attr, value) {
-    if (this[attr] != undefined) {
-        this[attr] = value;
-    }
-    else if (this.options[attr] != undefined) {
-        this.options[attr] = value;
-        this.mirror.setOption(attr, value);
-    }
-    else {
-        this.textArea.setAttribute(attr, value);
-    }
-}
-
-Coder.prototype.getAttribute = function(attr) {
-    if (this[attr] != undefined) {
-        return this[attr];
-    }
-    else if (this.options[attr] != undefined) {
-        return this.options[attr];
-    }
-    else {
-        return this.textArea.getAttribute(attr);
-    }
-}
-
-Coder.prototype.set = function(property, value) {
-    this.setAttribute(property, value);
-}
-
-Coder.prototype.update = function(value) {
-    this.value = value;
-}
-
-Coder.initializeAll = function() {
+HTMLCoderElement.initializeAll = function() {
     for (let textArea of document.querySelectorAll('textarea[coder]')) {
-		new Coder(textArea);
+		new HTMLCoderElement(textArea).initialize();
     }
 }
 
 document.on('post', function() {
-    Coder.initializeAll();
+    HTMLCoderElement.initializeAll();
 });

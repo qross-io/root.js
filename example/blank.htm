@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blank</title>
+    <script type="text/javascript" src="/root.js"></script>
+    <script type="text/javascript" src="/root.model.js"></script>
+</head>
+<body>
+<ok>123</ok>
+<table>
+<template name="abc"><tr><td>123</td></tr></template>
+</table>
+
+<div name="C">C</div>
+
+<div name="A">
+    <div name="B">
+        <div name="C">A-B-C</div>
+    </div>
+</div>
+
+<if test="0">
+    <for var="l,m" in='{{ return {a:1, b:2, c:3}; }}''>
+        <for var="n" in="10 to 0">
+            <div>@m * @n = { @m * @n}</div>
+        </for>
+    </for>
+<else>
+    <div>NO NO NO</div>
+</if>
+
+<script type="text/javascript">
+function obj(data) {
+    with(data) {
+        return s + t;
+    }
+}
+
+let e = [];
+let f = [];
+let p = [];
+let h = document.createElement('DIV');
+for (let name in h) {
+    if (name.startsWith('on')) {
+        e.push(name);
+    }
+    else if (typeof(h[name]) == 'function') {
+        f.push(name);
+    }    
+    else {
+        p.push(name);
+    }
+}
+
+
+console.log('1'?.
+toInt());
+
+</script>
+</body>
+</html>

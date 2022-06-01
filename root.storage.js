@@ -79,7 +79,7 @@ $storage.setifo = function(name, value) {
 	}
 };
 
-$storage.setifo('guid', $guid());
+$storage.setifo('guid', String.generateGUID());
 
 $storage.remove = function(name) {
     window.localStorage.removeItem(name);

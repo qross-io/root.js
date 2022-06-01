@@ -1,98 +1,83 @@
 
 //<div backtop anchor="name" class="backtop">Top</div>
 
-class BackTop {
-    constructor(element) {
-        $initialize(this)
-        .with(element)
-        .declare({
-            name: 'BackTop_' + document.components.size,
-            text: 'html',
-            anchor: function(value) {
-                if (value == null || value == '') {
-                    value = 'BackTopAnchor';
-                    if (document.body.firstElementChild != null) {
-                        if (document.body.firstElementChild.id == '') {
-                            document.body.firstElementChild.id = value;
-                        }
-                        else {
-                            value = document.body.firstElementChild.id;
-                        }
-                    }
-                }
-                else if (value.startsWith('#')) {
-                    value = value.replace('#', '');
-                }
-                return value;
-            },
-            opacity: 0,
-            onback: null
-        })
-        .elementify(function(element) {
-            if (element.nodeName != 'BACKTOP') {
-                this.element = element;
+class HTMLBackTopElement extends HTMLElement {
+
+    #anchor = null;
+
+    get anchor() {
+        if (this.#anchor == null) {
+            let first = document.body.firstElementChild;
+            while (first != null && first.hidden)  {
+                first = first.nextElementSibling;
             }
-            else {
-                element.remove();
-            }    
+            this.#anchor = first?.id;
+            if (this.#anchor == null) {
+                first = $create('DIV');
+                document.body.insertAfterBegin(first);
+                this.#anchor = '';
+            }
+            if (this.#anchor == '') {
+                this.#anchor = 'BackTopAnchor';
+                first.id = this.#anchor;
+            }
+        }
+        
+        return this.#anchor;
+    }
+    
+    get opacity() {
+        return $parseFloat(this.getAttribute('opacity'), 0);
+    }
+
+    set opacity(value)  {
+        this.setAttribute('opacity', value);
+    }
+
+    display = '';
+
+    initialize() {
+        this.display = this.css.display;
+
+        this.setStyles({
+            position: 'fixed',
+            bottom: '30px',
+            right: '30px',
+            opacity: 0,
+            display: 'none'
         });
     }
 }
 
-BackTop.prototype.element = null;
-BackTop.prototype.display = '';
+window.customElements.define('back-top', HTMLBackTopElement);
 
-$backtop = function(name) {
-    let backtop = $t(name);
-    if (backtop.tagName == 'BACKTOP') {
-        return backtop;
+document.on('post', function() {
+    let backTop = $s('back-top');
+    if (backTop == null) {
+        backTop = $create('BACK-TOP', 
+                    { innerHTML: `<a style="text-decoration: none; font-weight: bold; color: #FFFFFF; font-size: 1rem;">TOP</a>` },
+                    {                         
+                        width: '50px', height: '50px', borderRadius: '50%', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center',
+                        border: '1px solid var(--darker)', backgroundColor: 'var(--primary)'
+                    });
+        document.body.appendChild(backTop);
+
+        backTop.firstChild.href = `#${backTop.anchor}`;
     }
-    else {
-        return null;
-    }
-}
-
-BackTop.prototype.initialize = function() {
-
-    if ($s('#' + this.anchor + ',[name=' + this.anchor + ']') == null) {
-        document.body.insertAdjacentElement('afterBegin', $create('DIV', { id: this.anchor, name: this.anchor }));
-    } 
-
-    if (this.element == null) {
-        this.element = $create('DIV', { id: this.id, innerHTML: `<a href="#${this.anchor}">${this.text}</a>` });
-        this.element
-            .setStyles({ width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--darker)', backgroundColor: 'var(--primary)' })
-            .first
-            .setStyles({ textDecoration: 'none', fontWeight: 'bold', color: '#FFFFFF', fontSize: '1rem' });
-
-        document.body.appendChild(this.element);
-        this.display = 'flex';
-    }
-    else {
-        this.display = this.element.style.display;
-    }
-
-    this.element.setStyles({
-        position: 'fixed',
-        bottom: '30px',
-        right: '30px',
-        opacity: 0,
-        display: 'none'
-    });
-   
-    let backTop = this;
+    backTop.initialize();
 
     if (self != parent) {
-        this.element.on('click', function() {
+        backTop.on('click', function(ev) {
             $root.scrollTop = 0;
-            backTop.execute('onback');
+            backTop.dispatch('onback', { event: ev });
         });
     }
     else {
-        for (let a of $a(`[href$=${this.anchor}]`)) {
-            if (a.href.endsWith('#' + this.anchor)) {
-                a.on('click', function() {
-                    backTop.execute('onback');
+        for (let a of $a(`[href$=${backTop.anchor}]`)) {
+            if (a.href.endsWith('#' + backTop.anchor)) {
+                a.on('click', function(ev) {
+                    backTop.dispatch('onback', { event: ev });
                 });
                 break;
             }
@@ -107,30 +92,20 @@ BackTop.prototype.initialize = function() {
             if (backTop.opacity > 1) {
                 backTop.opacity = 1;
             }
-            backTop.element.style.display = backTop.display;
-            backTop.element.style.opacity = backTop.opacity;
+            backTop.style.display = backTop.display;
+            backTop.style.opacity = backTop.opacity;
         }
         else {
-            backTop.element.style.display = 'none';
-            backTop.element.style.opacity = 0;
+            backTop.style.display = 'none';
+            backTop.style.opacity = 0;
         }
     });
 
-    this.element.on('mouseover', function() {
+    backTop.on('mouseover', function() {
         this.style.opacity = 1;
     });
 
-    this.element.on('mouseout', function() {
+    backTop.on('mouseout', function() {
         this.style.opacity = backTop.opacity;
     });
-}
-
-document.on('post', function() {
-    let backTop = $s('backtop,[backtop]');
-    if (backTop != null) {
-        new BackTop(backTop).initialize();
-    }
-    else {
-        new BackTop({ text: 'TOP' }).initialize();
-    }
 });

@@ -1,6 +1,6 @@
 
 $enhance(HTMLAnchorElement.prototype)
-    .declare({        
+    .defineProperties({
         confirmText: '', //确定提醒文字
         confirmButtonText: 'OK', //确定框确定按钮
         cancelButtonText: 'Cancel', //确定框取消按钮
@@ -8,10 +8,7 @@ $enhance(HTMLAnchorElement.prototype)
 
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
-        exceptionText: '' //请求发生错误的提醒文字
-    })
-    .extend('onclick+')
-    .define({
+        exceptionText: '', //请求发生错误的提醒文字
         'text': {
             get () {            
                 return this.innerHTML;
@@ -51,7 +48,8 @@ $enhance(HTMLAnchorElement.prototype)
                 }                
             }
         }
-    });
+    })
+    .defineEvents('onclick+');
 
 HTMLAnchorElement.prototype._href = '';
 HTMLAnchorElement.prototype.status = null;
@@ -133,14 +131,14 @@ HTMLAnchorElement.prototype.initialize = function() {
         }        
     });
 
-    HTMLElement.interactEvents(this);
+    Event.interact(this);
 }
 
 HTMLAnchorElement.initializeAll = function(container) {
     for (let a of (container ?? document).querySelectorAll('a')) {
         if (!a.hasAttribute('root-anchor')) {
             a.setAttribute('root-anchor', '');
-            window.Model?.boostPropertyValue(a);            
+            HTMLElement.boostPropertyValue(a);            
             if (a.hasAttribute('onclick+')) {
                 a.initialize();
             }
@@ -148,7 +146,7 @@ HTMLAnchorElement.initializeAll = function(container) {
                 if (a.href == '') {
                     a.href = 'javascript:void(0)';
                 }
-                HTMLElement.interactEvents(a);
+                Event.interact(a);
             }
         }
     }

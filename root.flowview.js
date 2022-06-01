@@ -9,7 +9,7 @@
 
 */
 
-class HTMLFlowViewElement extends HTMLDivElement {
+class HTMLFlowViewElement extends HTMLElement {
 
     get width() {
         return this.getAttribute('width');

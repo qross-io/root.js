@@ -19,7 +19,7 @@ class HTMLTreeViewElement {
         .with(elementOrSettings)
         .declare({
             //显示TreeView的元素ID
-            name: 'TreeView_' + document.components.size,
+            name: 'TreeView_' + String.shuffle(7),
 
             linkStyle: 'text|node',
             target: '',  //节点文本链接的默认目标
@@ -1366,7 +1366,7 @@ class HTMLTreeNodeElement {
     set icon(icon) {
         this.$icon = icon;
         this.iconCell.hidden = (icon == '');
-        if (icon.isImageURL()) {
+        if (icon.isImageURL) {
             if (this.iconCell.querySelector('IMG') != null) {
                 this.iconCell.querySelector('IMG').src = icon;
             }
@@ -1391,7 +1391,7 @@ class HTMLTreeNodeElement {
     set expandedIcon(icon) {
         this.$expandedIcon = icon;
         if (this.expanded) {
-            if (icon.isImageURL()) {
+            if (icon.isImageURL) {
                 if (this.iconCell.querySelector('IMG') != null) {
                     this.iconCell.querySelector('IMG').src = icon;
                 }
@@ -1675,7 +1675,7 @@ HTMLTreeNodeElement.prototype.populate = function() {
 
     // icon
     td = $create('TD', { align: 'center', className: this.iconClass }, { display: this.treeView.iconsVisible && this.icon != '' ? '' : 'none' }, { 'sign': 'ICON' });
-    if (this.icon.isImageURL()) {
+    if (this.icon.isImageURL) {
         td.insertBeforeEnd('IMG', { align: 'absmiddle', src: this.treeView.imagesBaseURL + this.icon });
     }
     else if (this.icon.startsWith('icon-')) {
@@ -2191,7 +2191,7 @@ HTMLTreeNodeElement.prototype.expand = function (triggerEvent) {
         
         //icon
         if (this.treeView.iconsVisible && this.expandedIcon != '') {
-            if (this.expandedIcon.isImageURL()) {
+            if (this.expandedIcon.isImageURL) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseURL + this.expandedIcon;
             }
             else if (this.expandedIcon.startsWith('icon-')) {
@@ -2237,7 +2237,7 @@ HTMLTreeNodeElement.prototype.collapse = function (triggerEvent) {
         }
         //icon
         if (this.treeView.iconsVisible && this.expandedIcon != '' && this.icon != '') {
-            if (this.icon.isImageURL()) {
+            if (this.icon.isImageURL) {
                 this.iconCell.firstChild.src = this.treeView.imagesBaseURL + this.icon;
             }
             else if (this.icon.startsWith('icon-')) {

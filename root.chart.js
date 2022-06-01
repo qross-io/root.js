@@ -24,7 +24,7 @@ class Chart {
         $initialize(this)
             .with(element)
             .declare({
-                name: 'Chart_' + document.components.size,
+                name: 'Chart_' + String.shuffle(7),
                 _data: '',
                 await: '',
 
@@ -73,16 +73,9 @@ Chart.prototype.reload = function() {
 }
 
 Chart.prototype.render = function(data) {
-    this.xData = this.xAxis.placeModelData(this.name);
-    if (typeof(this.xData) == 'string' && data != null) {
-        this.xData = this.xData.placeData(data);
-    }
-    
-    this.yData = this.yAxis.placeModelData(this.name);
-    if (typeof(this.yData) == 'string' && data != null) {
-        this.yData = this.yData.placeData(data);
-    }
-
+    this.xData = this.xAxis.placeData({"data": data}, this.name);
+    this.yData = this.yAxis.placeData({"data": data}, this.name);
+    ``
     this.echart.setOption({
         title: {
                 show: true,

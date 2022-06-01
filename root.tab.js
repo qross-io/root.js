@@ -4,7 +4,7 @@ class Tab {
 		$initialize(this)
         .with(element)
         .declare({
-			name: 'Tab_' + document.components.size,
+			name: 'Tab_' + String.shuffle(7),
 			bindings: '',
 			excludes: '', //0, -1
 			defaultClass: '',

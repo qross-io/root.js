@@ -10,8 +10,25 @@
 <body onready="alert(1)">
 <img id="P" onload="console.log('img-load');" onhello="console.log(4444)" onerror="console.log('img-error');" />
 <input id="T" onchange="console.log('changed')" />
-<button id="B">Button</button>
+<my-button id="B">Button</my-button>
+
 <script type="text/javascript">
+class MyButton extends HTMLElement {
+    constructor() {
+        super();
+    }
+
+    m() {
+        console.log('ABC');
+    }
+}
+
+window.customElements.define('my-button', MyButton);
+
+console.log($('#B').abc);
+
+
+
 
 let test = function() {
     var test1 = 'a';
@@ -23,9 +40,9 @@ let test = function() {
 
 test();
 
-$('#B').addEventListener('click', a);
+$('#B').addEventListener('click', test);
 
-console.log(window.getEventListeners($('#B')));
+//console.log(window.getEventListeners($('#B')));
 
 
 $('#T').onanimationstart = function() {

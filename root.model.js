@@ -1,323 +1,184 @@
 
 //hide all <for> and <if>
-$root.appendClass('model,set,for,if,elsif,else,o,template,chart { display: none; }');
+$root.appendClass('model,set,for,if,elsif,else-if,elseif,else,o,template,chart { display: none; }');
 
-document.models = new Object();
-//待加载的model项, 为0时触发finish事件
-document.models.$length = 0;
-//页面上的所有model和相关标签是否都已经加载完成
-document.models.$loaded = false;
+$model = { };
 
-Model = function(element) {
-    this.name = element.getAttribute('name') || element.id || '';
-    this.id = this.name;
-    if (this.name == '') {
-        throw new Error('Model "id" or "name" is required. It will be used to transfer data.');
-    }    
+class HTMLModelElement extends HTMLCustomElement {
+    constructor(element) {
+        super(element);
 
-    //加载之前的数据  
-    this.data = element.getAttribute('data') || '';
-
-    this.autoRefresh = $parseBoolean(element.getAttribute('auto-refresh') || element.getAttribute('autoRefresh'), false, this);
-    this.interval = $parseFloat(element.getAttribute('interval'), 2000);
-    this.terminal = element.getAttribute('terminal') || 'false';
-    this.deferral = 0;
-
-    this.sets = [];
-    for (let set of element.querySelectorAll('set')) {
-        let selector = set.getAttribute('$');
-        if (selector == '') {
-            throw new Error('Empty selector: ' + set);
+        if (!this.hasAttribute('name')) {
+            this.setAttribute('name', this.id || 'Model_' + String.shuffle(7));
         }
-        else { 
-            let attrs = new Map()
-            set.getAttributeNames()
-                .filter(a => a != '$' && a != 'if')
-                .forEach(a => {
-                    attrs.set(a, set.getAttribute(a));
-                });
-
-            if (set.innerHTML != '') {
-                attrs.set('innerHTML', set.innerHTML);                
-            }                
-
-            this.sets.push({
-                'target': selector, //选择器
-                'attrs': attrs //原始数据
-                //'if' : set.getAttribute('if') || 'true' //条件, 默认true
-            });            
+        if (this.id == '') {
+            this.id = this.name;
         }
-    }
 
-    //model标签
-    this.element = element;
+        this.data = this.getAttribute('data') ?? '';
 
-    this.nodeName = 'MODEL';
-    this.tagName = 'MODEL';
-    this.nodeType = 0;
-    document.components.set(this.name, this);
+        this.autoRefresh = $parseBoolean(element.getAttribute('auto-refresh'), false, this);
+        this.interval = $parseFloat(element.getAttribute('interval'), 2000);
+        this.terminal = element.getAttribute('terminal') ?? 'false';
+        this.deferral = 0;
 
-    this.onload = element.getAttribute('onload'); //第一次加载完成后触发 //function(data) { }
-    this.onreload = element.getAttribute('onreload'); //每次刷新后触发 //function(data) { }
-    this.followers = new Set(); //当 model reload 时，这里面的对象跟着 reload
-
-    Event.interact(this, element);
-
-    if (this.autoRefresh) {
-        this.refresh();
-    }
-}
-
-Model.prototype.loaded = false;
-Model.prototype.loading = false;
-Model.prototype.timer = null;
-
-Model.prototype.on = function(eventName, func) {
-    Event.bind(this, eventName, func);
-    return this;
-}
-
-Model.prototype.refresh = function() {
-    let model = this;
-    this.timer = window.setInterval(
-        function() {            
-            if (model.terminal.toBoolean(true, model)) {
-                //延期3次才终止
-                if (model.deferral >= 3) {
-                    window.clearInterval(model.timer);
-                    model.deferral = 0;
-                }
-                else {
-                    model.deferral ++;
-                }
+        for (let set of element.querySelectorAll('set')) {
+            let selector = set.getAttribute('$');
+            if (selector == '') {
+                throw new Error('Empty selector: ' + set);
             }
-            else {
-                //reset
-                if (model.deferral > 0) {
-                    model.deferral = 0;
-                }
-
-                model.reload();                    
-            }
-            
-        }, model.interval);
-}
-
-//first
-Model.prototype.load = function(data) {
-
-    if (data != null) {
-        this.data = data;
-    }
-
-    this.loading = true;
+            else { 
+                let attrs = new Map()
+                set.getAttributeNames()
+                    .filter(a => a != '$')
+                    .forEach(a => {
+                        attrs.set(a, set.getAttribute(a));
+                    });
     
-    $TAKE(this.data, this.element, this, function(data) {
-        //save data
-        window[this.name + '$'] = data;
-
-        this.$set(data);
-
-        this.loaded = true;
-        this.loading = false;
-
-        //onload
-        Event.execute(this, 'onload', data);
-
-        if (document.models.$length > 0) {
-            //first load        
-            document.models.$length--;
-            if (document.models.$length == 0) {
-                Model.initializeNext('ALL MODEL LOADED');
+                if (set.innerHTML != '') {
+                    attrs.set('innerHTML', set.innerHTML);                
+                }                
+    
+                this.#sets.push({
+                    'target': selector, //选择器
+                    'attrs': attrs //原始数据
+                });            
             }
         }
-    });
-}
 
-Model.prototype.reload = function() {
-    if (this.loaded && !this.loading) {
-        this.loading = true;
-        $TAKE(this.data, this.element, this, function(data) {
-            window[this.name + '$'] = data;
-            this.followers.forEach(follower => $s(follower)?.reload?.());
-            $model(this.name).$set(data);            
-            //Model.initializeNext('A MODEL RELOAD');
-            Event.execute(this, 'onreload', data);
-            this.loading = false;
-        });      
-    }
-}
+        this.onload = element.getAttribute('onload'); //第一次加载完成后触发 //function(data) { }
+        this.onreload = element.getAttribute('onreload'); //每次刷新后触发 //function(data) { }
 
-PlaceHolder = function(holder) {
-    this.holder = holder;
-    this.name = null;
-    this.defaultValue = null;
-    this.path = null;
-    this.paths = null;
-}
+        Event.interact(this, this.element);
 
-PlaceHolder.getModelHolders = function(content) {
-    return /@([a-z_]\w*)(\.\w+|\[-?\d+\]|\[\S+?\]|\|\S+?\|)*(\?\([^\(\)]*?\))?\!?/ig.findAllIn(content);
-}
-
-PlaceHolder.getOwnHolders = function(content) {
-    return [/@:\//g, /@:([a-z_]\w*)?(\.\w+|\[-?\d+\]|\[\S+?\]|\|\S+?\|)*(\?\([^\(\)]*?\))?\!?/ig, /^\|\S+?\|$/g]
-                .map(place => content.match(place) ?? [])
-                .reduce((r1, r2) => r1.concat(r2))
-                .distinct()
-}
-
-PlaceHolder.getLoopHolders = function(content) {
-    return /@([a-z_]\w*)?(\.\w+|\[-?\d+\]|\[\S+?\]|\|\S+?\|)*(\?\([^\(\)]*?\))?\!?/ig.findAllIn(content);
-}
-
-PlaceHolder.prototype.analyze = function() {
-    this.path = this.holder.replace(/\!$/, ''); //this is holder
-    if (this.path.includes('?(')) {
-        this.defaultValue = this.path.takeAfter('?(').replace(/\)$/, '');
-        this.path = this.path.takeBefore('?(');
-    }
-
-    this.path = this.path.replace(/^\@|\!$/g, '')
-         .replace(/\[/g, '.')
-         .replace(/\]/g, '')
-         .replace(/\//g, '.')
-         .replace(/:/g, '.')
-         .replace(/\|\./g, '.')
-         .replace(/\|$/, '.')
-         .replace(/\|/g, '.|')
-         .replace(/\.\./g, '.')
-         .replace(/\.$/, '');
-            
-    this.stones = this.path.split('.');
-    this.name = this.stones[0];
-    
-    return this;
-}
-
-PlaceHolder.prototype.place = function(data) {
-    if (this.name == null) {
-        this.analyze();
-    }
-
-    let v = data;
-    for (let i = 1; i < this.stones.length; i++) {
-        if (v != null) {
-            let a = this.stones[i]; //a = attribute
-            if (a.startsWith('|')) {
-                a = a.substring(1);
-                if (v instanceof Array) {                        
-                    v = v.map(t => t[a]) // t = item
-                }
-                else {
-                    v = null;
-                    break;
-                }
-            }
-            else if (/^-\d+$/.test(a) && v instanceof Array) {
-                v = v[eval(v.length + a).ifNegative(0)];
-            }
-            else {
-                v = v[a];
-            }  
-        }            
-        else {
-            break;
+        if (this.autoRefresh) {
+            this.refresh();
         }
     }
 
-    if (v == null && this.defaultValue != null) {
-        v = this.defaultValue;
+    data = null;
+
+    get name() {
+        return this.getAttribute('name');
     }
 
-    if (typeof(v) == 'string') {
-        //处理数据中的双引号, Json 解析时对自动转换
-        v = v.replace(/"/g, '&quot;')
-    }
-
-    return v;
-}
-
-//从 data 中加载数据
-String.prototype.placeData = function(data) {
+    autoRefresh = false;
+    interval = 0;
+    terminal = 'false';
+    #deferral = 0;
     
-    let content = this.toString();
+    #sets = [];
 
-    //占位符规则与 TEMPLATE 相同
-    //@:/ 表示根数据
-    //@:key!
-    //@:[0].key
-    //@:key?(default)
-    //@:key[0].name!
+    onload = null;
+    onreload = null;
 
-    PlaceHolder.getOwnHolders(content)
-        .forEach(holder => {
-            let v = new PlaceHolder(holder).place(data);
-            if (v != null) {
-                content = content.replaceAll(holder, Json.toString(v));
-            }
-        });
+    followers = new Set(); //当 model reload 时，这里面的对象也同时 reload
 
-    return content;
-    //没有 evalJsExpression 是因为后面一般跟 .$p() 或整个 content 是一个占位符
-}
+    #loaded = false;
+    #loading = false;
+    #timer = null;
 
-String.prototype.placeItemData = function(data) {
-
-    let content = this.toString();
-
-    PlaceHolder.getLoopHolders(content)
-        .forEach(holder => {
-            let v = new PlaceHolder(holder).place(data);
-            if (v != null) {
-                content = content.replaceAll(holder, v);
-            }
-        });
-
-    return content.evalJsExpression(data);
-}
-
-// set 标签的值
-Model.prototype.$set = function(data) {
-    if (this.sets.length > 0) {
-
-        // @: 表示"当前"数据, 即data
-        // @name 或 @:/ 表示单项根数据
-        // @:key 与 @name.key 相同
-        // @name[0]
-        // @name.key[0]
-        // @name[0].key
-
-        for (let set of this.sets) {            
-            for (let [attr, content] of set.attrs) {
-                if (content != null) {
-                    PlaceHolder.getModelHolders(content)
-                        .concat(PlaceHolder.getOwnHolders(content))
-                        .forEach(holder => {
-                            let ph = new PlaceHolder(holder).analyze();
-                            let v = ph.place(ph.name != '' ? window[ph.name + '$'] : data);
-                            if (v != null) {
-                                content = content.replaceAll(holder, Json.toString(v));
-                            }
-                        });
-
-                    let target = $s(set.target);
-                    if (target != null) {
-                        $root.__$attr(target, attr, content.evalJsExpression(data));
+    #refresh = function() {
+        let model = this;
+        this.#timer = window.setInterval(
+            function() {            
+                if (model.terminal.toBoolean(true, model)) {
+                    //延期3次才终止
+                    if (model.#deferral >= 3) {
+                        window.clearInterval(model.#timer);
+                        model.#deferral = 0;
                     }
                     else {
-                        console.error('Incorrect selector ' + set.target + ' or element does not exists.');
+                        model.#deferral ++;
                     }
                 }
-            }            
-        }                
-    }            
+                else {
+                    //reset
+                    if (model.#deferral > 0) {
+                        model.#deferral = 0;
+                    }
+    
+                    model.reload();                    
+                }
+                
+            }, model.interval);
+    }
+
+    load(data) {
+
+        if (data != null) {
+            this.data = data;
+        }
+    
+        this.#loading = true;
+        
+        $TAKE(this.data, this.element, this, function(data) {
+            //save data
+            $model[this.name] = data;
+    
+            this.#set(data);
+    
+            this.#loaded = true;
+            this.#loading = false;
+    
+            //onload
+            this.dispatch('onload', {'data': data});
+    
+            if (HTMLModelElement._modelCount > 0) {
+                //first load        
+                HTMLModelElement._modelCount --;
+                if (HTMLModelElement._modelCount == 0) {
+                    HTMLModelElement.initializeNext('ALL MODEL LOADED');
+                }
+            }
+    
+            if (this.autoRefresh) {
+                this.refresh();
+            }
+        });
+    }
+
+    reload() {
+        if (this.loaded && !this.loading) {
+            this.loading = true;
+            $TAKE(this.data, this.element, this, function(data) {
+                $model[this.name] = data;
+                this.followers.forEach(follower => $s(follower)?.reload?.());
+                $model(this.name).#set(data);
+
+                this.dispatch('onreload', { 'data': data });
+                this.loading = false;
+            });      
+        }
+    }
+
+    #set(data) {
+        if (this.#sets.length > 0) {
+    
+            // @data 或 {data} 表示"当前"数据, 即 data
+    
+            for (let set of this.#sets) {            
+                for (let [attr, content] of set.attrs) {
+                    if (content != null) {
+                        $s(set.target).set(attr, content.placeData({"data": data}))
+                            ?? console.error('Incorrect selector ' + set.target + ' or element does not exists.');                        
+                    }
+                }            
+            }                
+        }            
+    }
 }
 
-Model.$ForOrIf = function(tag) {
+//待加载的model项, 为0时触发finish事件
+HTMLModelElement._modelCount = 0;
+//页面上的所有model和相关标签是否都已经加载完成
+HTMLModelElement._haveLoadedAll = false;
+
+
+HTMLModelElement.$alone = function(tag) {
     //选择未被加载并且不在template模板中的for或if标签
     for (let t of document.querySelectorAll(tag)) {
-        if (t.getAttribute('interpreting') == null) {
+        if (!t.hasAttribute('interpreting')) {
             let incubating = false;
             let p = t.parentNode;
             while (!incubating) {
@@ -347,39 +208,11 @@ Model.$ForOrIf = function(tag) {
     return null;
 }
 
-//属性增强
-Model.boostPropertyValue = function(element, properties = '') {
-    element.getAttributeNames()
-        .filter(a => a.endsWith('+') && !a.startsWith('on'))
-        .forEach(name => {        
-            let before = name != 'html+' ? element.getAttribute(name) : element.innerHTML;
-            let after;
-            if (before.includes('@')) {
-                after = before.placeModelData().$p(element);
-            }
-            else {
-                after = before.$p(element);
-            }
-            let origin = name.dropRight(1);
-            if (origin == 'html') {
-                origin = 'innerHTML';
-            }
-
-            if (element[origin] !== undefined && !properties.includes(origin)) {
-                element[origin] = after;
-            }
-            else {
-                element.setAttribute(origin, after);
-            }
-            //element.removeAttribute(name);        
-        });
-}
-
-Model.output = function(o) {
+HTMLModelElement.output = function(o) {
     if (!o.hasAttribute('data')) {
         if (o.innerHTML.startsWith('@')){
             //从model加载
-            o.parentNode.insertBefore(document.createTextNode(o.innerHTML.placeModelData().$p()), o);
+            o.parentNode.insertBefore(document.createTextNode(o.innerHTML.$p()), o);
             o.remove();
         }
         else {
@@ -394,52 +227,74 @@ Model.output = function(o) {
         //同 span 规则
         $cogo(o.getAttribute('data'), o)
             .then(data => {
-                o.parentNode.insertBefore(document.createTextNode(o.innerHTML.placeModelData().placeData(data).$p()), o);
+                o.parentNode.insertBefore(document.createTextNode(o.innerHTML.placeData({"data": data})), o);
                 o.remove();
             });
     }
 }
 
-Model.initializeNext = function(from) {
+HTMLModelElement.initializeNext = function(from) {
 
-    if (!document.models.$loaded) {            
-        if (!HTMLTemplateElement._loaded) {
+    if (!HTMLModelElement._haveLoadedAll) {            
+        if (!HTMLTemplateElement._haveLoadedAll) {
             //model加载完成并且页面上的for和if加载已完成, -1表示还未进行standalone检查
-            if (HTMLTemplateElement._length == -1) {
-                Model.initializeStandaloneTemplates();
+            if (HTMLTemplateElement._standaloneCount == -1) {
+                HTMLModelElement.initializeStandaloneTemplates();
             }                
         }
         else {
             //find first for/if
-            let next = Model.$ForOrIf('FOR,IF,[if]');
+            let next = HTMLModelElement.$alone('FOR,IF,[if]');
             if (next == null) {
+                //未加载完的模板
+                HTMLTemplateElement._loading.forEach(t => t.complete());
+                HTMLTemplateElement._loading.clear();
+
                 //所有加载完成
-                document.models.$loaded = true;
-                Event.execute('$global', 'onpost');
-                Event.execute('$global', 'onload');
+                HTMLModelElement._haveLoadedAll = true;
+                document.head.dispatch('onpost');
+                document.head.dispatch('onload');
 
                 //<o> 标签 = output
                 for (let o of $a('o')) {
-                    Model.output(o);                    
+                    HTMLModelElement.output(o);                    
                 }
 
                 for (let span of $a('span[data],span[editable]')) {
                     if (!span.hasAttribute('root-span')) {
                         span.setAttribute('root-span', '');
-                        Model.boostPropertyValue(span);
+                        HTMLModelElement.boostPropertyValue(span);
                         span.initialize();
                     }
                 }
             }
             else {
                 if (next.nodeName == 'FOR') {
-                    new For(next).load();
+                    new HTMLForElement(next).load();
                 }
                 else {
-                    new If(next).load();
+                    new HTMLIfElement(next).load();
                 }
             }
         }            
+    }
+    else {
+        //有可能有后加载的非独立模板有可能产生 FOR 或 IF
+
+        let next = HTMLModelElement.$alone('FOR,IF,[if]');
+        if (next == null) {
+            //未加载完的模板
+            HTMLTemplateElement._loading.forEach(t => t.complete());
+            HTMLTemplateElement._loading.clear();
+        }
+        else {
+            if (next.nodeName == 'FOR') {
+                new HTMLForElement(next).load();
+            }
+            else {
+                new HTMLIfElement(next).load();
+            }
+        }
     }
     //model已经加载完
     //页面上的for和if已经加载完
@@ -448,236 +303,269 @@ Model.initializeNext = function(from) {
     //结束加载templates
 }
 
-Model.initializeStandaloneTemplates = function() {
-    let templates = document.querySelectorAll('template[data]');
-    HTMLTemplateElement._length = templates.length;
+HTMLModelElement.initializeStandaloneTemplates = function() {
+    let templates = [...document.querySelectorAll('template[data]')].filter(t => t.standalone);
+    HTMLTemplateElement._standaloneCount = templates.length;
     if (templates.length > 0) {
         for (let template of templates) {            
             template.initialize();
         }
     }
     else {
-        HTMLTemplateElement._loaded = true;
-        Model.initializeNext('NO STANDALONE TEMPLATE TO LOAD');
+        HTMLTemplateElement._haveLoadedAll = true;
+        HTMLModelElement.initializeNext('NO STANDALONE TEMPLATE TO LOAD');
     }
 }
 
-Model.initializeAll = function() {
+HTMLModelElement.initializeAll = function() {
     let models = document.querySelectorAll('model');
     if (models.length > 0) {
-        document.models.$length = models.length;
+        HTMLModelElement._modelCount = models.length;
         for (let model of models) {
-            new Model(model).load();
+            new HTMLModelElement(model).load();
         }
     }
     else {
-        Model.initializeNext('NO MODEL TO LOAD');
-    }
-}
-
-$model = function(name) {
-    let model = $t(name);
-    if (model != null && model.tagName == 'MODEL') {
-        return model;
-    }
-    else {
-        return null;
+        HTMLModelElement.initializeNext('NO MODEL TO LOAD');
     }
 }
 
 // <for var="name"
-//   in="url -> path" in="[a, b, c]" in="{result/data}" in="0 to 9"
+//   in="url -> path" in="[a, b, c]" in="{data}" in="0 to 9"
 //        container='selector' position='front|behind|begin|end'>
 // </for>
 
-For = function(element) {
-    this.var = element.getAttribute('var') || element.getAttribute('let') || '';
-    if (this.var.includes(',')) {
-        this.var = this.var.split(',').map(r => r.trim());
-    }
-    this.in = element.getAttribute('in') || element.getAttribute('data') || '';
+$for = { }; //保存计算过程中的数据
 
-    this.element = element;
-    this.content = element.innerHTML;
-    this.container = element.getAttribute('container') || element;
-    this.isFOR = element.nodeName == 'FOR'; //可以把其他元素作为 For 元素使用
-    this.position = this.isFOR ? 'beforeBegin' : 'beforeEnd';
-    if (typeof(this.container) == 'string') {
-        this.container = $s(this.container);
-        if (this.container == null) {
-            throw new Error("Can't find element or wrong selector: " + element.getAttribute('container'));
-        }
-        this.position = 'beforeEnd';
+class HTMLForElement extends HTMLCustomElement {
+    constructor(element) {
+        super(element);
+
+        this.#content = this.element.innerHTML;
+        this.#isForElement = this.element.tagName == 'FOR'; //可以把其他元素作为 For 元素使用
+        this.#variables = this.getAttribute('variables')?.eval() ?? { }; //父级 FOR 或 TEMPLATE 传递的数据
+        $for[this.#guid] = [];
+        this.onload = this.getAttribute('onload');
+
+        Event.interact(this, element);
     }
 
-    if (!this.isFOR) {
-        this.element.innerHTML = '';
+    #guid = 'F' + String.shuffle(31);
+    #data = null; //当次加载解析后的数据
+    #content = ''; //标签内容
+    #isForElement = true;
+    #variables = null;
+
+    #var = null;
+
+    get var() {
+        if (this.#var == null) {
+            this.var = this.getAttribute('var') ?? this.getAttribute('let') ?? '';
+        }
+        return this.#var;        
     }
 
-    this.onload = element.getAttribute('onload');
-
-    Event.interact(this, element);
-}
-
-//所属的对象, 如 select 可以当作 for 使用
-For.prototype.owner = null;
-//第一次加载完成后触发
-For.prototype.onload = null; //function(data) { }
-For.prototype.data = null; //当次加载解析后的数据
-
-For.prototype.load = function(data) {
-
-    this.data = data ?? this.in;
-
-    //in="url" in="[a, b, c]" in="{result/data}" in="0 to 9"
-    if (typeof(this.data) == 'string') {
-        if (/^(\d+)\s+to\s+(\d+)$/i.test(this.in)) {
-            let m = /^(\d+)\s+to\s+(\d+)$/i.exec(this.data);
-            let s = m[1].toInt();
-            let t = m[2].toInt();
-            this.data = [];
-            if (s < t) {
-                for (let i = s; i <= t; i++) {
-                    this.data.push(i);
-                }
-            }
-            else if (s > t) {
-                for (let i = s; i >= t; i--) {
-                    this.data.push(i);
-                }
-            }
-            else {
-                this.data.push(s);
-            }
-        }
-        else if (this.data.startsWith('$template.')) {
-            let name = this.data.takeAfter('.'); //templateName
-            if (name.includes('.')) {
-                this.data = $(name.takeBefore('.')).vars['.' + name.takeAfter('.')];
-            }
-            else {
-                this.data = $(name).vars[''];
-            }            
-        }
-    }
-
-    $TAKE(this.data, this.element, this, function(data) {
-        if (typeof(this.data) == 'string') {
-            this.data = data;
-        }
-
-        if (data instanceof Array) {
-            this.container.insertAdjacentHTML(this.position, this.$eachOf(data));
-        }
-        else if (typeof (data) == 'object') {
-            this.container.insertAdjacentHTML(this.position, this.$eachIn(data));
+    set var(value) {
+        this.#var = { "item": "item", "key": "key", "value": "value" };
+        if (value.includes(',')) {
+            this.#var.key = value.takeBefore(',').trim();
+            this.#var.value = value.takeAfter(',').trim();            
         }
         else {
-            throw new Error('Wrong collection data in FOR loop: ' + this.data);
-        }       
+            this.#var.item = value.trim() || "item";
+        }
+    }
+
+    get let() {
+        return this.var;
+    }
+
+    get in() {
+        return this.getAttribute('in') ?? this.getAttribute('of') ?? this.getAttribute('data') ?? '';
+    }
+
+    get container() {
+        return this.getAttribute('container')?.$() ?? this.element;
+    }
+
+    get resultPosition() {
+        return this.getAttribute('result-position') ?? this.getAttribute('position') ?? (this.#isForElement ? 'beforeBegin' : 'beforeEnd');
+    }
+
+    onload = null;
+
+    load(data) {
+        //其他标签如 select 可以当作 for 使用
+        if (!this.#isForElement) {
+            this.element.innerHTML = '';
+        }
         
-        if (this.onload != null) {
-            Event.fire(this, 'onload', data);
-        }  
+        this.#data = data ?? this.in;
 
-        if (this.isFOR) {
-            this.element.remove();
-        }
-        else {            
-            this.element.removeAttribute('interpreting');
-        }
+        //url or PQL
+        //range: m to n, n to m
+        //Seq: a,b,c,d,e
+        //js expression:  {...} 或 {{ ... }}}
+        //static array string:   { [..] }
+        //static object string: {{  return { } }}
 
-        Model.initializeNext('A FOR LOADED');
-    });
+        //in="url" in="[a, b, c]" in="{ key: value}" in="0 to 9"
+        if (typeof(this.#data) == 'string') {
+            this.#data = this.#data.placeData(this.#variables);
 
-    return this;
-}
-
-
-For.prototype.$eachOf = function(data) {
-    
-    let html = [];
-
-    // @item
-    // @item.key!
-    // @item.key[0]
-    // @item[1].key
-
-    // @[key]
-    // @[0]
-
-    let holders = PlaceHolder.getLoopHolders(this.content);
-
-    for (let item of data) {
-        let content = this.content;
-        holders.forEach(holder => {
-            let ph = new PlaceHolder(holder).analyze();
-            if (ph.name == '' || ph.name == (this.var || 'item')) {
-                let v = ph.place(item);
-                if (v != null) {
-                    content = content.replaceAll(holder, Json.toString(v));
+            if (/^(\d+)\s+to\s+(\d+)$/i.test(this.#data)) {
+                let m = /^(\d+)\s+to\s+(\d+)$/i.exec(this.#data);
+                let s = m[1].toInt();
+                let t = m[2].toInt();
+                this.#data = [];
+                if (s < t) {
+                    for (let i = s; i <= t; i++) {
+                        this.#data.push(i);
+                    }
+                }
+                else if (s > t) {
+                    for (let i = s; i >= t; i--) {
+                        this.#data.push(i);
+                    }
+                }
+                else {
+                    this.#data.push(s);
                 }
             }
-        });
+        }
 
-        html.push(content.evalJsExpression(item));
+        $TAKE(this.#data, this.element, this, function(data) {
+            if (typeof(this.#data) == 'string') {
+                this.#data = data;
+            }
+
+            if (data instanceof Array) {
+                this.container.insertAdjacentHTML(this.resultPosition, this.#eachOf(data));
+            }
+            else if (typeof (data) == 'object') {
+                this.container.insertAdjacentHTML(this.resultPosition, this.#eachIn(data));
+            }
+            else {
+                throw new Error('Wrong collection data in FOR loop: ' + this.#data);
+            }       
+            
+            if (this.onload != null) {
+                Event.fire(this, 'onload', data);
+            }  
+
+            if (this.#isForElement) {
+                this.remove();
+            }
+            else {            
+                this.removeAttribute('interpreting');
+            }
+
+            HTMLModelElement.initializeNext('A FOR LOADED.');
+        });
     }
 
-    return html.join('');
+    #eachOf(data) {
+        //"item" is reserved word
+        let html = [];
+        let i = 0;
+        let hasSubCircle = this.$('for') != null;
+ 
+        for (let item of data) {
+            if (hasSubCircle) {
+                $for[this.#guid][i] = {};
+                Object.assign($for[this.#guid][i], this.#variables);
+                $for[this.#guid][i][this.var.item] = item;
+            
+                html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.#content, '$for.' + this.#guid + '[' + i+ ']', $for[this.#guid][i]));
+            }
+            else {
+                let vars = { };
+                vars[this.var.item] = item;
+                Object.assign(vars, this.#variables);
+                html.push(this.#content.replaceHolder(this, vars))
+            }
+
+            i++;
+        }
+    
+        return html.join('');
+    }
+
+    #eachIn(data) {
+        //"key", "value" is reserved world
+        let html = [];
+        let i = 0;
+        let hasSubCircle = this.$('for') != null;
+
+        for (let key in data) {
+            const value = data[key];
+
+            if (hasSubCircle) {
+                $for[this.#guid][i] = {};
+                Object.assign($for[this.#guid][i], this.#variables);
+                $for[this.#guid][i][this.var.key] = key;
+                $for[this.#guid][i][this.var.value] = value;
+
+                html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.#content, '$for.' + this.#guid + '[' + i+ ']', $for[this.#guid][i]));
+            }
+            else {
+                let vars = { };
+                vars[this.var.key] = key;
+                vars[this.var.value] = value;
+                Object.assign(vars, this.#variables);
+                html.push(ths.#content.replaceHolder(this, vars));
+            }
+
+            i++;
+        }
+
+        return html.join('');
+    }
 }
 
-// { a:1, b:2 }  @key, @(key), @value?(defaultValue), @value[path]?(defaultValue)
-// 'key' and 'value' is reserved keyword
-//name = var/let
-For.prototype.$eachIn = function(data) {
-
-    let html = [];
-    // 'key' and 'value' is reserved keyword
-    // @key!
-    // @value    
-    // @value[0]
-    // @value.property?(default)
-
-    let holders = PlaceHolder.getLoopHolders(this.content);
-
-    //$key, $value - 键和值的变量名称
-    //key, value - 键和值对应的值
-    let $key = 'key';
-    let $value = 'value';
-    if (this.var instanceof Array) {
-        if (this.var.length > 0) {
-            $key = this.var[0];
-        }
-        if (this.var.length > 1) {
-            $value = this.var[1];
-        }
-    }
-    else if (typeof(this.var) == 'string') {
-        if (this.var != '') {
-            $key = this.var;
-        }
-    }
-
-    for (let key in data) {
-        let content = this.content;
-        let value = data[key];
-
-        holders.forEach(holder => {
-            let ph = new PlaceHolder(holder).analyze();
-            if ($key == 'key' ? /^(key|name)$/i.test(ph.name) : ph.name == $key) {
-                content = content.replace(holder, key);            
-            }
-            else if ($value == 'value' ? /^value$/i.test(ph.name) : ph.name == $value) {
-                let v = ph.place(value);
-                //null值也输出
-                content = content.replaceAll(holder, Json.toString(v));
-            }
-        });
-        
-        html.push(content.evalJsExpression(value));
-    }
+HTMLForElement.evalContentIgnoreSubCycle = function(element, content, variables =  '', args = null) {
     
-    return html.join('');    
+    //要把 <for> 标签先替换出来以防止冲突
+    let tobe = [];
+
+    /<for\b|<\/for>/ig.findAllMatchIn(content)
+        .forEach(m => {
+            if (m[0].toLowerCase() == '<for') {
+                if (tobe.length == 0 || tobe.last.end > 0) {
+                    tobe.push({ start: m.index, end: 0, close: 0 });
+                }
+                else {
+                    tobe.last.close += 1;
+                }                
+            }
+            else {
+                if (tobe.last.close > 0) {
+                    tobe.last.close -= 1;
+                }
+                else {
+                    tobe.last.end = m.index + 6;
+                }                
+            }
+         });
+        
+    tobe.reverse()
+        .forEach(to => {
+            if (variables != '') {
+                to.code = '<for variables="' + variables + '"' + content.substring(to.start + 4, to.end);
+            }
+            else {
+                to.code = content.substring(to.start, to.end);
+            }
+            content = content.substring(0, to.start) + '[for-' + to.start + ']' + content.substring(to.end);            
+        });
+
+    content = content.replaceHolder(element, args);
+
+    tobe.forEach(to => {
+        content = content.replace('[for-' + to.start + ']', to.code);
+    });
+
+    return content;
 }
 
 // <if test="boolean expression">
@@ -690,178 +578,147 @@ For.prototype.$eachIn = function(data) {
 
 // $if('name').on(event, func).load();
 
-If = function(element) {
+class HTMLIfElement extends HTMLCustomElement {
+    constructor(element) {
+        super(element);
 
-    this.if = element;
-    this.isIF = element.nodeName == 'IF';
-
-    if (this.isIF) {
-        this.elsif = element.querySelectorAll('else-if,elsif,elseif');
-        this.else = element.querySelector('else');
-    }
-    else {
-        this.elsif = [];
-        this.else = null;
-        
-        let next = this.if.nextElementSibling;
-        while (next != null) {
-            if (next.hasAttribute('else-if') || next.hasAttribute('elseif') || next.hasAttribute('elsif')) {
-                this.elsif.push(next);
-            }
-            else if (next.hasAttribute('else')) {
-                this.else = next;
-                break;
-            }
-            else {
-                break;
-            }
-            next = next.nextElementSibling;
-        }
-    }
-    this.result = false;    
-
-    this.onload = element.getAttribute('onload');
-    this.onreturntrue = element.getAttribute('onreturntrue');
-    this.onreturnfalse = element.getAttribute('onreturnfalse');
-
-    Event.interact(this, element);
-}
-
-If.prototype.load = function() {
-
-    let content = '';
-    let test = this.if.getAttribute('test') || this.if.getAttribute('if') || 'false';
-
-    if (this.isIF) {
-        if (test.toBoolean(true, this.if)) {
-            content = this.if.innerHTML.evalJsExpression();
-            this.result = true;
+        this.#isIfElement = element.nodeName == 'IF';
+        this.#if = element;
+        if (this.#isIfElement) {
+            this.#elsif = element.$$('else-if,elsif,elseif');
+            this.#else = element.$('else');
         }
         else {
-            if (this.elsif.length > 0) {
-                for (let i = 0; i < this.elsif.length; i++) {
-                    test = this.elsif[i].getAttribute('test') || 'false';
-                    if (test.toBoolean(true, this.elsif[i])) {
-                        content = this.elsif[i].innerHTML.evalJsExpression();
-                        this.result = true;
-                        break;
-                    }
+            let next = this.#if.nextElementSibling;
+            while (next != null) {
+                if (next.hasAttribute('else-if') || next.hasAttribute('elseif') || next.hasAttribute('elsif')) {
+                    this.#elsif.push(next);
                 }
-            }
-
-            if (!this.result && this.else != null) {
-                content = this.else.innerHTML.evalJsExpression();
-                this.result = true;
-            }
-        }
-
-        let $els = /<(else|else-if|elseif|elsif)\b/i;
-        if ($els.test(content)) {
-            content = content.substring(0, content.indexOf($els.exec(content)[0])).trim();
-        }
-
-        this.if.insertAdjacentHTML('beforeBegin', content);
-    }
-    else {
-        if (test.toBoolean(true, this.if)) {
-            this.result = true;            
-        }
-        else {
-            this.if.remove();                  
-        }
-
-        if (this.elsif.length > 0) {
-            for (let i = 0; i < this.elsif.length; i++) {
-                if (this.result) {
-                    this.elsif[i].remove();
+                else if (next.hasAttribute('else')) {
+                    this.#else = next;
+                    break;
                 }
                 else {
-                    test = this.elsif[i].getAttribute('else-if') || this.elsif[i].getAttribute('elseif') || this.elsif[i].getAttribute('elsif');
-                    if (test.toBoolean(true, this.elsif[i])) {
-                        this.elsif[i].removeAttribute('else-if');
-                        this.elsif[i].removeAttribute('elseif');
-                        this.elsif[i].removeAttribute('elsif');
-                        this.result = true;
-                    }
-                    else {
-                        this.elsif[i].remove();
-                    }
-                }            
-            }
-        }      
-
-        if (this.else != null) {
-            if (this.result) {
-                this.else.remove();
-            }
-            else {
-                this.else.removeAttribute('else');
+                    break;
+                }
+                next = next.nextElementSibling;
             }
         }
+
+        this.onload = element.getAttribute('onload');
+        this.onreturntrue = element.getAttribute('onreturntrue');
+        this.onreturnfalse = element.getAttribute('onreturnfalse');
+        
+        Event.interact(this, this.element);
     }
+
+    #if = null;
+    #elsif = [];
+    #else = null;
+    #isIfElement = true;
+    result = false;
+
+    onload = null;
+    onreturntrue = null;
+    onreturnfalse = null;
+
+    load() {
+        let content = '';
+        let test = this.#if.getAttribute('test') || this.#if.getAttribute('if') || 'false';
     
-    if (this.onload != null) {
-        Event.fire(this, 'onload');
-    }
-
-    if (this.result) {
-        Event.fire(this, 'onreturntrue');
-    }
-    else {
-        Event.fire(this, 'onreturnfalse');
-    }
-
-    if (this.isIF) {
-        this.if.remove();
-    }
-    else {
-        this.if.removeAttribute('if');
-        this.if.removeAttribute('interpreting');
-    }
-
-    Model.initializeNext('AN IF LOAD');
-}
-
-//在替换完占位符之后再执行js表达式
-String.prototype.evalJsExpression = function(data) {
-
-    let content = this.toString();
-
-    let hasForHolders = function (expression) {
-        // @hello, @[hello]
-        return /@[a-z_][a-z0-9_]*/i.test(expression) || /@\[[^\[\]]+?\]/i.test(expression);
-    };
-
-    //~{{complex expression}}
-    //must return a value    
-    /\~?\{\{([\s\S]+?)\}\}/g.findAllIn(content)
-        .forEach(holder => {
-            if (!hasForHolders(holder)) {
-                content = content.replace(holder, eval('_ = function(data) { ' + holder.drop('~').trimPlus('{{', '}}').decode() + ' }').call(null, data));
+        if (this.#isIfElement) {
+            if (test.toBoolean(true, this.#if)) {
+                content = HTMLForElement.evalContentIgnoreSubCycle(this, this.#if.innerHTML);
+                this.result = true;
             }
-        });
-
-    //~{simple expression}
-    /\~?\{([\s\S]+?)\}/g.findAllIn(content)
-        .forEach(holder => {
-            if (!hasForHolders(holder)) {
-                content = content.replace(holder, eval('_ = function(data) { return ' + holder.drop('~').trimPlus('{', '}').decode() + '; }').call(null, data));
+            else {
+                if (this.#elsif.length > 0) {
+                    for (let i = 0; i < this.#elsif.length; i++) {
+                        test = this.#elsif[i].getAttribute('test') || 'false';
+                        if (test.toBoolean(true, this.#elsif[i])) {
+                            content = HTMLForElement.evalContentIgnoreSubCycle(this, this.#elsif[i].innerHTML);
+                            this.result = true;
+                            break;
+                        }
+                    }
+                }
+    
+                if (!this.result && this.#else != null) {
+                    content = HTMLForElement.evalContentIgnoreSubCycle(this, this.#else.innerHTML);
+                    this.result = true;
+                }
             }
-        });
-
-    return content;
+    
+            let _els = /<(else|else-if|elseif|elsif)\b/i;
+            if (_els.test(content)) {
+                content = content.substring(0, content.indexOf(_els.exec(content)[0])).trim();
+            }
+    
+            this.#if.insertAdjacentHTML('beforeBegin', content);
+        }
+        else {
+            if (test.toBoolean(true, this.#if)) {
+                this.result = true;            
+            }
+            else {
+                this.#if.remove();                  
+            }
+    
+            if (this.#elsif.length > 0) {
+                for (let i = 0; i < this.#elsif.length; i++) {
+                    if (this.result) {
+                        this.#elsif[i].remove();
+                    }
+                    else {
+                        test = this.#elsif[i].getAttribute('else-if') || this.#elsif[i].getAttribute('elseif') || this.#elsif[i].getAttribute('elsif');
+                        if (test.toBoolean(true, this.#elsif[i])) {
+                            this.#elsif[i].removeAttribute('else-if');
+                            this.#elsif[i].removeAttribute('elseif');
+                            this.#elsif[i].removeAttribute('elsif');
+                            this.result = true;
+                        }
+                        else {
+                            this.#elsif[i].remove();
+                        }
+                    }            
+                }
+            }      
+    
+            if (this.#else != null) {
+                if (this.result) {
+                    this.#else.remove();
+                }
+                else {
+                    this.#else.removeAttribute('else');
+                }
+            }
+        }
+        
+        Event.fire(this, 'onload');    
+        if (this.result) {
+            Event.fire(this, 'onreturntrue');
+        }
+        else {
+            Event.fire(this, 'onreturnfalse');
+        }
+    
+        if (this.#isIfElement) {
+            this.#if.remove();
+        }
+        else {
+            this.#if.removeAttribute('if');
+            this.#if.removeAttribute('interpreting');
+        }
+    
+        HTMLModelElement.initializeNext('AN IF LOADED.');
+    }
 }
 
 $enhance(HTMLSpanElement.prototype)
-    .declare({
+    .defineProperties({
         data: '',
         await: '',
         copyText: '',
-
-        onload: null,
-        onreload: null
-    })
-    .define({
         'messageDuration': {
             get() {
                 return this.getAttribute('message-duration') ?? this.getAttribute('messageDuration') ?? this.getAttribute('message');
@@ -870,7 +727,7 @@ $enhance(HTMLSpanElement.prototype)
                 this.setAttribute('message-duration', duration);
             }
         }
-    });
+    }).defineEvents('onload', 'onreload');
 
 HTMLSpanElement.prototype.loaded = false;
 HTMLSpanElement.prototype.content = null;
@@ -878,7 +735,7 @@ HTMLSpanElement.prototype.input = null;
 
 HTMLSpanElement.prototype.load = function() {
     $TAKE(this.data, this, this, function(data) {
-        this.innerHTML = this.content.placeModelData(this.id).placeData(data).$p(this);
+        this.innerHTML = this.content.replaceHolder(this, { 'data': data }, this.id);
         if (!this.loaded) {
             this.loaded = true;
             Event.fire(this, 'onload', data);
@@ -918,21 +775,21 @@ HTMLSpanElement.prototype.initialize = function() {
             Event.await(this, this.await);
         }
     }
-    else if (this.innerHTML.includes('@')) {
-        this.innerHTML = this.innerHTML.placeModelData().$p(this);
-    }
     else {
         this.innerHTML = this.innerHTML.$p(this);
     }
 
-    Event.interact(this, this);
+    Event.interact(this);
 }
 
-HTMLTemplateElement._length = -1;
-HTMLTemplateElement._loaded = false;
+
+$template = { }; //保存解析过程中的数据
+HTMLTemplateElement._loading = new Set();
+HTMLTemplateElement._standaloneCount = -1;
+HTMLTemplateElement._haveLoadedAll = false;
 
 $enhance(HTMLTemplateElement.prototype)
-    .declare({
+    .defineProperties({
         name: '',
 
         data: '',
@@ -942,21 +799,8 @@ $enhance(HTMLTemplateElement.prototype)
         autoRefresh: false,
         interval: 2000,
         terminal: 'false',
-        clearOnRefresh: true
-    })
-    .extend('onload', 'onreload', 'onlazyload', 'ondone', 'onteminate')
-    .define({
-        'content': {
-            get() {
-                if (this._content == null) {
-                    this._content = this.innerHTML.trim();
-                }
-                return this._content;
-            },
-            set(content) {
-                this._content = content;
-            }
-        },
+        clearOnRefresh: true,
+
         'var': {
             get() {
                 if (this._var == null) {
@@ -965,20 +809,18 @@ $enhance(HTMLTemplateElement.prototype)
                 return this._var;
             },
             set(vs) {
-                if (this._var == null) {
-                    this._var = {
-                        item: 'item',
-                        key: 'key',
-                        value: 'value'
-                    };
-                }
+                this._var = {
+                    item: 'item',
+                    key: 'key',
+                    value: 'value'
+                };
 
                 if (vs.includes(',')) {
-                    this._var.key = vs.takeBefore(',').trim();
-                    this._var.value = vs.takeAfter(',').trim();                    
+                    this._var.key = vs.takeBefore(',').trim() || 'key';
+                    this._var.value = vs.takeAfter(',').trim() || 'value';
                 }
-                else if (vs != '') {
-                    this._var.item = vs.trim();                    
+                else {
+                    this._var.item = vs.trim() || 'item';
                 }
             }
         },
@@ -1036,14 +878,21 @@ $enhance(HTMLTemplateElement.prototype)
             set(offset) {
                 this._offset = offset;
             }
+        },
+        'standalone': {
+            get() {
+                return !'TREEVIEW,TREENODE,TABLE,TBODY'.includes(this.parentNode.nodeName);
+            }
         }
-    });
+    })
+    .defineEvents('onload', 'onreload', 'onlazyload', 'ondone', 'onteminate');
 
-HTMLTemplateElement.prototype._content = null;
 HTMLTemplateElement.prototype._var = null;
 HTMLTemplateElement.prototype._page = -1;
 HTMLTemplateElement.prototype._offset = -1;
 HTMLTemplateElement.prototype._deferral = 0; //延长次数, 默认延长3次, 不可设置
+HTMLTemplateElement.prototype._data = null; //当次执行的结果数据
+HTMLTemplateElement.prototype._func = null; //加载完成后执行的函数
 
 HTMLTemplateElement.prototype.vars = null; //中间变量
 HTMLTemplateElement.prototype.container = null; //容器元素
@@ -1054,7 +903,7 @@ HTMLTemplateElement.prototype.loaded = false; //是否第一次加载已完成
 HTMLTemplateElement.prototype.done = false; //是否已经到底了
 HTMLTemplateElement.prototype.empty = true; //加载的数据是否为空
 
-HTMLTemplateElement.prototype.owner = null; //非独立模板的主元素，执行事件时call的对象
+HTMLTemplateElement.prototype.owner = null; //非独立<TEMPLATE>的主元素，执行事件时call的对象
 
 HTMLTemplateElement.prototype.initialize = function(container) {
 
@@ -1063,7 +912,7 @@ HTMLTemplateElement.prototype.initialize = function(container) {
             this.name = this.id;
         }
         else {
-            this.name = 'Tempalte_' + document.components.size;
+            this.name = 'Tempalte_' + String.shuffle(7);
         }
     }
     if (this.id == '') {
@@ -1093,7 +942,7 @@ HTMLTemplateElement.prototype.initialize = function(container) {
         this.load();
     }
 
-    Event.interact(this, this);
+    Event.interact(this);
 }
 
 HTMLTemplateElement.listen = function(template, element) {
@@ -1140,33 +989,11 @@ HTMLTemplateElement.prototype.setIrremovable = function(children) {
 }
 
 HTMLTemplateElement.prototype.$represent = function(data) {
+    
+    this.empty = Object.keys(data).length == 0;
+    $template[this.name] = { "data": data };
 
-    let content = this.content;
-
-    //@: 表示整个数据
-    //@:/ 表示根数据
-    //@:key!
-    //@:[0].key
-    //@:key?(default)
-    //@:key[0].name!
-
-    PlaceHolder.getOwnHolders(content)
-        .forEach(holder => {
-            let ph = new PlaceHolder(holder).analyze();
-            let v = ph.place(data);
-            if (v != null) {
-                //array 也是对象, 但基本数据类型数字、字符串、布尔不是对象
-                if (v instanceof Array || v instanceof Object) {
-                    this.vars[ph.path] = v;
-                    content = content.replaceAll(holder, '$template#' + this.id + ph.path);
-                }
-                else {
-                    content = content.replaceAll(holder, v);
-                }
-            }
-        });
-
-    return content.evalJsExpression(data);
+    return HTMLForElement.evalContentIgnoreSubCycle(this, this.content, 'template.' + this.name, $tempate[this.name]);    
 }
 
 HTMLTemplateElement.prototype.$eachOf = function(data) {
@@ -1175,31 +1002,28 @@ HTMLTemplateElement.prototype.$eachOf = function(data) {
         this.empty = data.length == 0;
     }
 
+    $template[this.name] = [];
+
     let html = [];
-    // @[name]
-    // @[name/0/score]
-    // @[0]?(default)    
-    let holders = PlaceHolder.getLoopHolders(this.content);
-
-    for (let item of data) {
-        let content = this.content;
-        holders.forEach(holder => {
-            let ph = new PlaceHolder(holder).analyze();    
-            if ((ph.name != '' && ph.name == this.var.item) || ph.name == '') {
-                let v = ph.place(item);        
-                if (v != null) {
-                    content = content.replaceAll(holder, Json.toString(v));
-                }
-            }        
-        });
+    let i = 0;
+    let hasSubCircle = this.$('for') != null;
     
-        html.push(content.evalJsExpression(item));
-
-        if (this.increment != '') {
-            this.offset = Math.max(this.offset, $parseInt(Json.find(item, this.increment), 0));
+    for (let item of data) {
+        if (hasSubCircle) {
+            $template[this.name][i] = { };
+            $template[this.name][i][this.var.item] = item;
+        
+            html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.content, '$template.' + this.name + '[' + i+ ']', $template[this.name][i]));
         }
+        else {
+            let vars = {};
+            vars[this.var.item] = item;
+            html.push(this.content.replaceHolder(this, vars))
+        }
+
+        i++;
     }
-   
+
     return html.join('');
 }
 
@@ -1210,29 +1034,29 @@ HTMLTemplateElement.prototype.$eachIn = function(data) {
         this.empty = Object.keys(data).length == 0;
     }
 
+    $template[this.name] = [];
+
     let html = [];
-    // @key!
-    // @value[0]
-    // @value.name
-    let holders = PlaceHolder.getLoopHolders(this.content);
+    let i = 0;
+    let hasSubCircle = this.$('for') != null;
 
     for (let key in data) {
-        let value = data[key];
-        let content = this.content;
 
-        holders.forEach(holder => {
-            let ph = new PlaceHolder(holder).analyze();
-            if (ph.name.toLowerCase() == this.var.key) {
-                content = content.replaceAll(holder, key);
-            }
-            else if (ph.name.toLowerCase() == this.var.value) {
-                let v = (ph.path == ph.name ? value : ph.place(value));
-                //null值也展示
-                content = content.replaceAll(holder, Json.toString(v));
-            }
-        });
-        
-        html.push(content.evalJsExpression(value));
+        if (hasSubCircle) {
+            $tempate[this.name][i] = {};
+            $tempate[this.name][i][this.var.key] = key;
+            $tempate[this.name][i][this.var.value] = data[key];
+
+            html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.content, '$template.' + this.name + '[' + i+ ']', $template[this.name][i]));
+        }
+        else {
+            let vars = { };
+            vars[this.var.key] = key;
+            vars[this.var.value] = data[key];
+            html.push(this.content.replaceHolder(this, vars));
+        }
+
+        i++;
     }
 
     return html.join('');
@@ -1309,7 +1133,7 @@ HTMLTemplateElement.prototype.refresh = function() {
                 //再尝试3次, 有时会出现结束但仍有数据产生的情况
                 if (template._deferral < 3) {
                     if (template._deferral == 0) {
-                        Event.execute(template, 'onterminate');
+                        template.dispatch('onterminate');
                     }
                     template._deferral ++;
                 }
@@ -1317,7 +1141,7 @@ HTMLTemplateElement.prototype.refresh = function() {
                     //done
                     window.clearInterval(refresher);                  
                     template.done = true;
-                    Event.execute(template, 'ondone');
+                    template.dispatch('ondone');
                     template._deferral = 0;
                 }
             }
@@ -1358,7 +1182,7 @@ HTMLTemplateElement.prototype.load = function(func) {
                     if (this.lazyLoad) {
                         if (data.length == 0) {
                             this.done = true;
-                            Event.execute(this, 'ondone');
+                            this.dispatch('ondone');
                         }
                     }
 
@@ -1374,42 +1198,57 @@ HTMLTemplateElement.prototype.load = function(func) {
             }
             else {
                 this.container.insertAdjacentHTML(this.position, this.$represent(data));
-            }        
+            }
 
-            if (HTMLTemplateElement._length > 0) {
-                HTMLTemplateElement._length --;
-                if (HTMLTemplateElement._length == 0) {
-                    HTMLTemplateElement._loaded = true;
-                }
-            }
-                     
-            //当前值大于初始值为"增量加载" 
-            if (this.page > this.initPage + 1) {
-                Event.execute(this, 'onlazyload', data);
-            }
-            else if (this.loaded) {
-                Event.execute(this, 'onreload', data);
+            this._data = data;
+            this._func = func;
+            if (this.$('for,if,[if]') != null) {
+                HTMLTemplateElement._loading.add('#' + this.name);
             }
             else {
-                this.loaded = true;
-                Event.execute(this, 'onload', data);
+                this.complete();
             }
             
-            if (func != null) {
-                if (typeof (func) == 'string') {
-                    eval('_ = function() {' + func + '}').call(this.owner, data);
-                }
-                else if (typeof(func) == 'function') {
-                    func.call(this.owner, data);
-                }
+            //standalone tempalte
+            if (this.standalone) {
+                if (HTMLTemplateElement._standaloneCount > 0) {
+                    HTMLTemplateElement._standaloneCount --;
+                    if (HTMLTemplateElement._standaloneCount == 0) {
+                        HTMLTemplateElement._haveLoadedAll = true;
+                    }
+                }                     
             }
 
-            this.loading = false;
-
-            Model.initializeNext('A TEMPLATE LOADED');
-            HTMLTemplateElement.reloadComponents(this);
+            HTMLModelElement.initializeNext('A TEMPLATE LOADED');            
         });
     }
+}
+
+HTMLTemplateElement.prototype.complete = function() {
+    //当前值大于初始值为"增量加载" 
+    if (this.page > this.initPage + 1) {
+        this.dispatch('onlazyload', { "data": this._data });
+    }
+    else if (this.loaded) {
+        this.dispatch('onreload', { "data": this._data });
+    }
+    else {
+        this.loaded = true;
+        this.dispatch('onload', { "data": this._data });
+    }
+    
+    if (this._func != null) {
+        if (typeof (this._func) == 'string') {
+            eval('_ = function() {' + this._func + '}').call(this.owner, this._data);
+        }
+        else if (typeof(this._func) == 'function') {
+            this._func.call(this.owner, this._data);
+        }
+    }
+
+    this.loading = false;
+
+    HTMLTemplateElement.reloadComponents(this);
 }
 
 //重载editor和其他组件
@@ -1427,5 +1266,5 @@ HTMLTemplateElement.reloadComponents = function(container) {
 }
 
 document.on('ready', function() {
-    Model.initializeAll();
+    HTMLModelElement.initializeAll();
 });

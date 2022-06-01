@@ -1,3 +1,3 @@
 <template name="abc" as="loop" auto-refresh="yes" interval="2000" data="select id, task_time from qross_tasks limit ~{ $random(2, 10) }">        <div class="f24">@[id]</div>
-    <diV class="space">@[task_time]</div>
+    <diV class="space">@data.task_time</div>
 </template>

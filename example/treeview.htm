@@ -6,8 +6,7 @@
     <script type="text/javascript" src="/root.js"></script>
     <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.model.js"></script>
-    <script type="text/javascript" src="/root.select.js"></script>
-    <script type="text/javascript" src="/root.treeview.js"></script>
+    <script type="text/javascript" src="/root.treeview.gingko.js"></script>
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
     <link href="/css/root/treeview.css" rel="stylesheet" type="text/css" />
     <style type="text/css">
@@ -38,6 +37,7 @@
     </treenode>
     <treenode>world</treenode>
 </treeview>
+<tree-view id="VT"></tree-view>
 
 <div id="con">
     没什么卵用的文字
@@ -52,38 +52,8 @@
     tpl end
 </template>
 
-<script type="text/javascript">
-var host = document.querySelector('#con');
-var root = host.attachShadow({mode:'open'});
-var con = document.getElementById("tpl").content.cloneNode(true);
-root.appendChild(con);
+<input id="N" type="text" />
 
-let O = function() {
-    this.value = 1;
-}
 
-O.prototype.if = function(func) {
-    if (func.call(this, this)) {
-        return this;
-    }
-    else {
-        return null;
-    }
-}
-
-HTMLElement.prototype.log = function() {
-    console.log('HTML');
-}
-
-HTMLButtonElement.prototype.log = function() {
-    console.log('BUTTON');
-}
-
-// class HTMLTreeViewElement extends HTMLElement {
-
-// }
-// window.customElements.define('tree-view', HTMLTreeViewElement);
-// let tv = document.querySelector('#TV');
-</script>
 </body>
 </html>

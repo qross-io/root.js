@@ -97,7 +97,7 @@ class Select {
         $initialize(this)
         .with(element)
         .declare({
-            _name: 'Select_' + document.components.size,
+            _name: 'Select_' + String.shuffle(7),
             type: 'original|beauty|button|image|checkbox|radio',
             _value: '',
 
@@ -163,8 +163,22 @@ class Select {
                     this.container.setAttribute('style', element.getAttribute('style'));
                 }
                 element.insertAdjacentElement('beforeBegin', this.container);
+
                 //transfer attributes
-                $transfer(element, this.container);
+                let excludings = new Set(['id', 'type', 'data']);
+                element.getAttributeNames()
+                    .forEach(attr => {
+                        if (!excludings.has(attr)) {
+                            let value = element[attr] != null ? element[attr] : element.getAttribute(attr);
+                            if (this.container[attr] != null) {
+                                this.container[attr] = value;
+                            }
+                            else if (!attr.includes('+') && !attr.includes('-')) {
+                                this.container.setAttribute(attr, value);
+                            }
+                        }
+                    });
+
                 element.id = '';
             }
             else {
@@ -1317,7 +1331,7 @@ Select.initializeAllIn = function(element) {
         element = $s(element);
     }
     element.querySelectorAll('select').forEach(select => {
-        window.Model?.boostPropertyValue(select, 'value');        
+        HTMLElement.boostPropertyValue(select, 'value');        
         new Select(select).initialize();
     });
 }

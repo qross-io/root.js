@@ -10,7 +10,7 @@ WaterFall = function(element) {
     $initialize(this)
     .with(element)
     .declare({
-        name: 'WaterFall_' + document.components.size
+        name: 'WaterFall_' + String.shuffle(7)
     })
     .elementify(function(element) {
         this.element = element;

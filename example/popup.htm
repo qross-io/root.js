@@ -14,34 +14,7 @@
     <input id="T" type="text" /> &nbsp; <span id="S">TEST</span>    
 </div>
 <script type="text/javascript">
-    $('#P').open();
-
-class Student {
-    constructor(name) {
-        this.name = name;
-        console.log(this.#score1);
-        console.log(Student.#score2);
-        this.#test1();
-        Student.#test2();
-    }
-
-    school1 = ''; //实例属性
-    static school2 = 'Middle'; //静态属性
-    #score1 = 80; //私有实例属性
-    static #score2 = 90; //私有静态属性
-
-    study1() {
-        console.log(this.#score1);
-        console.log(Student.#score2);
-    } //实例方法
-    static study2() {
-
-    } //静态方法
-    #test1() { console.log('#test1'); } //私有实例方法
-    static #test2() { console.log('#test2'); } //私有静态方法
-}
-
-new Student();
+$('#P').open();
 </script>
 </body>
 </html>

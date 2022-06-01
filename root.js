@@ -94,7 +94,7 @@ Object.defineProperties(HTMLElement.prototype, {
     },
     'text': {
         get() {
-            return this.$('text')?.textContent ?? this.textContent;
+            return  this.getAttribute('text') ?? this.$('text')?.innerHTML ?? this.textContent;
         },
         set(text) {
             let t = this.$('text');
@@ -116,7 +116,7 @@ Object.defineProperties(HTMLElement.prototype, {
     },
     'icon': {
         get() {
-            let first = object.firstElementChild;
+            let first = this.firstElementChild;
             if (first == null) {
                 return undefined;
             }
@@ -124,21 +124,15 @@ Object.defineProperties(HTMLElement.prototype, {
                 return first.src;
             }
             else if (first.nodeName == 'I') {
-                return first.className.takeAfter('-');
+                return first.className.takeAfter('iconfont ');
             }
             else {
                 return undefined;
             }
         },
         set(icon) {
-            let content = '';
-            if (icon.isImageURL()) {
-                content = `<img src="${icon}" align="absmiddle" /> `;
-            }
-            else {
-                content = `<i class="iconfont ${icon.startsWith('icon-') ? icon : ('icon-' + icon)}"></i> `;
-            }
-            this.insertAdjacentHTML('afterbegin', content);
+            this.$child('img,i')?.remove();
+            this.insertAdjacentHTML('afterBegin', icon.iconToHTML());            
         }
     },
     'parent': {
@@ -219,13 +213,21 @@ Object.defineProperties(HTMLElement.prototype, {
             return window.getComputedStyle(this);
         }
     },
-    'customEvents': {
+    'clientEvents': {
         // eventName -> eventFunc
         get() {
-            if (this['#customEvents'] == null) {
-                this['#customEvents'] = new Map();
+            if (this['#clientEvents'] == null) {
+                this['#clientEvents'] = new Object();
             }
-            return this['#customEvents'];
+            return this['#clientEvents'];
+        }
+    },
+    'serverEvents': {
+        get() {
+            if (this['#serverEvents'] == null) {
+                this['#serverEvents'] = new Object();
+            }
+            return this['#serverEvents'];
         }
     },
     'eventListeners': {
@@ -244,6 +246,12 @@ Object.defineProperties(HTMLElement.prototype, {
         set (debug) {
             ths.setAttribute('debug', debug);
         }
+    }
+});
+
+Object.defineProperty(window, '$else', {
+    get() {
+        return $root.$else;
     }
 });
 
@@ -282,78 +290,112 @@ HTMLElement.prototype.insertBeforeEnd = function(element, properties, styles, at
     return this.insertAdjacent('beforeEnd', element, properties, styles, attributes);
 }
 
+HTMLElement.prototype.insertAfter = function(element, reference) {
+    if (reference.nextSibling != null) {
+        this.insertBefore(element, reference.nextSibling);
+    }
+    else {
+        this.appendChild(element);
+    }
+}
+
 HTMLElement.prototype.$ = function(o) {
     return this.querySelector(o);
 }
 
+HTMLElement.prototype.$prev = function(o) {
+
+}
+
+HTMLElement.prototype.$next = function(o) { }
+
+HTMLElement.prototype.$child = function(o) {
+
+    for (let child of this.$$(o)) {
+        if (child.parentNode == this) {
+            return child;
+        }
+    }
+
+    return null;
+}
+
 HTMLElement.prototype.$$ = function(o) {
-    return this.querySelectorAll(o);
+    return [...this.querySelectorAll(o)];
+}
+
+HTMLElement.prototype.$$children = function(o) {
+    let children = [];
+    let all = new Set(this.children);
+    for (let child of this.$$(o)) {
+        if (all.has(child)) {
+            children.push(child);
+        }
+    }
+    return children;
+}
+
+HTMLElement.getAttribute = HTMLElement.prototype.getAttribute;
+HTMLElement.prototype.getAttribute = function(attr, defaultValue) {
+    return HTMLElement.getAttribute.call(this, attr) ?? (attr.includes('-') ? HTMLElement.getAttribute.call(this, attr.toCamel()) : (/[A-Z]/.test(attr) ? HTMLElement.getAttribute.call(this, attr.toHyphen()) : null)) ?? defaultValue;
+}
+
+HTMLElement.prototype.parseImageURL = function(attr, defaultValue, basePath = '') {
+    let url = this.getAttribute(attr, defaultValue);
+    if (s = s != '' && !s.includes('/')) {
+        return url.prefix(basePath);
+    }
+    else {
+        return url;
+    }    
 }
 
 HTMLElement.prototype.get = function(attr) {
-    return this[attr] ?? this[attr.toCamel()] ?? this.getAttribute(attr) ?? this.getAttribute(attr.toCamel());
+    return (attr.includes('-') ? this[attr.toCamel()] : this[attr]) ?? this.getAttribute(attr);    
 }
 
+// 用于精简事件表达式、事件监听、增强属性   set-value-on="click: #Button1"
 HTMLElement.prototype.set = function(attr, value) {
+    let prime = null;
+    let camel = null;
+    let hyphen = null;
 
-    if (value == null) {
-        if (attr != null) {
-            value = attr;
-            attr = null;
-        }
+    if (attr.includes(':')) {
+        prime = attr.takeBefore(':').toCamel();
+        attr = attr.takeAfter(':');
     }
 
-    if (attr == null) {
-        if (this.value != null) {
-            attr = 'value';
-        }
-        else if (this.innerHTML != null) {
-            attr = 'innerHTML';
-        }
+    if (attr.includes('-')) {
+        camel = attr.toCamel();
+        hyphen = attr;
     }
-    
-    if (attr != null) {
-        let name = attr;
-        if (attr == 'html') {
-            name = 'innerHTML';
-        }
-        else if (attr.includes('-')) {
-            name = attr.toCamel();
-        }
+    else if (/[A-Z]/.test(attr)) {
+        camel = attr;
+        hyphen = attr.toHyphen();
+    }
+    else {
+        camel = attr;
+        hyphen = attr;
+    }
 
-        if (name == attr) {
-            if (this.hasAttribute(attr + '+')) {
-                value = this.getAttribute(attr + '+').placeModelData().$p(this);
-            }
-            if (value != null) {
-                if (this[attr] != null) {
-                    this[attr] = value;
-                    if (attr == 'value') {
-                        this.ajust?.();
-                    }
-                }
-                else  {
-                    this.setAttribute(attr, value);
-                }
-            }
-        }
-        else {            
-            if (this.hasAttribute(attr + '+')) {
-                value = this.getAttribute(attr + '+').placeModelData().$p(this);
-            }
-            else if (this.hasAttribute(name + '')) {
-                value = this.getAttribute(name + '+').placeModelData().$p(this);
-            }
-            if (value != null) {
-                if (this[name] != null) {
-                    this[name] = value;    
-                }
-                else {
-                    this.setAttribute(attr, value);
-                }            
-            }
-        }
+    if (value == '+') {
+        // attr+ 可能是空值，如 html+, text+
+        value = (this.getAttribute(hyphen + '+') || this.get(hyphen))?.$p(this);
     }
+
+    if (prime != null) {
+        this[prime][camel] = value; //style:font-size -> style.fontSize
+    }
+    else if (this[camel] != null) {
+        this[camel] = value;    
+    }
+    else {
+        this.setAttribute(hyphen, value);
+    }
+
+    if (attr == 'value') {
+        this.ajust?.();
+    }    
     
     return this;
 }
@@ -461,7 +503,15 @@ HTMLElement.prototype.if = function(exp) {
     else if (typeof(exp) == 'function') {
         result = exp.call(this, this);
     }
-    return result ? this : null;
+
+    if (result) {
+        $root.$else = null;
+        return this;
+    }
+    else {
+        $root.$else = this;
+        return null;
+    }
 }
 
 HTMLElement.prototype.upside = function(reference, offsetX = 0, offsetY = 0, align = 'center') {
@@ -545,44 +595,71 @@ HTMLElement.prototype.inElement = function(nodeName) {
     return parent.nodeName == nodeName;
 }
 
+HTMLElement.customEventsMap = {}; // upperName -> lowerName
+
 //useCapture false 在冒泡阶段执行（从子级到父级）  true 在捕获阶段执行（从父级到子级）
 HTMLElement.prototype.on = function(eventNames, func, attach = true, useCapture = false) {
     eventNames.split(',').forEach(eventName => {
-        eventName = eventName.trim().toLowerCase().drop('on');
-        let onEventName = eventName.prefix('on');
+        eventName = eventName.prefix('on');
+        let onLowerName = (/[A-Z]/.test(eventName) ? (HTMLElement.customEventsMap[eventName] ?? eventName.toLowerCase()) : eventName);
+        let lowerName = onLowerName.drop('on');
         let funcStr = func.toString();
 
-        if (!this.eventListeners.has(onEventName)) {
-            this.eventListeners.set(onEventName, new Set());
+        if (!this.eventListeners.has(onLowerName)) {
+            this.eventListeners.set(onLowerName, new Set());
         }        
         if (attach) {
-            if (!this.eventListeners.get(onEventName).has(funcStr)) {
-                this.addEventListener?.(eventName, func, useCapture) ?? this.attachEvent?.(onEventName, func);
-                this.eventListeners.get(onEventName).add(funcStr);                
+            if (!this.eventListeners.get(onLowerName).has(funcStr)) {
+                this.addEventListener?.(lowerName, func, useCapture) ?? this.attachEvent?.(onLowerName, func);
+                this.eventListeners.get(onLowerName).add(funcStr);                
             }
         }
         else {
-            this[onEventName] = func;
-            this.eventListeners.get(onEventName).add(funcStr);
+            this[onLowerName] = func;
+            this.eventListeners.get(onLowerName).add(funcStr);
         }
     });
     
     return this;
 }
 
-HTMLElement.defineCustomEvent = function(element, eventName) {
-    eventName = eventName.toLowerCase().prefix('on');
+//属性增强
+HTMLElement.boostPropertyValue = function(element, excludings = '') {
+    element.getAttributeNames()
+        .filter(a => a.endsWith('+') && !a.startsWith('on'))
+        .forEach(name => {
+            let origin = name.dropRight(1);
+            let camel = null;
+            if (origin.includes('-')) {
+                camel = origin.toCamel();
+            }
 
-    element.customEvents.set(eventName, null);
+            if (!excludings.includes(origin) && !excludings.includes(camel)) {
+                element.set(origin, '+');    
+            }     
+        });
+}
 
-    Object.defineProperty(element, eventName, {
+//事件名必须以`on`开头
+HTMLElement.defineCustomEvent = function(element, lowerName, upperName) {
+
+    const property = {
         get() {
-            return this.customEvents[eventName] ?? this.getAttribute(eventName);
+            return this.clientEvents[lowerName] ?? this.getAttribute(lowerName);
         },
         set (value) {
-            this.customEvents[eventName] = value;
+            this.clientEvents[lowerName] = value;
         }
-    });
+    };
+
+    element.clientEvents[lowerName] = null;
+
+    Object.defineProperty(element, lowerName, property);    
+
+    if (upperName != null) {
+        Object.defineProperty(element, upperName, property);
+        HTMLElement.customEventsMap[upperName] = lowerName;
+    }
 }
 
 HTMLElement.hasEventListener = function(element, eventName, func) {
@@ -596,28 +673,39 @@ HTMLElement.hasEventListener = function(element, eventName, func) {
     }
 }
 
-HTMLElement.defineSeverEvent = function(element, eventName) {
-    eventName = eventName.toLowerCase().prefix('on').suffix('+');
-    Object.defineProperty(element, eventName, {
+//事件名必须以`on`开头且以`+`结尾
+HTMLElement.defineSeverEvent = function(element, lowerName, upperName) {
+
+    const property = {
         get() {
-            return this.getAttribute(eventName);
+            return this.getAttribute(lowerName);
         },
         set (value) {
-            this.setAttribute(eventName, value);
+            this.setAttribute(lowerName, value);
         }
-    });
-    [eventName + 'success', eventName + 'failure', eventName + 'exception', eventName + 'completion']
-        .forEach(name => {
-            HTMLElement.defineCustomEvent(element, name);
+    };
+
+    Object.defineProperty(element, lowerName, property);
+
+    if (upperName != null) {
+        Object.defineProperty(element, upperName, property);
+    }
+
+    
+    ['success', 'failure', 'exception', 'completion']
+        .forEach(status => {
+            HTMLElement.defineCustomEvent(element, lowerName + status, upperName && (upperName + status));
         });
 }
 
-HTMLElement.prototype.dispatchCustomEvent = function(eventName, eventArgs) {
-    eventName = eventName.trim().toLowerCase();
+//与 dispatchEvent 对应
+HTMLElement.prototype.dispatch = function(eventName, eventArgs) {
+    eventName = eventName.prefix('on');
+    let onLowerName = (/[A-Z]/.test(eventName) ? (HTMLElement.customEventsMap[eventName] ?? eventName.toLowerCase()) : eventName);
 
-    let final = Event.fire(this, eventName.prefix('on'), { detail: eventArgs ?? {} });
+    let final = Event.fire(this, onLowerName, { detail: eventArgs ?? {} });
 
-    this.dispatchEvent(new CustomEvent(eventName.drop('on'), {
+    this.dispatchEvent(new CustomEvent(onLowerName.drop('on'), {
         detail: eventArgs ?? { },
         bubbles: false, //不向父级元素冒泡
         cancelable: true, //可取消
@@ -625,22 +713,6 @@ HTMLElement.prototype.dispatchCustomEvent = function(eventName, eventArgs) {
     }));
 
     return final;
-}
-
-HTMLElement.interactEvents = function(element) {
-    for (let name of element.getAttributeNames().filter(name => name.startsWith('on') || name.endsWith('-on'))) {
-        if (/^on/i.test(name) && name.endsWith('-')) {
-            //on{event}-
-            element.on(name.dropRight(1), function(...args) {
-                Event.express.call(this, this.getAttribute(name).$p(this, args));
-            });
-        }
-        else if (/-on$/i.test(name)) {
-            //{method}-{attr}-on
-            Event.watch(element, name, element.getAttribute(name));
-            element.removeAttribute(name); //防止重复监听
-        }
-    }
 }
 
 Window.prototype.on = function(eventNames, func) {
@@ -663,16 +735,16 @@ Document.prototype.on = function(eventName, func) {
         }
     }
     else  if (eventName == 'post') {
-        if (document.models != null) {
-            Event.bind('$global', 'onpost', func);
+        if (window.$model != null) {
+            document.head.on('post', func);
         }
         else {
             this.on('ready', func);
         }
     }
     else if (eventName == 'load') {
-        if (document.models != null) {
-            Event.bind('$global', 'onload', func);
+        if (window.$model != null) {
+            document.head.on('load', func);
         }
         else {
             window.on('load', func);
@@ -706,6 +778,14 @@ Array.prototype.one = function() {
 
 Array.prototype.toSet = function() {
     return new Set(this);
+}
+
+Array.prototype.toObject = function(func) {
+    let object = { };
+    this.forEach(item => {
+        object[item] = func.call(null, item);
+    });
+    return object;
 }
 
 Array.prototype.distinct = function() {
@@ -821,6 +901,25 @@ Array.prototype.do = function(exp) {
     }
 
     return this;
+}
+
+Array.prototype.if = function(func) { 
+    let result = exp;
+    if (typeof(exp) == 'string') {
+        result = eval('result = function() {return ' + exp + '}').call(this);
+    }
+    else if (typeof(exp) == 'function') {
+        result = exp.call(this, this);
+    }
+
+    if (result) {
+        $root.$else = null;
+        return this;
+    }
+    else {
+        $root.$else = this;
+        return null;
+    }
 }
 
 Object.defineProperties(String.prototype, {
@@ -1150,7 +1249,7 @@ String.prototype.toFloat = function(defaultValue = 0) {
 
 String.prototype.toBoolean = function(defaultValue = false, object = null) {
     
-    let value = this.trim().placeModelData().$p(object);
+    let value = this.trim().$p(object);
 
     if (/^(true|yes|disabled|selected|enabled|1|ok|on|hidden|visible|always|)$/i.test(value)) {
         value = true;
@@ -1197,8 +1296,8 @@ String.prototype.toMap = function(delimiter = '&', separator = '=') {
             }
         }
     }
-    else if (this.isObjectString()) {
-        map = Json.eval(this.toString());
+    else if (this.isObjectString) {
+        map = JSON.eval(this.toString());
     }
     //query string or other
     else if (this.includes(separator)) {
@@ -1216,8 +1315,8 @@ String.prototype.toMap = function(delimiter = '&', separator = '=') {
             map[item] = item;
         });
     }
-    else if (this.isArrayString()) {
-        Json.eval(this.toString()).forEach(v => {
+    else if (this.isArrayString) {
+        JSON.eval(this.toString()).forEach(v => {
             if (typeof(v) == 'string') {
                 map[v] = v;
             }
@@ -1275,62 +1374,26 @@ String.prototype.recognize = function() {
     }
 }
 
-// 从 model 中加载数据，替换特定占位符的值
-// follower 要监听哪个对象, 保存在 followers 中
-String.prototype.placeModelData = function(follower) {
-   
-    let content = this.toString();
-    // @modelname!
-    // @modelname.key?(defaultValue)
-    // @modelname.key[0]?(defaultValue)
-    // @modelname[0]
-    window.PlaceHolder?.getModelHolders(content)
-        .forEach(holder => {
-            let ph = new PlaceHolder(holder).analyze();
-            if (ph.name != '') {
-                if (follower != null && follower != '') {
-                    if (!follower.startsWith('#')) {
-                        follower = '#' + follower;
-                    }
-                    document.components.get(ph.name)?.followers.add(follower);
-                }
-                let v = ph.place(window[ph.name + '$']);
-
-                if (v != null) {
-                    if (content == holder) {
-                        content = Json.toString(v);
-                    }
-                    else {
-                        content = content.replaceAll(holder, v);
-                    }
-                }            
-            }
-        });
-
-    return content;
-    //没有 evalJsExpression 是因为后面一般跟 .$p()
-}
-
 //argument 'element' also supports object { }
 //data : ajax recall data
-String.prototype.$p = function(element, data) {
+String.prototype.replaceHolder = function(element, data, follower) {
 
-    let str = this.toString();
-    if (str == '') {
-        return str;
+    let content = this.toString();
+    if (content == '') {
+        return content;
     }
-    
+
     if (typeof (element) == 'string') {
         element = document.querySelector(element);
     }
 
-    str = str.replace(/&lt;/g, '<');
-    str = str.replace(/&gt;/g, '>');
+    content = content.replace(/&lt;/g, '<');
+    content = content.replace(/&gt;/g, '>');
 
     //&(query)
-    /\&(amp;)?\(([a-z0-9_]+)\)?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(str)
+    /\&(amp;)?\(([a-z0-9_]+)\)?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(content)
         .forEach(match => {
-            str = str.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : (match[4] ?? 'null').encodeURIComponent(match[0].endsWith('%')));
+            content = content.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : (match[4] ?? 'null').encodeURIComponent(match[0].endsWith('%')));
         });
 
     //$(selector)+-><[n][attr]?(1)
@@ -1340,55 +1403,146 @@ String.prototype.$p = function(element, data) {
     // < parent
     // \d child \d
     // n last child
-    /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(str)
-        .forEach(match => {
-            str = str.replace(match[0], $root.__$select($v(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));    
-        });
+    /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(content)
+    .forEach(match => {
+        content = content.replace(match[0], $root.__$select($s(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));    
+    });
 
     //parse element
     // $:<0
     // $:[attr]
     if (element != null) {
-        /\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(str)
+        /\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(content)
             .forEach(match => {
-                str = str.replace(holder, $root.__$select(element, match[1], match[3], match[5]).encodeURIComponent(match[6] == '%'));
+                content = content.replace(holder, $root.__$select(element, match[1], match[3], match[5]).encodeURIComponent(match[6] == '%'));
             });        
     }
 
+    //@data place holder
+    //@data.property[index]|column|.method()?(defaultValue)!
+    /@([a-z_]\w*)(\.\w+\([^\)]*\)|\.\w+|\[-?\d+\]|\[\S+?\]|\|\S+?\|)*(\?\([^\(\)]*?\))?\!?/ig.findAllIn(content)
+        .forEach(holder => {
+            let path = holder.replace(/\!$/, ''); //this is holder
+            let defaultValue = null;
+            if (path.includes('?(')) {
+                defaultValue = path.takeAfter('?(').replace(/\)$/, '');
+                path = path.takeBefore('?(');
+            }
+
+            path = path.replace(/^\@|\!$/g, '')
+                .replace(/\[/g, '.')
+                .replace(/\]/g, '')
+                .replace(/\//g, '.')
+                .replace(/:/g, '.')
+                .replace(/\|\./g, '.')
+                .replace(/\|$/, '.')
+                .replace(/\|/g, '.|')
+                .replace(/\.\./g, '.')
+                .replace(/\.$/, '');
+                    
+            let stones = path.split('.');
+            let n = stones[0]; //name            
+            if (n == '') {
+                n = 'data'; 
+            }
+            let v = null; //value
+            if ((data == null || data[n] == null) && $model[n] != null) {
+                if (follower != null && follower != '') {
+                    $('#' + n)?.followers?.add(follower.prefix('#'));
+                }
+                v = $model[n];
+            }
+            else {
+                v = data?.[n];
+            }
+
+            for (let i = 1; i < stones.length; i++) {
+                if (v != null) {
+                    let a = stones[i]; //a = attribute
+                    if (a.startsWith('|')) {
+                        a = a.substring(1);
+                        if (v instanceof Array) {                        
+                            v = v.map(t => t[a]) // t = item
+                        }
+                        else {
+                            v = null;
+                            break;
+                        }
+                    }
+                    else if (/^-\d+$/.test(a) && v instanceof Array) {
+                        v = v[eval(v.length + a).ifNegative(0)];
+                    }
+                    else if (a.endsWith(')')) {
+                        v = v[a.takeBefore('(')](...a.takeAfter('(').dropRight(1).if(s => s != '')?.split(',').map(r => r.recognize()) ?? []);
+                    }
+                    else {
+                        v = v[a];
+                    }  
+                }            
+                else {
+                    break;
+                }
+            }
+        
+            if (v == null && defaultValue != null) {
+                v = defaultValue;
+            }
+        
+            if (typeof(v) == 'string') {
+                //处理数据中的双引号, JSON 解析时会自动转换
+                v = v.replace(/"/g, '&quot;')
+            }
+
+            if (v != null) {
+                content = content.replaceAll(holder, JSON.stringifo(v));
+            }
+        });
+
+        
     //~{{complex expression}}
     //must return a value 
-    /\~?\{\{(.+?)\}\}%?/sg.findAllMatchIn(str)
+    /\~?\{\{(.+?)\}\}%?/sg.findAllMatchIn(content)
         .forEach(match => {
-            let result = eval('_ = function(data, value, text) { ' + match[1].decode() + ' }').call(element, $root.__$data(element, data), $root.__$value(element, data), $root.__$text(element, data));
+            let result = eval('_ = function(data) { with(data) {' + match[1].decode() + '} }').call(element, $root.__bulidDataArgs(data, element));
             if (typeof(result) != 'string') {
-                result = String(result);
+                result = JSON.stringify(result);
             }
             if (match[0].endsWith('%')) {
                 result = encodeURIComponent(result);
             }        
-            str = str.replace(match[0], result);
+            content = content.replace(match[0], result);
         });
 
     //~{simple expression}
-    /\~?\{(.+?)\}%?/sg.findAllMatchIn(str)
+    /\~?\{(.+?)\}%?/sg.findAllMatchIn(content)
         .forEach(match => {
-            let result = eval('_ = function(data, value, text) { return ' + match[1].decode() + ' }').call(element, $root.__$data(element, data), $root.__$value(element, data), $root.__$text(element, data));
-            if (typeof(result) != 'string') {
-                result = String(result);
-            }
-            if (match[0].endsWith('%')) {
-                result = encodeURIComponent(result);
-            }
-            str = str.replace(match[0], result);
+            if (match[0] != content || !content.isObjectString) {
+                let result = eval('_ = function(data) { with(data) { return ' + match[1].decode() + '} }').call(element, $root.__bulidDataArgs(data, element));
+                if (typeof(result) != 'string') {
+                    result = JSON.stringify(result);
+                }
+                if (match[0].endsWith('%')) {
+                    result = encodeURIComponent(result);
+                }
+                content = content.replace(match[0], result);    
+            }            
         });
 
-    //%
-    /(?<==)(.*?)%(?=(?:&|#|$))/sg.findAllMatchIn(str)
+    //% - for url only
+    /(?<==)(.*?)%(?=(\?:&|#|$))/sg.findAllMatchIn(content)
         .forEach(match => {
-            str = str.replace(match[0], encodeURIComponent(match[1]));
+            content = content.replace(match[0], encodeURIComponent(match[1]));
         });
-    
-    return str;
+
+    return content;
+}
+
+String.prototype.$p = String.prototype.replaceHolder;
+String.prototype.placeData = function(data, follower) {
+    return this.replaceHolder(null, data, follower);
+}
+String.prototype.followModel = function(follower) {
+    return this.replaceHolder(null, null, follower);
 }
 
 String.prototype.if = function(exp) {
@@ -1400,54 +1554,18 @@ String.prototype.if = function(exp) {
         result = exp.call(this, this);
     }
 
-    return result ? this.toString() : null;
+    if (result) {
+        $root.$else = null;
+        return this.toString();
+    }
+    else {
+        $root.$else = this.toString();
+        return null;
+    }
 }
 
 String.prototype.ifEmpty = function(other) {
     return this.toString().trim() == '' ? other : this.toString();
-}
-
-String.prototype.isEmpty = function() {
-    return this.toString().trim() == '';
-}
-
-String.prototype.isCogoString = function() {
-    let str = this.toString().trim();
-    return /^(\/|[a-z]+(\s|#))/i.test(str) || /^(get|post|delete|put|http|https)\s*:/i.test(str) || (str.includes('/') && str.includes('?') && str.includes('='))
-}
-
-String.prototype.isObjectString = function() {
-    let str = this.toString().trim();
-    return str.startsWith('{') && str.endsWith('}');
-}
-
-String.prototype.isArrayString = function() {
-    let str = this.toString().trim();
-    return str.startsWith('[') && str.endsWith(']');
-}
-
-String.prototype.isIntegerString = function() {
-    return /^-?\d+$/.test(this.toString());
-}
-
-String.prototype.isNumberString = function() {
-    return /^-?(\d+\.)?\d+$/.test(this.toString());
-}
-
-String.prototype.isDateTimeString = function() {
-    return /^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/.test(this.toString());
-}
-
-String.prototype.isDateString = function() {
-    return /^\d\d\d\d-\d\d-\d\d$/.test(this.toString());
-}
-
-String.prototype.isTimeString = function() {
-    return /^\d\d\d\d:\d\d(:\d\d)?$/.test(this.toString());
-}
-
-String.prototype.isImageURL = function() {
-    return /\.(jpg|png|gif|jpeg)$/i.test(this.toString());
 }
 
 String.prototype.encode = function() {
@@ -1475,8 +1593,8 @@ String.prototype.eval = function(obj, data) {
     }    
 }
 
-String.prototype.toJson = function() {
-    return new Json(this.toString());
+String.prototype.toObject = function() {
+    return JSON.eval(this.toString());
 }
 
 String.prototype.shuffle = function(digit) {
@@ -1484,7 +1602,7 @@ String.prototype.shuffle = function(digit) {
     if (digit == null) {
         let s = new Set();
         for (let i = 0; i < this.length; ) {
-            let x = $random(0, this.length - 1);
+            let x = Math.randomNext(0, this.length - 1);
             if (!s.has(x)) {
                 s.add(x);
                 p.push(this[x]);
@@ -1494,7 +1612,7 @@ String.prototype.shuffle = function(digit) {
     }
     else {
         for (let i = 0; i < digit; i++) {
-            p.push(this[$random(0, this.length - 1)]);
+            p.push(this[Math.randomNext(0, this.length - 1)]);
         }
     }
 
@@ -1503,6 +1621,18 @@ String.prototype.shuffle = function(digit) {
 
 String.shuffle = function(digit = 7) {
     return "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz".shuffle(digit);    
+}
+
+String.generateGUID = function() {
+    return new Date().valueOf() + '-' + String.shuffle(11);
+}
+
+String.prototype.$ = function() {
+    return $(this.toString());
+}
+
+String.prototype.$$ = function() {
+    return $$(this.toString());
 }
 
 String.prototype.do = function(exp) {    
@@ -1515,6 +1645,77 @@ String.prototype.do = function(exp) {
 
     return this.toString();
 }
+
+String.prototype.iconToHTML = function(path) {
+    let icon = this.toString();
+    if (icon.startsWith('icon-')) {
+        return '<i class="iconfont ' + this.toString() + '"></i>';
+    }
+    else if (icon.isImageURL) {
+        icon = icon.replaceAll('\\', '/');
+        if (!icon.includes('/')) {
+            icon = (path ?? $root.images).suffix('/') + icon;
+        }
+        return `<img src="${icon}" align="absmiddle" /> `
+    }
+    else {
+        return icon;
+    }
+}
+
+Object.defineProperties(String.prototype, {
+    'isImageURL': {
+        get() {
+            return /\.(jpg|png|gif|jpeg)$/i.test(this.toString());
+        }
+    },
+    'isEmpty': {
+        get() {
+            return this.toString().trim() == '';
+        }
+    },
+    'isCogoString': {
+        get() {
+            let str = this.toString().trim();
+            return /^(\/|[a-z]+(\s|#))/i.test(str) || /^(get|post|delete|put|http|https)\s*:/i.test(str) || (str.includes('/') && str.includes('?') && str.includes('='));
+        }
+    },
+    'isObjectString': {
+        get() {
+            return /^\s*\{\s*("[^"]*"\s*:[^{}]+?|'[^']*'\s*:[^{}]+?|\d+\s*:[^{}]+?|)\}\s*$/s.test(this.toString());
+        }
+    },
+    'isArrayString': {
+        get() {
+            return /^\s*\[.*\]\s*$/s.test(this.toString());
+        }
+    },
+    'isIntegerString': {
+        get() {
+            return /^-?\d+$/.test(this.toString());
+        }
+    },
+    'isNumberString': {
+        get() {
+            return /^-?(\d+\.)?\d+$/.test(this.toString());
+        }
+    },
+    'isDateTimeString': {
+        get() {
+            return /^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d$/.test(this.toString());
+        }
+    },
+    'isDateString': {
+        get() {
+            return /^\d\d\d\d-\d\d-\d\d$/.test(this.toString());
+        }
+    },
+    'isTimeString': {
+        get() {
+            return /^\d\d\d\d:\d\d(:\d\d)?$/.test(this.toString());
+        }
+    }
+});
 
 RegExp.prototype.findFirstIn = function(content) {
     return this.exec(content)?.[0] ?? null;
@@ -1616,6 +1817,8 @@ Number.prototype.opposite = function(condition) {
 
 $root = {};
 
+$root.$else = null;
+
 //private method
 $root.__offsetLeft = function(element) {
     if (typeof(element) == 'string') {
@@ -1691,107 +1894,34 @@ $root.__$select = function(t, p, a, d = 'null') {
         }
         if (t != null) {
             // [attr] or value
-            v = a != null ? $root.__$attr(t, a) : $root.__$value(t);            
+            v = a != null ? t.get(a) : (t.value ?? t.text);
         }                    
     }
 
     return v != null ? v : d;
 }
 
-// private
-$root.__$value = function(t, data) {
-    if (t != null) {
-        return t.value ?? t.getAttribute('value') ?? data?.value ?? data?.text ?? data?.data ?? data ?? t.innerHTML ?? t.text ?? t.textContent;
+$root.__bulidDataArgs = function(data, element) {
+
+    if (element == null && data != null) {
+        return data;
+    }
+    else if (element != null && data == null) {
+        return {
+            data: element.data ?? element.value ?? element.text,
+            text: element.text ?? element.value,
+            value: element.value ?? element.text
+        };
+    }
+    else if (element != null && data != null) {
+        return Object.assign({ 
+            data: element.data ?? element.value ?? element.text,
+            text: element.text ?? element.value,
+            value: element.value ?? element.text
+        }, data);
     }
     else {
-        return data?.value ?? data?.text ?? data?.data ?? data;
-    }    
-}
-
-$root.__$text = function(t, data) {
-    if (t != null) {
-        return t.text ?? t.getAttribute('text') ?? data?.text ?? data?.value ?? data?.data ?? data ?? t.textContent ?? t.innerHTML ?? t.value;
-    }
-    else {
-        return data?.text ?? data?.value ?? data?.data ?? data;
-    }
-}
-
-$root.__$data = function(t, data) {
-    if (data != null) {
-        return data.data ?? data;        
-    }
-    else if (t != null) {
-        return t.data ?? t.getAttribute('data') ?? t.value ?? t.text ?? t.textContent ?? t.innerHTML;        
-    }
-    else {
-        return null;
-    }
-}
-
-// private
-$root.__$attr = function(t, a, v) {
-    if (typeof(t) == 'string') {
-        let s = t;
-        t = $s(t);
-        if (t == null) {
-            throw new Error('Incorrect selector: ' + s);
-        }        
-    }
-
-    if (a == 'class') {
-        a = 'className';
-    }
-
-    let b = null;
-    if (a.includes('-')) {
-        b = a.takeAfter('-').toCamel();
-        a = a.takeBefore('-');
-    }
-    else if (a.includes(':')) {
-        b = a.takeAfter(':').toCamel();
-        a = a.takeBefore(':').toCamel();
-    }
-    if (v == null) {
-        v = t[a]?.toString() ?? t.getAttribute?.(a);
-        if (b != null) {
-            return v[b]?.toString() ?? v.getAttribute?.(b);
-        }
-        else {
-            return v;
-        }
-    }
-    else {        
-        if (t[a] !== undefined) {
-            if (b == null) {
-                if (typeof(t[a]) == 'boolean') {
-                    t[a] = $parseBoolean(v, true, t);
-                }
-                else if (typeof(t[a]) == 'number') {
-                    t[a] = $parseFloat(v);
-                }
-                else {
-                    t[a] = v;
-                }
-            }
-            else if (t[a][b] !== undefined) {
-                if (typeof(t[a][b]) == 'boolean') {
-                    t[a][b] = $parseBoolean(v, true, t);
-                }
-                else if (typeof(t[a]) == 'number') {
-                    t[a][b] = $parseFloat(v);
-                }
-                else {
-                    t[a][b] = v;
-                }
-            }
-            else {
-                throw new Error('Incorrect attribute name: ' + b);
-            }
-        }
-        else {
-            t.setAttribute?.(a, v);
-        }
+        return { };
     }
 }
 
@@ -1953,7 +2083,7 @@ $parseObject = function(value, defaultValue = {}) {
         return value;
     }
     else if (typeof(value) == 'string') {
-        return Json.eval(value);
+        return JSON.eval(value);
     }
     else {
         return defaultValue;
@@ -2055,7 +2185,7 @@ $parseElements = function(elements, propertyName) {
     }
 }
 
-$random = function(begin, end) {
+Math.randomNext = function(begin, end) {
     if (end == null) {
         end = begin;
         begin = 0;
@@ -2063,36 +2193,16 @@ $random = function(begin, end) {
     return begin + Math.round(Math.random() * (end - begin));
 }
 
-$guid = function() {
-    return new Date().valueOf() + '-' + String.shuffle(11);
-}
-
 //single
 $s = function (o, error) {
     if (typeof (o) == 'string') {
-        if (o.includes('#')) {
-            let t = o.substring(1);
-            if (document.components.has(t)) {
-                return document.components.get(t);
-            }
-            else {
-                let s = document.querySelector(o);
-                if (s == null && /^\w+$/.test(t)) {
-                    s = document.querySelector('[name=' + t + ']');
-                }
-                return s;
-            }
-        }
-        else if (o != '') {
-            let s = document.querySelector(o);
-            if (s == null && error != undefined) {
-                console.error(error);
-            }
-            return s;
+        let s = document.querySelector(o);
+        if (s instanceof HTMLUnknownElement || s instanceof HTMLTextAreaElement) {
+            return s['instance#'] ?? s;
         }
         else {
-            return null;
-        }
+            return s;
+        }        
     }    
     else {        
         return o;
@@ -2101,40 +2211,20 @@ $s = function (o, error) {
 
 //all
 $a = function (...o) {
-    let s = new Array();
+    let a = new Array();
     for (let b of o) {
         if (typeof (b) == 'string') {
-            if (b.includes('#')) {
-                b.split(',')
-                .map(x => x.trim())
-                .forEach(x => {
-                    if (x.startsWith('#')) {
-                       let t = x.substring(1);
-                       if (document.components.has(t)) {
-                           s.push(document.components.get(t));
-                       }
-                       else {
-                           s.push(...document.querySelectorAll(x));                           
-                       }
-                    }
-                    else if (x != '') {
-                        s.push(...document.querySelectorAll(x));                       
-                    }
-                });     
-            }
-            else if (b != '') {
-                s.push(...document.querySelectorAll(b));
-            }                   
+            a.push(...[...document.querySelectorAll(b)].map(e => e['instance#'] ?? e));
         }        
         else if (b instanceof NodeList || b instanceof HTMLCollection) {
-            s.push(...b);            
+            a.push(...b);            
         }
-        else if (b != null) { //instanceof HTMLElement || b instanceof HTMLDocument || b instanceof Window
-            s.push(b);
+        else if (b != null) {
+            a.push(b);
         }        
     }
 
-    return s;
+    return a;
 }
 
 if ($root.configuration != null) {
@@ -2156,35 +2246,6 @@ else {
     $$_ = window.$$;
     window.$ = $s;
     window.$$ = $a;
-}
-
-//first visible
-$v = function(o) {
-    if (o.includes(',')) {
-        let s = $a(o);
-        if (s.length == 1) {
-            return s[0];
-        }
-        else if (s.length > 1) {
-            for (let b of s) {
-                if (!b.hidden) {
-                    return b;
-                }
-            }
-            return s[0];
-        }
-        else {
-            null;
-        }
-    }
-    else {
-        return $s(o);
-    }
-}
-
-//tag
-$t = function(o) {
-    return document.components.get(o.drop('#'));
 }
 
 $create = function (tag, properties, styles, attributes) {
@@ -2228,13 +2289,14 @@ $POST = function (url, params = '', path = '/', element = null, p = true) {retur
 $PUT = function (url, params = '', path = '/',  element = null, p = true) { return new $ajax('PUT', url, params, path, element, p); }  //UPDATE/INSERT
 $DELETE = function (url, path = '/', element = null, p = true) { return new $ajax('DELETE', url, path, element, p); }  //DELETE
 
+//GET+
 $TAKE = function(data, element, owner, func) {
     if (typeof(data) == 'string') {
         data = data.trim();
-        if (data.isArrayString() || data.isObjectString()) {
-            func.call(owner, Json.eval(data));
+        if (data.isArrayString || data.isObjectString) {
+            func.call(owner, JSON.eval(data));
         }
-        else if (data.isCogoString()) {
+        else if (data.isCogoString) {
             $cogo(data, element, element)
                 .then(result => {
                     func.call(owner, result);
@@ -2244,10 +2306,10 @@ $TAKE = function(data, element, owner, func) {
                 });
         }
         else if (data.includes(",") && !data.includes("(") && !data.includes(")")) {
-            func.call(owner, Json.eval('["' + data.replace(/,/g, '","') + '"]'));
+            func.call(owner, JSON.eval('["' + data.replace(/,/g, '","') + '"]'));
         }
         else if (/^@\w/.test(data)) {
-            func.call(owner, Json.eval(data.placeModelData(owner.id || owner.name || owner.owner?.id || owner.owner?.name))); //owner 对象有可能还有自己的 owner，如 FOR 和 SELECT 的关系
+            func.call(owner, JSON.eval(data.followModel(owner.id || owner.name || owner.owner?.id || owner.owner?.name))); //owner 对象有可能还有自己的 owner，如 FOR 和 SELECT 的关系
         }
         else if (data != '') {
             //如果是js变量
@@ -2302,7 +2364,7 @@ $ajax = function (method, url, params = '', path = '/', element = null, p = true
                     if (typeof (api.onsuccess) == 'function') {
                         let result = this.responseText;
                         try {
-                            result = new Json(this.responseText).find(path);
+                            result = JSON.find(this.responseText, path);
                         }
                         catch(e) {
 
@@ -2399,9 +2461,6 @@ $ajax.prototype.on = function(event, func) {
 //data 传递 data, value, text 三个变量的数据对象
 $cogo = function(todo, element, data) {
     todo = todo.trim();
-    if (todo.includes('@')) {
-        todo = todo.placeModelData();
-    }
 
     let method = 'GET';
     let path = '/';
@@ -2453,10 +2512,10 @@ $cogo = function(todo, element, data) {
                             else {
                                 let ready  = eval('_ = function(result) { with(result) { return ' + setting.ready + '; } }').call(window, result);
                                 if (ready) {
-                                    resolve(Json.find(result, setting.path));
+                                    resolve(JSON.find(result, setting.path));
                                 }
                                 else {
-                                    reject(Json.find(result, setting.info));
+                                    reject(JSON.find(result, setting.info));
                                 }
                             }
                         }).send();
@@ -2511,7 +2570,7 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
                                 valid = $parseBoolean(expection.eval(actualElement ?? element, data), true, actualElement ?? element);
                             }
                             else {
-                                valid = Json.toString(data) == expection;
+                                valid = JSON.stringifo(data) == expection;
                             }
                             break;
                     }   
@@ -2522,14 +2581,14 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
 
                 if (valid) {
                     succeed?.call(element, data);
-                    Event.execute(element, event + 'success', data);
+                    element.dispatch(event + 'success', { "data": data });
                     if (element.debug) {
                         console.log(`${element.nodeName || ''} "${element.id || element.name}" ${event} event status: success. return data: ` + JSON.stringify(data));
                     }
                 }
                 else {
                     fail?.call(element, data);
-                    Event.execute(element, event + 'failure', data);
+                    element.dispatch(event + 'failure', { "data": data });
                     if (element.debug) {
                         console.warn(`${element.nodeName || ''} "${element.id || element.name}" ${event} event status: faliure. return data: ` + JSON.stringify(data));
                     }
@@ -2537,14 +2596,14 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
             })
             .catch(error => {
                 except?.call(element, error);
-                Event.execute(element, event + 'exception', error);
+                element.dispatch(event + 'exception', { "error": error });
                 if (element.debug) {
                     console.error(`${element.nodeName || ''} "${element.id || element.name}" ${event} event status: error. return message: ` + error);
                 }                
             })
             .finally(() => {
                 complete?.call(element);
-                Event.execute(element, event + 'completion');
+                element.dispatch(event + 'completion');
             });
     }
 };
@@ -2633,15 +2692,19 @@ $cookie.has = function(n) {
 }
 $cookie();
 
-Json = function(strOrObj) {
-    if (typeof (strOrObj) == 'string') {
-        strOrObj = strOrObj.replace(/&quot;/g, '"');        
+JSON.stringifo = function(v) {
+    return (typeof (v) != 'string' ? JSON.stringify(v) : v);
+}
+
+JSON.eval = function(string) {
+    if (typeof(string) == 'string') {
+        string = string.replace(/&quot;/g, '"');
         try {
-            this.json = JSON.parse(strOrObj);
+            return JSON.parse(strOrObj);
         }
         catch(e1) {
             try {
-                this.json = eval('(' + strOrObj + ')');
+                return eval('(' + strOrObj + ')');
             }
             catch(e2) {
                 throw new Error('Error occured when try to parse json string. Exception of JSON.parse :' + e1 + ', eval: ' + e2);
@@ -2649,44 +2712,26 @@ Json = function(strOrObj) {
         }
     }
     else {
-        this.json = strOrObj;
+        return string;
     }
 }
 
-Json.prototype.toString = function() {
-    return JSON.stringify(this.json);
-}
-
-Json.toString = function(v) {
-    return (typeof (v) != 'string' ? JSON.stringify(v) : v);
-}
-
-Json.find = function(jsonObject, path = '/') {
-    if (path != '/' && path != '') {
-        let json = jsonObject;
-        if (path.startsWith('/')) {
-            path = path.substring(1);
-        }
-        
+JSON.find = function(json, path = '/') {
+    if (typeof(json) == 'string') {
+        json = JSON.eval(json);
+    }
+    if (path == '/') {
+        return json;
+    }
+    else {
         while (json != null && path != '') {
-            let s = (path.includes("/") ? path.substring(0, path.indexOf('/')) : path).trim();
-            json = (s != '' ? json[s] : null);
-            path = (path.includes("/") ? path.substring(path.indexOf('/') + 1) : '');
+            let s = (path.includes("/") ? path.takeBefore('/') : path).trim();
+            json = json[s];
+            path = (path.includes("/") ? path.takeAfter('/') : '');
         }
 
         return json;
     }
-    else {
-        return jsonObject;
-    }    
-}
-
-Json.eval = function(json) {
-    return new Json(json).find();
-}
-
-Json.prototype.find = function(path = '/') {
-    return Json.find(this.json, path);
 }
 
 Enum = function() {
@@ -2706,164 +2751,40 @@ Enum.Entity.prototype.validate = function(value, toUpper = false) {
     return toUpper ? value.toUpperCase() : value.toLowerCase();
 }
 
-//all components
-// name : component
-// name doesn't start with '#'
-document.components = new Map();
-//只是为了保存onfinish事件
-//所有 model 加载完成后执行 onfinish 事件
-document.components.set('$global', {
-    nodeName: 'GLOBAL',
-    tagName: 'GLOBAL',
-    nodeType: 0,
-    onpost: null,
-    onload: null,
-    events: new Map()
-});
-
-// id : event-name : [func]
-Event.s = new Map(); //暂存自定义组件事件
-
-//v1.8.113
-Event.bind = function (tag, eventName, func) {
-    
-    //tag 标签或对象
-    //tag 自定义标签 id/name
-    //tag 原生标签 id/name
-
-    eventName = eventName.trim().toLowerCase().prefix('on');
-
-    let id;
-    if (typeof(tag) == 'string') {
-        if (tag.startsWith('#')) {
-            id = tag.drop('#');
-            if (document.components.has(id)) {
-                tag = document.components.get(id);
-            }
-            else {
-                tag = document.querySelector(tag + ',[name=' + id + ']');
-                if (tag == null) {
-                    throw new Error('Incorrect selector or nonexistent element: #' + id);
-                }
-            }
-        }
-        else if (tag == '$global') {
-            id = tag;
-            tag = document.components.get(tag);
-        }
-        else {
-            if (document.components.has(tag)) {
-                id = tag;
-                tag = document.components.get(tag);
-            }
-            else {
-                let selector = tag;
-                tag = document.querySelector(tag);
-                if (tag == null) {
-                    throw new Error('Incorrect selector or nonexistent element: ' + selector);
-                }
-                else {
-                    id = tag.id || tag.name || '';
-                }
-            }
-        }
-    }
-    else {
-        id = tag.id || tag.name || '';
-    }
-    
-    if (tag instanceof HTMLElement) {
-        //原生标签
-        tag.on(eventName, func);
-    }
-    else if (tag.events != null) {
-        //已加载完的自定义标签
-        if (!tag.events.has(eventName)) {
-            tag.events.set(eventName, new Array());
-        }
-        tag.events.get(eventName).push(func);
-    }
-    else {
-        //未加载完的自定义标签
-        if (!Event.s.has(id)) {
-            Event.s.set(id, new Map());
-        }
-        if (!Event.s.get(id).has(eventName)) {
-            Event.s.get(id).set(eventName, new Array());
-        }
-        Event.s.get(id).get(eventName).push(func);
-    }    
-}
 
 Event.await = function(tag, await) {
     await.split(',')
-    .map(a => a.trim())
     .forEach(a => {
-        Event.bind(a, 'onload', function() {
+        $s(a).on('load', function() {
             tag.await = tag.await.replace(new RegExp(a + '\\b'), '').trimPlus(',');
             if (tag.await == '') {
                 tag.load();
-            }            
+            }
         });
     });
 }
 
-Event.execute = function (tag, eventName, ...args) {
-    eventName = eventName.trim().toLowerCase().prefix('on');
-
-    if (typeof(tag) == 'string') {
-        if (document.components.has(tag)) {
-            tag = document.components.get(tag);
-        }
-        else {
-            tag = document.querySelector('#' + tag + ',[name=' + tag + ']');
-        }
-    }
-
-    if (tag != null) {
-        let final = Event.fire(tag, eventName, ...args);
-        tag.events?.get(eventName)?.forEach(func => {
-            if (!Event.trigger(tag, func, ...args) && final) {
-                final = false;
-            }
-        });       
-
-        return final;
-    }
-    else {
-        console.error('Event carrier does not exists.');
-        return false;
-    }
-}
-
 //执行某一个具体对象的事件非监听事件，再比如对象没有name，如for和if标签
-Event.fire = function(tag, eventName, ...args) {
-    eventName = eventName.trim().toLowerCase().prefix('on');
-    
+Event.fire = function(tag, onLowerName, args) {
     let final = true;
-    if (tag[eventName] != null) {
-        final = Event.trigger(tag, tag[eventName], ...args);
+    if (tag[onLowerName] != null) {
+        let func = tag[onLowerName];
+        if (func != null) {
+            if (typeof (func) == 'function') {
+                final = func.call(tag, args);
+            }
+            else if (typeof (func) == 'string') {
+                if (/^\s*function\(\s*\)\s*{/.test(func)) {
+                    final = eval('final = ' + func).call(tag, args);
+                }
+                else {
+                    final = eval('final = function() {' + func + '}').call(tag, args);
+                }            
+            }
+            if (typeof (final) != 'boolean') { final = true; };
+        }
     }
     return final;
-}
-
-Event.trigger = function(tag, func, ...args) {
-    let final = true;
-    if (func != null) {
-        if (typeof (func) == 'function') {
-            final = func.call(tag, ...args);
-        }
-        else if (typeof (func) == 'string') {
-            if (/^\s*function\(\s*\)\s*{/.test(func)) {
-                final = eval('final = ' + func).call(tag, ...args);
-            }
-            else {
-                final = eval('final = function() {' + func + '}').call(tag, ...args);
-            }            
-        }
-        if (typeof (final) != 'boolean') { final = true; };
-    }
-    return final;  
 }
 
 Event.express = function(exp) {
@@ -2956,43 +2877,27 @@ Event.express = function(exp) {
     }
 }
 
-Event.interact = function(obj, element) {
-    if (obj.events == null) {
-        obj.events = new Map();
-    }    
-    element.getAttributeNames().filter(name => name.startsWith('on') || name.endsWith('-on')).forEach(name => {
+Event.interact = function(element) {
+    for (let name of element.getAttributeNames().filter(name => name.startsWith('on') || name.endsWith('-on'))) {
         if (/^on/i.test(name) && name.endsWith('-')) {
             //on{event}-
-            Event.bind(obj, name.dropRight(1), function(...args) {
-                Event.express.call(this, element.getAttribute(name).$p(this, args));
-            }, false);
+            element.on(name.dropRight(1), function(...args) {
+                Event.express.call(this, this.getAttribute(name).$p(this, { 'data': args}));
+            });
         }
         else if (/-on$/i.test(name)) {
             //{method}-{attr}-on
-            Event.watch(obj, name, element.getAttribute(name));
+            Event.watch(element, name, element.getAttribute(name));
             element.removeAttribute(name); //防止重复监听
-        }
-    });
-
-    if ((obj.id != null && obj.id != '') || (obj.name != null && obj.name != '')) {
-        let id = obj.id || obj.name;
-        if (Event.s.has(id)) {
-            for (let [eventName, funcs] of Event.s.get(id)) {
-                if (!obj.events.has(eventName)) {
-                    obj.events.set(eventName, new Array());
-                }
-                obj.events.get(eventName).push(...funcs);
-            }
-            Event.s.delete(id);
         }
     }
 }
 
-Event.watch = function(obj, name, watcher) {
+Event.watch = function(element, name, watcher) {
 
     let method = name.takeBeforeLast('-');
-    let attr = obj.value != undefined ? 'value' : 'innerHTML';
-    if (obj instanceof HTMLButtonElement) {
+    let attr = element.value != undefined ? 'value' : 'innerHTML';
+    if (element instanceof HTMLButtonElement) {
         attr = 'innerHTML';
     }
     if (method.includes('-')) {                
@@ -3000,14 +2905,13 @@ Event.watch = function(obj, name, watcher) {
         method = method.takeBefore('-');                
     }
 
-    let value = '';
-    //let watcher = element.getAttribute(name);
+    let value = '+'; //表示按照增加属性值更新
     if (watcher.includes('<-')) {
         value = watcher.takeAfter('<-').trim();
         watcher = watcher.takeBefore('<-').trim();
     }
     let func = function() {
-        obj[method](attr, value.$p(obj));
+        element[method](attr, value.$p(element));
     };
     watcher.split(';')
         .map(w => {
@@ -3016,7 +2920,7 @@ Event.watch = function(obj, name, watcher) {
                 selector: w.takeAfter(':').trim()
             } : {
                 event: w,
-                selector: obj.id == '' ? obj : ('#' + obj.id) //目的是可以通过 id 选择自定义组件
+                selector: element.id == '' ? element : ('#' + element.id) //目的是可以通过 id 选择自定义组件
             };
         })
         .forEach(watch => {
@@ -3035,263 +2939,6 @@ Event.watch = function(obj, name, watcher) {
         });
 }
 
-$transfer = function(source, target) {
-    let excludings = new Set(['id', 'type', 'data']);
-    source.getAttributeNames()
-        .forEach(attr => {
-            if (!excludings.has(attr)) {
-                let value = source[attr] != null ? source[attr] : source.getAttribute(attr);
-                if (target[attr] != null) {
-                    target[attr] = value;
-                }
-                else if (!attr.includes('+') && !attr.includes('-')) {
-                    target.setAttribute(attr, value);
-                }
-            }
-        });
-}
-
-$initialize = function(object, child = false) {
-    return new CustomElement(object, child);
-}
-
-CustomElement = function(object, child = false) {
-    this.carrier = null;
-    this.object = object;
-    this.isElement = false;
-    this.$burn = false;
-    this.child = child;
-
-    this.object['nodeName'] = object.constructor != null ? (object.constructor.name != null ? object.constructor.name.toUpperCase() : 'UNKONWN') : 'UNKONWN';
-    this.object['tagName'] = this.object['nodeName'];
-    this.object['nodeType'] = 0; // 0 为自定义标签
-}
-
-CustomElement.prototype.with = function(elementOrSettings) {
-    this.carrier = elementOrSettings;
-    if (this.carrier != null && this.carrier.nodeType == 1) {
-        this.isElement = true;
-    }
-
-    return this;
-}
-
-
-CustomElement.prototype.burnAfterReading = function() {
-    this.$burn = true;
-    return this;
-}
-
-CustomElement.prototype.declare = function(variables) {
-    
-    for (let name in variables) {
-        let property = name;
-        if (/^[_\$]/.test(property)) {
-            property = property.substring(1);
-        }
-        let $p = false; //get 时解析
-        if (property.endsWith('$')) {
-            $p = true;
-            property = property.dropRight(1);
-        }
-
-        let value = variables[name];
-        if ($p) {
-            this.object[name] = this.get(property); 
-            this.object[name + 'value'] = value;
-        }
-        else if (typeof(value) == 'string') {
-            if (property == 'name') {
-                this.object.id = this.get('id') || '';
-                this.object[name] = this.get('name') || this.object.id || value;
-                
-                if (this.object.id == '' && this.object.name != '') {
-                    this.object.id = this.object[name];
-                }                
-
-                if (this.isElement) {
-                    if (this.carrier.id == '' && this.object.id != '') {
-                        this.carrier.id = this.object.id;
-                    }
-                }
-            }
-            else if (value == 'html') {                
-                if (this.isElement) {                    
-                    let find = null;
-                    for (let i = 0; i < this.carrier.children.length; i++) {
-                        if (this.carrier.children[i].nodeName == property.toUpperCase() || this.carrier.children[i].nodeName == property.toHyphen().toUpperCase()) {
-                            find = this.carrier.children[i];
-                            break;
-                        }
-                    }
-                    if (find != null) {
-                        this.object[name] = find.innerHTML;
-                    }
-                    else {
-                        find = this.carrier.getAttribute(property) || this.carrier.getAttribute(property.toHyphen());
-                        if (find != null) {
-                            this.object[name] = find;
-                        }
-                        else if (property == 'text') {
-                            this.object[name] = this.carrier.innerHTML;
-                        }
-                        else {
-                            this.object[name] = '';
-                        }
-                    }
-                }
-                else {
-                    this.object[name] = $parseString(this.get(property), '');
-                }
-            }
-            else if (value == 'css') {
-                let className = this.get(property);
-                if (className == null && this.isElement) {
-                    let tag = property.replace(/Class$/, '');
-                    tag = this.carrier.querySelector(tag) || this.carrier.querySelector(tag.toHyphen());
-                    if (tag != null) {
-                        className = tag.className;
-                    }
-                }
-                this.object[name] = className;
-            }
-            else if (value.includes('[') && value.endsWith(']')) {
-                let result = this.get(property);
-                if (result == null && this.isElement) {
-                    let tag = value.takeBefore('[');
-                    let attr = value.takeAfter('[').dropRight(1);
-                    tag = this.carrier.querySelector(tag) || this.carrier.querySelector(tag.toHyphen());
-                    if (tag != null) {
-                        if (tag.hasAttribute(attr)) {
-                            result = tag.getAttribute(attr);
-                        }
-                        else if (tag.hasAttribute(attr.toHyphen())) {
-                            result = tag.getAttribute(attr.toHyphen());
-                        }
-                    }                    
-                }
-                this.object[name] = result;
-            }
-            else if (value == '$s' || value == '$') {
-                this.object[name] = $s(this.get(property));
-            }
-            else if (value == '$a' || value == '$$') {
-                this.object[name] = $a(this.get(property));
-            }
-            //enum 枚举, 默认值为第1项
-            else if (value.includes('|')) {
-                this.object[name] = Enum(value).validate(this.get(property), false);
-            }
-            else {
-                this.object[name] = $parseString(this.get(property), value);                
-            }
-        }
-        else if (typeof(value) == 'number') {
-            if (String(value).includes('.')) {
-                this.object[name] = $parseFloat(this.get(property), value);
-            }
-            else {
-                this.object[name] = $parseInt(this.get(property), value);
-            }
-        }
-        else if (typeof(value) == 'boolean') {
-            this.object[name] = $parseBoolean(this.get(property), value, this.object);
-        }
-        else if (name.startsWith('on') && typeof(value) == 'function') {
-            this.object[name] = this.get(name);
-        }
-        else if (typeof(value) == 'function') {
-            this.object[name] = value.call(this.object, this.get(property));
-        }
-        else if (value instanceof Array) {
-            this.object[name] = $parseArray(this.get(property), value);
-        }
-        else if(value instanceof Enum.Entity) {
-            this.object[name] = value.validate(this.get(property), true);
-        }
-        else if (value instanceof Object) {
-            this.object[name] = Json.eval(this.get(property));
-        }
-        else {
-            this.object[name] = this.get(property);
-        }
-    }
-
-    if (!this.child) {
-        this.object.on = function (eventName, func) {
-            Event.bind(this, eventName, func);
-            return this;
-        }
-        
-        this.object.execute = function (eventName, ...args) {
-            return Event.execute(this, eventName, ...args);
-        }
-        
-        if (this.object.name != '') {
-            document.components.set(this.object.name, this.object);
-        }
-    }
-
-    return this;
-}
-
-CustomElement.prototype.get = function(attr) {
-    let value = null;
-
-    if (this.carrier != null) {
-        if (this.isElement) {
-            if (!this.carrier.hasAttribute(attr) && this.carrier[attr] == undefined) {
-                if (/[A-Z]/.test(attr)) {
-                    attr = attr.toHyphen();
-                    if (!this.carrier.hasAttribute(attr) && this.carrier[attr] == undefined) {
-                        attr = '';
-                    }                    
-                }
-            }
-            
-            if (attr != '') {
-                //优先获取显式定义的属性
-                if (this.carrier.getAttribute(attr) != null) {
-                    value = this.carrier.getAttribute(attr);
-                }
-                //class需要从原生属性className获取
-                else if (this.carrier[attr] != undefined) {
-                    //排除掉有问题的项
-                    if (!'selectedIndex,draggable'.includes(attr)) {
-                        value = this.carrier[attr];
-                    }
-                }
-                //burn after reading
-                if (this.$burn) {
-                    this.carrier.removeAttribute(attr);
-                }                
-            }            
-        }
-        else if (this.carrier[attr] != null) {
-            value = this.carrier[attr];
-            if (this.$burn) {          
-                delete this.carrier[attr];
-            }            
-        }
-    }
-
-    return value;
-}
-
-CustomElement.prototype.elementify = function(func) {
-    if (this.isElement) {
-        func.call(this.object, this.carrier);
-    }
-    return this;
-}
-
-CustomElement.prototype.objectify = function(func) {
-    if (this.carrier != null && !this.isElement) {
-        func.call(this.object, this.carrier);
-    }
-    return this;
-}
-
 $enhance = function(object) {
     return new NativeElement(object);
 }
@@ -3302,139 +2949,205 @@ NativeElement = function(object) {
     this.object.constructor.setterX = new Map();
 }
 
+NativeElement.prototype.defineProperties = function(properties) {
+    for (const propertyName in properties) {
+
+        const defaultValue = properties[propertyName];
+
+        if (typeof(defaultValue) == 'object' && defaultValue != null) {
+            Object.defineProperty(this.object, propertyName, defaultValue);
+        }
+        else {
+            let getFunc = null, setFunc = null;
+
+            if (typeof(defaultValue) == 'string') {
+                if (defaultValue.includes('|')) {
+                    getFunc = function(propertyValue, defaultValue) {
+                        return Enum(defaultValue).validate(propertyValue);
+                    };
+                }
+                else if (/\.(gif|jpg|jpeg|png)$/i.test(defaultValue)) {
+                    getFunc = function(propertyValue, defaultValue) {
+                        return (propertyValue ?? defaultValue).if(s = s != '' && !s.includes('/'))?.prefix(this.imagesBasePath ?? '') ?? $else;
+                    }
+                }
+            }
+            else if (typeof(defaultValue) == 'number') {
+                if (String(defaultValue).includes('.')) {
+                    getFunc = function(propertyValue, defaultValue) {
+                            return $parseFloat(propertyValue, defaultValue);
+                        };
+                }
+                else {
+                    getFunc = function(propertyValue, defaultValue) {
+                            return $parseInt(propertyValue, defaultValue);
+                        };
+                }
+            }
+            else if (typeof(defaultValue) == 'boolean') {
+                getFunc = function(propertyValue, defaultValue) {
+                        return $parseInt(propertyValue, defaultValue);
+                    };
+            }
+            else if (typeof(defaultValue) == 'function')  {
+                getFunc = function(propertyValue, defaultValue) { 
+                    defaultValue.call(this, propertyValue);
+                }
+            }
+
+            Object.defineProperty(this.object, propertyName, {
+                enumerable: true,
+                configurable: true,
+                get() {
+                    let propertyValue = this.getAttribute(propertyName);
+                    if (this.constructor.getterX.has(propertyName)) {
+                        propertyValue = NativeElement.executeAopFunction(this, this.constructor.getterX.get(propertyName), propertyValue ?? defaultValue);
+                    }
+                    return getFunc == null ? (propertyValue ?? defaultValue) : getFunc.call(this.object, propertyValue, defaultValue);
+                },
+                set(value) {
+                    if (this.constructor.setterX.has(propertyName)) {
+                        let result = NativeElement.executeAopFunction(this, this.constructor.setterX.get(propertyName), value);
+                        if (result !== undefined) {
+                            value = result;
+                        }
+                    }
+                    setFunc?.call(this, value) ?? this.setAttribute(propertyName.toHyphen(), value);
+                }
+            });   
+        }
+    }
+    return this;
+}
+
+//绑定事件，单个参数支持数组格式，第一项全小写，第二项 Camel
+NativeElement.prototype.defineEvents = function(...eventNames) {
+    eventNames.forEach(eventName => {
+        if (eventName.endsWith('+')) {
+            HTMLElement.defineSeverEvent(this.object, eventName.first ?? eventName, eventName.last);
+        }
+        else {
+            HTMLElement.defineCustomEvent(this.object, eventName.first ?? eventName, eventName.last);
+        }
+    });  
+    return this;
+}
+
 NativeElement.executeAopFunction = function(object, func, value) {
     if (typeof (func) == 'string') {
-        return function(func, value) { return evel(func) }.call(object, func, value)
+        return (function(func, value) { return eval(func) }).call(object, func, value)
     }
     else {
         return func.call(object, value);
     }
 }
 
-//新定义扩展属性, 由元素属性保存值
-NativeElement.prototype.declare = function(variables) {
-    for (let name in variables) {
-        Object.defineProperty(this.object, name, {
-            enumerable: true,
-            configurable: true,
-            get() {
-                //这里有个可能的坑，每次获取都会判断值是否返回默认值，默认值理论上讲只对第一次设置有效
-                let defaultValue = variables[name];
-                let value = this.getAttribute(name);
-                if (value == null && /[A-Z]/.test(name)) {
-                    value = this.getAttribute(name.replace(/^[_$]/, '').toHyphen());
-                }
-                if (this.constructor.getterX.has(name)) {
-                    value = NativeElement.executeAopFunction(this, this.constructor.getterX.get(name), value == null ? defaultValue : value);
-                }
+class HTMLCustomElement {
 
-                if (typeof(defaultValue) == 'string') {
-                    if (defaultValue.includes('|')) {
-                        return Enum(defaultValue).validate(value);
-                    }
-                    else {
-                        return $parseString(value, defaultValue);
-                    }                    
-                }
-                else if (typeof(defaultValue) == 'number') {
-                    if (String(defaultValue).includes('.')) {
-                        return $parseFloat(value, defaultValue);
-                    }
-                    else {
-                        return $parseInt(value, defaultValue);
-                    }
-                }
-                else if (typeof(defaultValue) == 'boolean') {
-                    return $parseBoolean(value, defaultValue, this);
-                }                
-                else if(defaultValue instanceof Enum.Entity) {
-                    return defaultValue.validate(value);
-                }
-                else if (typeof(defaultValue) == 'function') {
-                    return defaultValue.call(this, value);
-                }
-                else {
-                    return value;
-                }
+    constructor(element) {
+        this.element = element;
+        this.element['instance#'] = this;
+        this.tagName = element.tagName;
+        this.nodeName = element.nodeName;
+    }
+
+    get id() {
+        if (this.element.id == '' && this.hasAttribute('name')) {
+            this.element.id = this.getAttribute('name');
+        }
+        return this.element.id;
+    }
+
+    set id(id) {
+        this.element.id = id;
+    }
+
+    get clientEvents() {
+        return this.element.clientEvents;
+    }
+
+    get eventListeners() {
+        return this.element.eventListeners;
+    }
+
+    on(eventName, func){
+        this.element.on(eventName, func);
+        return this;
+    }
+
+    dispatch(eventName, args) {
+        return this.element.dispatch(eventName, args);
+    }
+}
+
+//general properties
+Object.defineProperties(HTMLCustomElement.prototype, [
+        'visible', 'hidden',
+        'parent', 'previous', 'next', 'first', 'last',
+        'left', 'right', 'top', 'bottom', 'width', 'height',
+        'class',
+        'debug'
+    ].concat(
+        (function() {
+            let properties = [];
+            for (const name in HTMLElement.prototype) {
+                if (name.startsWith('on')) {
+                    properties.push(name);
+                }        
+            }
+            return properties;
+        })() //native events
+    ).toObject(property => {
+        return {
+            get() {
+                return this.element[property];
             },
             set(value) {
-                if (this.constructor.setterX.has(name)) {
-                    let result = NativeElement.executeAopFunction(this, this.constructor.setterX.get(name), value);
-                    if (result !== undefined) {
-                        value = result;
-                    }
-                }
-                this.setAttribute(name, value);
+                this.element[property] = value;
             }
-        });
-    }
-    return this;
-};
+        };
+    }));
 
-//扩展标签属性的 geteter  如改变要获取的值，即对要获取的值进行检查
-NativeElement.prototype.getter = function(properties) {
-    for (let name in properties) {
-        this.object.constructor.getterX.set(name, properties[name]);
-    }
-    return this;
+let properties = [];
+for (const name in HTMLElement.prototype) {
+    properties.push(name);
 }
 
-//扩展标签属性的 seteter 如改变要设置的值，即对要设置的值进行检查
-NativeElement.prototype.setter = function(properties) {
-    for (let name in properties) {
-        this.object.constructor.setterX.set(name, properties[name]);
-    }
-    return this;
-}
+//general method
+['get', 'set', 'do', 'if'].forEach(method => {
+    HTMLCustomElement.prototype[method] = HTMLElement.prototype[method];
+});
 
-//不能用declare方法定义的属性，或者要覆盖原生属性，最大自由度
-NativeElement.prototype.define = function(properties) {
-    for (let name in properties) {
-        Object.defineProperty(this.object, name, properties[name]);
+[
+    '$', '$$',
+    'show', 'hide',
+    'setStyle', 'setStyles', 'setClass',
+    'setLeft', 'setRight', 'setTop', 'setBottom', 'setWidth', 'setHeight',
+    'callout',
+    'hasAttribute', 'getAttribute', 'setAttribute', 'removeAttribute', 'getAttributeNames', 'remove',
+    'insertAdjacent', 'insertBeforeBegin', 'insertAfterBegin', 'insertBeforeEnd', 'insertAfterEnd'
+].forEach(method => {
+    HTMLCustomElement.prototype[method] = function(arg1, arg2, arg3, arg4) {
+        return this.element[method](arg1, arg2, arg3, arg4);
     }
-    return this;
-};
+});
 
-//绑定事件
-NativeElement.prototype.extend = function(...eventNames) {
-    eventNames.forEach(eventName => {
+['addClass', 'removeClass'].forEach(method => {
+    HTMLCustomElement.prototype[method] = function(...args) {
+        return this.element[method](...args);
+    }
+});
+
+//eventMap 可以是对象或数组
+HTMLCustomElement.defineEvents = function(object, eventMap) {
+    Object.keys(eventMap).forEach(lowerName => {
         if (eventName.endsWith('+')) {
-            HTMLElement.defineSeverEvent(this.object, eventName);
+            HTMLElement.defineSeverEvent(this.object, lowerName, eventMap[lowerName]);
         }
         else {
-            HTMLElement.defineCustomEvent(this.object, eventName);
+            HTMLElement.defineCustomEvent(this.object, lowerName, eventMap[lowerName]);
         }
-    });  
-    return this;
-}
-
-//声明隐式变量, 非标签中声明的参数或扩展方法，下划线开头的私有变量保存值
-NativeElement.prototype.describe = function(variables) {
-    for (let name in variables) {
-        let defaultValue = variables[name];        
-        Object.defineProperty(this.object, name, {
-            extension: true,
-            get () {
-                if (this['_' + name] === undefined) {
-                    this[name] = this.getAttribute(name) ?? this.getAttribute(name.toHyphen()) ?? defaultValue;
-                }
-                return this['_' + name];
-            },
-            set (value) {
-                if (defaultValue == '$') {
-                    this['_' + name] = value == '$' ? null : $parseElement(value, name);
-                }
-                else if (defaultValue == '$$') {
-                    this['_' + name] = value == '$$' ? [] : $parseElements(value, name);
-                }
-                else {
-                    this['_' + name] = value;
-                }                
-            }
-        });
-        
-    }
-    return this;
+    });    
 }
 
 Callout = function(content) {
