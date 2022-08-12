@@ -263,7 +263,7 @@ HTMLModelElement.initializeNext = function(from) {
                 for (let span of $a('span[data],span[editable]')) {
                     if (!span.hasAttribute('root-span')) {
                         span.setAttribute('root-span', '');
-                        HTMLModelElement.boostPropertyValue(span);
+                        HTMLElement.boostPropertyValue(span);
                         span.initialize();
                     }
                 }
@@ -338,11 +338,11 @@ HTMLModelElement.initializeAll = function() {
 $for = { }; //保存计算过程中的数据
 
 class HTMLForElement extends HTMLCustomElement {
+
     constructor(element) {
         super(element);
 
         this.#content = this.element.innerHTML;
-        this.#isForElement = this.element.tagName == 'FOR'; //可以把其他元素作为 For 元素使用
         this.#variables = this.getAttribute('variables')?.eval() ?? { }; //父级 FOR 或 TEMPLATE 传递的数据
         $for[this.#guid] = [];
         this.onload = this.getAttribute('onload');
@@ -353,7 +353,6 @@ class HTMLForElement extends HTMLCustomElement {
     #guid = 'F' + String.shuffle(31);
     #data = null; //当次加载解析后的数据
     #content = ''; //标签内容
-    #isForElement = true;
     #variables = null;
 
     #var = null;
@@ -384,21 +383,40 @@ class HTMLForElement extends HTMLCustomElement {
         return this.getAttribute('in') ?? this.getAttribute('of') ?? this.getAttribute('data') ?? '';
     }
 
+    #owner = null;
+
+    get owner() {
+        return this.#owner;
+    }
+
+    set owner(owner) {
+        this.#owner = owner;
+    }
+
+    #container = null;
+
     get container() {
-        return this.getAttribute('container')?.$() ?? this.element;
+        if (this.#container == null) {
+            this.#container = this.getAttribute('container')?.$() ?? this.element;
+        }
+        return this.#container;
+    }
+
+    set container(container) {
+        this.#container = container;
     }
 
     get resultPosition() {
-        return this.getAttribute('result-position') ?? this.getAttribute('position') ?? (this.#isForElement ? 'beforeBegin' : 'beforeEnd');
+        return this.getAttribute('result-position') ?? this.getAttribute('position') ?? 'beforeBegin';
+    }
+
+    set resultPosition(position) {
+        this.setAttribute('result-position', position);
     }
 
     onload = null;
 
     load(data) {
-        //其他标签如 select 可以当作 for 使用
-        if (!this.#isForElement) {
-            this.element.innerHTML = '';
-        }
         
         this.#data = data ?? this.in;
 
@@ -453,11 +471,8 @@ class HTMLForElement extends HTMLCustomElement {
                 Event.fire(this, 'onload', data);
             }  
 
-            if (this.#isForElement) {
+            if (this.parentNode != null) {
                 this.remove();
-            }
-            else {            
-                this.removeAttribute('interpreting');
             }
 
             HTMLModelElement.initializeNext('A FOR LOADED.');
@@ -521,6 +536,24 @@ class HTMLForElement extends HTMLCustomElement {
 
         return html.join('');
     }
+}
+
+HTMLForElement.from = function(element, owner) {
+    let _for = document.createElement('FOR');
+    _for.innerHTML = element.innerHTML;
+    element.getAttributeNames().forEach(name => {
+        if (name != 'id') {
+            _for.setAttribute(name, element[name] ?? element.getAttribute(name));
+        }
+    });
+    element.innerHTML = '';
+
+    let for_ = new HTMLForElement(_for);
+    for_.container = element;
+    for_.resultPosition = 'beforeEnd';
+    for_.owner = owner ?? element;
+
+    return for_;
 }
 
 HTMLForElement.evalContentIgnoreSubCycle = function(element, content, variables =  '', args = null) {
@@ -730,12 +763,12 @@ $enhance(HTMLSpanElement.prototype)
     }).defineEvents('onload', 'onreload');
 
 HTMLSpanElement.prototype.loaded = false;
-HTMLSpanElement.prototype.content = null;
+HTMLSpanElement.prototype.originHTML = null;
 HTMLSpanElement.prototype.input = null;
 
 HTMLSpanElement.prototype.load = function() {
     $TAKE(this.data, this, this, function(data) {
-        this.innerHTML = this.content.replaceHolder(this, { 'data': data }, this.id);
+        this.innerHTML = this.originHTML.replaceHolder(this, { 'data': data }, this.id);
         if (!this.loaded) {
             this.loaded = true;
             Event.fire(this, 'onload', data);
@@ -767,7 +800,7 @@ HTMLSpanElement.prototype.copy = function() {
 
 HTMLSpanElement.prototype.initialize = function() {
     if (this.data != '') {
-        this.content = this.innerHTML;
+        this.originHTML = this.innerHTML;
         if (this.await == '') {
             this.load();
         }
@@ -881,7 +914,7 @@ $enhance(HTMLTemplateElement.prototype)
         },
         'standalone': {
             get() {
-                return !'TREEVIEW,TREENODE,TABLE,TBODY'.includes(this.parentNode.nodeName);
+                return this.parentNode == null || !'TREEVIEW,TREENODE,TABLE,TBODY'.includes(this.parentNode.nodeName);
             }
         }
     })
@@ -924,7 +957,7 @@ HTMLTemplateElement.prototype.initialize = function(container) {
     if (container == null) {
         this.container = this;
         this.position = 'beforeBegin';
-        this.setIrremovable(this.parentNode.children);
+        this.setIrremovable(this.$$previousAll());
     }
     else {
         this.container = container;
@@ -938,11 +971,13 @@ HTMLTemplateElement.prototype.initialize = function(container) {
     else if (this.autoRefresh && this.interval > 0) {
         this.refresh();      
     }
-    else {
+    else if (this.standalone) {
         this.load();
     }
 
     Event.interact(this);
+
+    return this;
 }
 
 HTMLTemplateElement.listen = function(template, element) {
@@ -960,19 +995,9 @@ HTMLTemplateElement.prototype.of = function(owner) {
     return this;
 }
 
-HTMLTemplateElement.prototype.extend = function(ahead, latter) {
-    if (ahead != null) {
-        this.content = ahead + this.content;
-    }
-    if (latter != null) {
-        this.content += latter;
-    }
-    return this;
-}
-
 HTMLTemplateElement.prototype.setContainer = function(container) {
     this.container = container;
-    return this.setPosition('beforeEnd').setIrremovable(container.children);
+    return this.setPosition('beforeEnd');
 }
 
 HTMLTemplateElement.prototype.setPosition = function(position) {
@@ -993,7 +1018,7 @@ HTMLTemplateElement.prototype.$represent = function(data) {
     this.empty = Object.keys(data).length == 0;
     $template[this.name] = { "data": data };
 
-    return HTMLForElement.evalContentIgnoreSubCycle(this, this.content, 'template.' + this.name, $tempate[this.name]);    
+    return HTMLForElement.evalContentIgnoreSubCycle(this, this.innerHTML, 'template.' + this.name, $tempate[this.name]);    
 }
 
 HTMLTemplateElement.prototype.$eachOf = function(data) {
@@ -1013,12 +1038,12 @@ HTMLTemplateElement.prototype.$eachOf = function(data) {
             $template[this.name][i] = { };
             $template[this.name][i][this.var.item] = item;
         
-            html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.content, '$template.' + this.name + '[' + i+ ']', $template[this.name][i]));
+            html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.innerHTML, '$template.' + this.name + '[' + i+ ']', $template[this.name][i]));
         }
         else {
             let vars = {};
             vars[this.var.item] = item;
-            html.push(this.content.replaceHolder(this, vars))
+            html.push(this.innerHTML.replaceHolder(this, vars))
         }
 
         i++;
@@ -1047,13 +1072,13 @@ HTMLTemplateElement.prototype.$eachIn = function(data) {
             $tempate[this.name][i][this.var.key] = key;
             $tempate[this.name][i][this.var.value] = data[key];
 
-            html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.content, '$template.' + this.name + '[' + i+ ']', $template[this.name][i]));
+            html.push(HTMLForElement.evalContentIgnoreSubCycle(this, this.innerHTML, '$template.' + this.name + '[' + i+ ']', $template[this.name][i]));
         }
         else {
             let vars = { };
             vars[this.var.key] = key;
             vars[this.var.value] = data[key];
-            html.push(this.content.replaceHolder(this, vars));
+            html.push(this.innerHTML.replaceHolder(this, vars));
         }
 
         i++;
@@ -1258,7 +1283,7 @@ HTMLTemplateElement.reloadComponents = function(container) {
         { class: 'HTMLAnchorElement', method: 'initializeAll' },
         { class: 'HTMLButtonElement', method: 'initializeAll' },
         { class: 'HTMLInputElement', method: 'initializeAll' },
-        { class: 'Select', method: 'initializeAll' },
+        { class: 'HTMLSelectPlusElement', method: 'initializeAll' },
         { class: '$root', method: 'initialize' }
     ].forEach(component => {
         window[component.class]?.[component.method]?.(container);
@@ -1268,3 +1293,29 @@ HTMLTemplateElement.reloadComponents = function(container) {
 document.on('ready', function() {
     HTMLModelElement.initializeAll();
 });
+
+$enhance(HTMLSlotElement.prototype)
+    .defineProperties({
+        'for': {
+            get() {
+                return this.getAttribute('for') ?? this.getAttribute('template', '');
+            }
+        },
+        'data': '',
+        'template': {
+            get() {
+                if (this.__templateInstance == null) {
+                    let origin = ((this.parentNode.instance ?? this.parentNode.$previous('treenode').instance.treeView)?.templates?.[this.for] ?? $(this.for.startsWith('#') ? this.for : `#${this.for},template[name=${this.for}]`)).setData(this.data);
+                    if (origin != null) {
+                        this.__templateInstance = $create('TEMPLATE', { innerHTML: origin.innerHTML }, {}, origin.set('cloned', origin.name))
+                                                    .setContainer(this)
+                                                    .setPosition('beforeBegin')
+                                                    .setIrremovable(this.$$previousAll(null, 'SLOT'));
+                    }
+                }
+                return this.__templateInstance;
+            }
+        }
+    });
+
+HTMLSlotElement.prototype.__templateInstance = null;

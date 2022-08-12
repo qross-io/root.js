@@ -18,7 +18,7 @@ $enhance(HTMLInputElement.prototype)
         $required: {
             get () {
                 //required 是原生属性  $required 有更多要求
-                return this.required || this.pattern != '' || this.validator != '' || this.requiredText != '' || this.invalidText != '' || this.minLength > 0 || this.min != '' || this.max != '';
+                return this.required || this.pattern != '' || this.patternIgnoreCase != '' || this.validator != '' || this.requiredText != '' || this.invalidText != '' || this.minLength > 0 || this.min != '' || this.max != '';
             }
         },
 
@@ -31,8 +31,6 @@ $enhance(HTMLInputElement.prototype)
         successText: '',        
         failureText: '', 
         exceptionText: '',
-
-        validator: '',
 
         focusClass: '', //获得焦点样式
         errorClass: '', //值为空或验证无效时的样式
@@ -91,7 +89,14 @@ $enhance(HTMLInputElement.prototype)
                 return this._hintElement;
             },
             set(element) {
-                this._hintElement = $parseElement(element, 'hintElement');
+                if (element == '' || (element == null && this.calloutPosition == null && this.messageDuration == null)) {
+                    this._hintElement = $create('SPAN', { innerHTML: '', className: this.errorTextClass });            
+                    this.insertAdjacentElement('afterEnd', this._hintElement);
+                    this.insertAdjacentHTML('afterEnd', ' &nbsp; ');
+                }
+                else {
+                    this._hintElement = $parseElement(element, 'hintElement');
+                }                
             }
         },
         hintText: {
@@ -146,10 +151,19 @@ $enhance(HTMLInputElement.prototype)
         },
         validator: {
             get() {
-                return this.getAttribute('validator') ?? '';
+                return this.getAttribute('validator', '');
             },
             set(validator) {
-                this.setAttribute('validator', validator.source ?? validator);
+                this.setAttribute('validator', validator);
+            }
+        },
+        patternIgnoreCase: {
+            get() {
+                return this.getAttribute('pattern-i') ?? this.getAttribute('pattern-ignore-case', '');
+            },
+            set(pattern) {
+                this.removeAttribute('pattern-ignore-case');
+                this.setAttribute('pattern-i', pattern.source ?? pattern);
             }
         },
         checked: {
@@ -274,18 +288,6 @@ $enhance(HTMLInputElement.prototype)
     })
     .defineEvents('onchange+', 'onmodify', 'onchange-checked', 'onchange-unchecked', 'onkeyenter');
 
-$input = {
-    status: {
-        "filled": 3, //有值初始状态
-        "valueless": 2, //无值初始状态
-        "valid": 1, //正确的
-        "empty": 0, //空值
-        "incorrect": -1, //错误的值
-        "unexpected": -2, //不符合预期
-        'exception': -3 //后端请求出错
-    }
-}
-
 HTMLInputElement.STATUS = {
     "FILLED": 3, //有值初始状态
     "VALUELESS": 2, //无值初始状态
@@ -324,8 +326,11 @@ HTMLInputElement.prototype.validate = function (check = false) {
     else if (this.pattern != '') {
         this.status = this.validity.patternMismatch ? HTMLInputElement.STATUS.INCORRECT : HTMLInputElement.STATUS.VALID;
     }
+    else if (this.patternIgnoreCase != '') {
+        this.status = new RegExp(this.patternIgnoreCase, 'i').test(this.value) ? HTMLInputElement.STATUS.VALID : HTMLInputElement.STATUS.INCORRECT;        
+    }
     else if (this.validator != '') {
-        this.status = new RegExp(this.validator, 'i').test(this.value) ? 1 : -1;        
+        this.status = eval('_ = function(value) { return ' + this.validator + ' }').call(this, this.value) ? HTMLInputElement.STATUS.VALID : HTMLInputElement.STATUS.INCORRECT;
     }
     else if (this.type == 'number' || this.type == 'integer' || this.type == 'float') {
         let value = $parseFloat(this.value, 0);
@@ -390,7 +395,7 @@ HTMLInputElement.prototype.validate = function (check = false) {
                     function(error) {
                         this.status = HTMLInputElement.STATUS.EXCEPTION;
                         this.className = this.errorClass;
-                        this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                        this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
                     },
                     function() {
                         this.disabled = false;
@@ -508,6 +513,8 @@ HTMLInputElement.prototype.initializeInputable = function() {
             if (this.$required) {                
                 if (this.value == '') {
                     if (this.type != 'password' || this.fit == ''  || (this.fit != '' && ($(this.fit)?.value ?? '') != '')) {
+                        this.status = HTMLInputElement.STATUS.EMPTY;
+                        this.className = this.errorClass;
                         this.hintText = this.requiredText.$p(this);
                     }
                 }
@@ -642,15 +649,15 @@ HTMLInputElement.prototype.initializeInputable = function() {
         }
     }
     else if (this.type == 'name') {
-        this.validator = /.{2,}/;
+        this.patternIgnoreCase = /.{2,}/;
     }
     else if (this.type == 'idcard') {
-        this.validator = /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])([0-2][1-9]|10|20|30|31)\d{3}[0-9Xx]$/;
+        this.patternIgnoreCase = /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])([0-2][1-9]|10|20|30|31)\d{3}[0-9Xx]$/;
         this.maxLength = 18;
         this.style.textTransform = 'uppercase';
     }
     else if (this.type == 'mobile') {
-        this.validator = /^1[3-9]\d{9}$/;
+        this.patternIgnoreCase = /^1[3-9]\d{9}$/;
         this.positive = true;
         this.maxLength = 11;
         this.onkeydown = function(ev) {
@@ -671,11 +678,6 @@ HTMLInputElement.prototype.initializeInputable = function() {
     if (this.$required) {
         if (this.className == '') {
             this.className = 'input-required';
-        }
-
-        if (this.hintElement === null && this.calloutPosition == null && this.messageDuration == null) {
-            this.hintElement = $create('SPAN', { innerHTML: '', className: this.errorTextClass });
-            this.insertAdjacentElement('afterEnd', this.hintElement);
         }
 
         this.defaultClass = this.className;
@@ -796,7 +798,7 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                             button.src = button.src.replace('active', 'hover');
                         },
                         function(error) {
-                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
                             button.src = button.src.replace('active', 'hover');
                         },
                         function() {
@@ -845,7 +847,7 @@ HTMLInputElement.prototype.initializeCheckable = function() {
                         function(error) {
                             this.status = HTMLInputElement.STATUS.EXCEPTION;
                             this.className = this.errorClass;
-                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
                         },
                         function() {
                             this.disabled = false;

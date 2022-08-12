@@ -303,14 +303,114 @@ HTMLElement.prototype.$ = function(o) {
     return this.querySelector(o);
 }
 
-HTMLElement.prototype.$prev = function(o) {
-
+HTMLElement.prototype.$$ = function(o) {
+    return [...this.querySelectorAll(o)];
 }
 
-HTMLElement.prototype.$next = function(o) { }
+HTMLElement.prototype.$previous = function(o) {
+    if (this.previousElementSibling != null) {
+        let children = new Set(this.parentNode.$$children(o));
+        if (children.size > 0) {
+            let prev = this.previousElementSibling;
+            while(prev != null && !children.has(prev)) {
+                prev = prev.previousElementSibling;
+            }
+
+            return prev;
+        }
+        else {
+            return null;
+        }
+    }
+    else {
+        return null;
+    }    
+}
+
+HTMLElement.prototype.$$previousAll = function(o, toElement) {
+    let all = [];
+    if (this.previousElementSibling != null) {
+        let children = new Set(o != null ? this.parentNode.$$children(o) : this.parentNode.children);
+        if (children.size > 0) {
+            let prev = this.previousElementSibling;
+            while (prev != null) {
+                if (toElement == null ? false : (typeof(toElement) == 'string' ? prev.tagName == toElement.toUpperCase() : prev == toElement)) {
+                    break;
+                }
+                else if (children.has(prev)) {
+                    all.unshift(prev);
+                }
+                prev = prev.previousElementSibling;
+            }
+        }
+    }
+
+    return all;
+}
+
+HTMLElement.prototype.$next = function(o) {
+    if (this.nextElementSibling != null) {
+        let children = new Set(this.parentNode.$$children(o));
+        if (children.size > 0) {
+            let next = this.nextElementSibling;
+            while(next != null && !children.has(next)) {
+                next = next.nextElementSibling;
+            }
+
+            return next;
+        }
+        else {
+            return null;
+        }
+    }
+    else {
+        return null;
+    }  
+}
+
+HTMLElement.prototype.$$nextAll = function(o, toElement) {
+    let all = [];
+    if (this.nextElementSibling != null) {
+        let children = new Set(o != null ? this.parentNode.$$children(o) : this.parentNode.children);
+        if (children.size > 0) {
+            let next = this.nextElementSibling;
+            while(next != null) {
+                if (toElement == null ? false : (typeof(toElement) == 'string' ? next.nodeName == toElement.toUpperCase : next == toElement)) {
+                    break;
+                }
+                else if (children.has(next)) {
+                    all.push(next);
+                }
+                next = next.nextElementSibling;
+            }
+        }
+    }
+
+    return all;
+}
+
+HTMLElement.prototype.$$nextTo = function(o, element) {
+    let all = [];
+    if (this.nextElementSibling != null) {
+        let children = new Set(this.parentNode.$$children(o));
+        if (children.size > 0) {
+            let next = this.nextElementSibling;
+            while(next != null) {
+                if ((typeof(element) == 'string' ? next.tagName == element.toUpperCase() : next == element)) {
+                    break;
+                }
+                else if (children.has(next)) {
+                    all.push(next);
+                }
+                next = next.nextElementSibling;
+            }
+        }
+    }
+
+    return all;
+}
 
 HTMLElement.prototype.$child = function(o) {
-
     for (let child of this.$$(o)) {
         if (child.parentNode == this) {
             return child;
@@ -318,10 +418,6 @@ HTMLElement.prototype.$child = function(o) {
     }
 
     return null;
-}
-
-HTMLElement.prototype.$$ = function(o) {
-    return [...this.querySelectorAll(o)];
 }
 
 HTMLElement.prototype.$$children = function(o) {
@@ -338,16 +434,6 @@ HTMLElement.prototype.$$children = function(o) {
 HTMLElement.getAttribute = HTMLElement.prototype.getAttribute;
 HTMLElement.prototype.getAttribute = function(attr, defaultValue) {
     return HTMLElement.getAttribute.call(this, attr) ?? (attr.includes('-') ? HTMLElement.getAttribute.call(this, attr.toCamel()) : (/[A-Z]/.test(attr) ? HTMLElement.getAttribute.call(this, attr.toHyphen()) : null)) ?? defaultValue;
-}
-
-HTMLElement.prototype.parseImageURL = function(attr, defaultValue, basePath = '') {
-    let url = this.getAttribute(attr, defaultValue);
-    if (s = s != '' && !s.includes('/')) {
-        return url.prefix(basePath);
-    }
-    else {
-        return url;
-    }    
 }
 
 HTMLElement.prototype.get = function(attr) {
@@ -373,11 +459,16 @@ HTMLElement.prototype.set = function(attr, value) {
         camel = attr;
         hyphen = attr.toHyphen();
     }
+    else if (attr == 'class') {
+        camel = 'className';
+        hyphen = 'class';
+    }
     else {
         camel = attr;
         hyphen = attr;
     }
-
+   
+ 
     if (value == '+') {
         // attr+ 可能是空值，如 html+, text+
         value = (this.getAttribute(hyphen + '+') || this.get(hyphen))?.$p(this);
@@ -398,6 +489,12 @@ HTMLElement.prototype.set = function(attr, value) {
     }    
     
     return this;
+}
+
+HTMLElement.prototype.setIf = function(test, attr, value) {
+    if (this[attr] == test) {
+        this.set(attr, value);
+    }
 }
 
 HTMLElement.prototype.setStyle = function (name, value) {
@@ -628,7 +725,7 @@ HTMLElement.boostPropertyValue = function(element, excludings = '') {
     element.getAttributeNames()
         .filter(a => a.endsWith('+') && !a.startsWith('on'))
         .forEach(name => {
-            let origin = name.dropRight(1);
+            let origin = name.dropRight('+');
             let camel = null;
             if (origin.includes('-')) {
                 camel = origin.toCamel();
@@ -638,6 +735,17 @@ HTMLElement.boostPropertyValue = function(element, excludings = '') {
                 element.set(origin, '+');    
             }     
         });
+}
+
+HTMLElement.hasEventListener = function(element, eventName, func) {
+    eventName = eventName.toLowerCase().prefix('on');
+    if (func == null) {
+        return element[eventName] != null || element.eventListeners.has(eventName);
+    }
+    else {
+        let funcStr = func.toString();
+        return element[eventName] == funcStr || (element.eventListeners.has(eventName) && element.eventListeners.get(eventName).has(funcStr));
+    }
 }
 
 //事件名必须以`on`开头
@@ -652,24 +760,11 @@ HTMLElement.defineCustomEvent = function(element, lowerName, upperName) {
         }
     };
 
-    element.clientEvents[lowerName] = null;
-
     Object.defineProperty(element, lowerName, property);    
 
     if (upperName != null) {
         Object.defineProperty(element, upperName, property);
         HTMLElement.customEventsMap[upperName] = lowerName;
-    }
-}
-
-HTMLElement.hasEventListener = function(element, eventName, func) {
-    eventName = eventName.toLowerCase().prefix('on');
-    if (func == null) {
-        return element[eventName] != null || element.eventListeners.has(eventName);
-    }
-    else {
-        let funcStr = func.toString();
-        return element[eventName] == funcStr || (element.eventListeners.has(eventName) && element.eventListeners.get(eventName).has(funcStr));
     }
 }
 
@@ -763,6 +858,16 @@ Object.defineProperties(Array.prototype, {
     'last': {
         get() {
             return this[this.length - 1];
+        }
+    },
+    'isEmpty': {
+        get() {
+            return this.length == 0;
+        }
+    },
+    'nonEmpty': {
+        get() {
+            return this.length > 0;
         }
     }
 })
@@ -2150,11 +2255,17 @@ $parseZero = function(value, defaultValue = 1) {
 
 $parseElement = function(element, propertyName) {
     if (typeof(element) == 'string') {
-        let e = $(element);
-        if (e == null) {
-            console.warn('Incorrect selector "' + element + '" or element does not exists.');
+        if (element != '') {
+            let e = $(element);
+            if (e == null) {
+                console.warn('Incorrect selector "' + element + '" or element does not exists.');
+            }            
+            return e;
         }
-        return e;
+        else {
+            return null;
+        }
+         
     }
     else if (element instanceof HTMLElement || element == null) {
         return element;
@@ -2194,15 +2305,10 @@ Math.randomNext = function(begin, end) {
 }
 
 //single
-$s = function (o, error) {
+$s = function (o) {
     if (typeof (o) == 'string') {
-        let s = document.querySelector(o);
-        if (s instanceof HTMLUnknownElement || s instanceof HTMLTextAreaElement) {
-            return s['instance#'] ?? s;
-        }
-        else {
-            return s;
-        }        
+        let s = document.querySelector(o.if(s => s != ''));
+        return s?.instance ?? s;        
     }    
     else {        
         return o;
@@ -2214,7 +2320,9 @@ $a = function (...o) {
     let a = new Array();
     for (let b of o) {
         if (typeof (b) == 'string') {
-            a.push(...[...document.querySelectorAll(b)].map(e => e['instance#'] ?? e));
+            if (b != '') {
+                a.push(...[...document.querySelectorAll(b)].map(e => e.instance ?? e));
+            }            
         }        
         else if (b instanceof NodeList || b instanceof HTMLCollection) {
             a.push(...b);            
@@ -2272,9 +2380,14 @@ $create = function (tag, properties, styles, attributes) {
         }
 
         if (attributes != null) {
-            for (let a in attributes) {
-                tag.setAttribute(a, attributes[a]);
+            if (attributes instanceof HTMLElement) {
+                attributes.getAttributeNames().forEach(attr => tag.setAttribute(attr, attributes.getAttribute(attr)));
             }
+            else {
+                for (let a in attributes) {
+                    tag.setAttribute(a, attributes[a]);
+                }
+            }            
         }
 
         return tag;
@@ -2529,7 +2642,7 @@ $cogo = function(todo, element, data) {
 };
 
 //server event
-$FIRE = function (element, event, succeed, fail, except, complete, actualElement) {
+$FIRE = function (element, event, succeed, fail, except, complete, actualElement, data) {
     let action = element[event].trim();
     if (action != '') {
         let expection = '';
@@ -2540,7 +2653,7 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
             }
         }
 
-        $cogo(action, actualElement ?? element, element)
+        $cogo(action, actualElement ?? element, data ?? element)
             .then(data => {
                 let valid = true;
                 if (expection != '') {
@@ -2700,11 +2813,11 @@ JSON.eval = function(string) {
     if (typeof(string) == 'string') {
         string = string.replace(/&quot;/g, '"');
         try {
-            return JSON.parse(strOrObj);
+            return JSON.parse(string);
         }
         catch(e1) {
             try {
-                return eval('(' + strOrObj + ')');
+                return eval('(' + string + ')');
             }
             catch(e2) {
                 throw new Error('Error occured when try to parse json string. Exception of JSON.parse :' + e1 + ', eval: ' + e2);
@@ -2724,6 +2837,7 @@ JSON.find = function(json, path = '/') {
         return json;
     }
     else {
+        path = path.drop('/');
         while (json != null && path != '') {
             let s = (path.includes("/") ? path.takeBefore('/') : path).trim();
             json = json[s];
@@ -2767,23 +2881,22 @@ Event.await = function(tag, await) {
 //执行某一个具体对象的事件非监听事件，再比如对象没有name，如for和if标签
 Event.fire = function(tag, onLowerName, args) {
     let final = true;
-    if (tag[onLowerName] != null) {
-        let func = tag[onLowerName];
-        if (func != null) {
-            if (typeof (func) == 'function') {
-                final = func.call(tag, args);
-            }
-            else if (typeof (func) == 'string') {
-                if (/^\s*function\(\s*\)\s*{/.test(func)) {
-                    final = eval('final = ' + func).call(tag, args);
-                }
-                else {
-                    final = eval('final = function() {' + func + '}').call(tag, args);
-                }            
-            }
-            if (typeof (final) != 'boolean') { final = true; };
+    let func = tag[onLowerName] ?? tag.instance?.[onLowerName];
+    if (func != null) {
+        if (typeof (func) == 'function') {
+            final = func.call(tag, args);
         }
+        else if (typeof (func) == 'string') {
+            if (/^\s*function\(\s*\)\s*{/.test(func)) {
+                final = eval('final = ' + func).call(tag, args);
+            }
+            else {
+                final = eval('final = function() {' + func + '}').call(tag, args);
+            }            
+        }
+        if (typeof (final) != 'boolean') { final = true; };
     }
+    
     return final;
 }
 
@@ -3046,7 +3159,7 @@ class HTMLCustomElement {
 
     constructor(element) {
         this.element = element;
-        this.element['instance#'] = this;
+        this.element.instance = this;
         this.tagName = element.tagName;
         this.nodeName = element.nodeName;
     }
@@ -3062,6 +3175,10 @@ class HTMLCustomElement {
         this.element.id = id;
     }
 
+    get style() {
+        return this.element.style;
+    }
+
     get clientEvents() {
         return this.element.clientEvents;
     }
@@ -3071,12 +3188,23 @@ class HTMLCustomElement {
     }
 
     on(eventName, func){
+        console.log(1234);
         this.element.on(eventName, func);
         return this;
     }
 
     dispatch(eventName, args) {
         return this.element.dispatch(eventName, args);
+    }
+
+    getImageAttribute(attr, defaultValue) {
+        let imageURL = this.getAttribute(attr, defaultValue);
+        if (!imageURL.includes('/')) {
+            return imageURL.prefix(this.imagesBasePath.suffix('/') ?? '');
+        }
+        else {
+            return imageURL;
+        }
     }
 }
 
@@ -3085,13 +3213,13 @@ Object.defineProperties(HTMLCustomElement.prototype, [
         'visible', 'hidden',
         'parent', 'previous', 'next', 'first', 'last',
         'left', 'right', 'top', 'bottom', 'width', 'height',
-        'class',
-        'debug'
+        'debug',
+        'className'
     ].concat(
         (function() {
             let properties = [];
             for (const name in HTMLElement.prototype) {
-                if (name.startsWith('on')) {
+                if (name.startsWith('on') && name != 'on') {
                     properties.push(name);
                 }        
             }
@@ -3114,12 +3242,12 @@ for (const name in HTMLElement.prototype) {
 }
 
 //general method
-['get', 'set', 'do', 'if'].forEach(method => {
+['get', 'set', 'setIf', 'do', 'if'].forEach(method => {
     HTMLCustomElement.prototype[method] = HTMLElement.prototype[method];
 });
 
 [
-    '$', '$$',
+    '$', '$$', '$child', '$$children',
     'show', 'hide',
     'setStyle', 'setStyles', 'setClass',
     'setLeft', 'setRight', 'setTop', 'setBottom', 'setWidth', 'setHeight',
@@ -3138,16 +3266,59 @@ for (const name in HTMLElement.prototype) {
     }
 });
 
+class HTMLCustomAttribute {
+	constructor(element) {
+		this.element = element;
+	}
+
+	getAttribute(attr) {
+		return this.element.getAttribute(attr);
+	}
+
+	setAttribute(attr, value) {
+		this.element.setAttribute(attr, value);
+	}
+
+	get clientEvents() {
+        return this.element.clientEvents;
+    }
+
+    get eventListeners() {
+        return this.element.eventListeners;
+    }
+
+    on(eventName, func){
+        this.element.on(eventName, func);
+        return this;
+    }
+
+    dispatch(eventName, args) {
+        return this.element.dispatch(eventName, args);
+    }
+}
+
 //eventMap 可以是对象或数组
 HTMLCustomElement.defineEvents = function(object, eventMap) {
-    Object.keys(eventMap).forEach(lowerName => {
-        if (eventName.endsWith('+')) {
-            HTMLElement.defineSeverEvent(this.object, lowerName, eventMap[lowerName]);
-        }
-        else {
-            HTMLElement.defineCustomEvent(this.object, lowerName, eventMap[lowerName]);
-        }
-    });    
+    if (eventMap instanceof Array) {
+        eventMap.forEach(eventName => {
+            if (eventName.endsWith('+')) {
+                HTMLElement.defineSeverEvent(object, eventName);
+            }
+            else {
+                HTMLElement.defineCustomEvent(object, eventName);
+            }
+        });
+    }
+    else {
+        Object.keys(eventMap).forEach(lowerName => {
+            if (lowerName.endsWith('+')) {
+                HTMLElement.defineSeverEvent(object, lowerName, eventMap[lowerName]);
+            }
+            else {
+                HTMLElement.defineCustomEvent(object, lowerName, eventMap[lowerName]);
+            }
+        });
+    }        
 }
 
 Callout = function(content) {
@@ -3354,3 +3525,13 @@ document.on('post', function() {
         window.setInterval(flex, 2000);
     }
 });
+
+KEYCODE = {
+    TAB: 9,
+    ENTER: 13,
+    ESC: 27,
+    LEFT: 37,
+    UP: 38,
+    RIGHT: 39,
+    DOWN: 40,
+}

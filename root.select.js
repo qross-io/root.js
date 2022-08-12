@@ -15,7 +15,7 @@ reload-on
 HTMLSelectElement.valueDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
 
 $enhance(HTMLSelectElement.prototype)
-    .define({
+    .defineProperties({
         text: {
             get() {
                 if (this.selectedIndex > -1) {
@@ -86,212 +86,85 @@ $enhance(HTMLSelectElement.prototype)
         }
     });
 
-class Select {
+
+
+class HTMLSelectPlusElement extends HTMLCustomElement {
 
     constructor(element) {
-        
-        this.options = [];
-        this._selectedIndex = -1;
-        this._selectedIndexes = [];
+        super(element);
 
-        $initialize(this)
-        .with(element)
-        .declare({
-            _name: 'Select_' + String.shuffle(7),
-            type: 'original|beauty|button|image|checkbox|radio',
-            _value: '',
+        this.#value_ = element.getAttribute('value') ?? ''; //intialize value
+        this.#className = element.className;
+        this.#disabled = $parseBoolean(this.getAttribute('disabled'), false, this);
 
-            _className: '',
-            //for beauty only
-            _frameClass: function(value) {
-                return value ?? this._className;                
-            },
-            _labelClass: '', 
-            _optionClass: function(value) {
-                return value ?? Select[this.type].optionClass;
-            },
-            _selectedOptionClass: function(value) {
-                return value ?? Select[this.type].selectedOptionClass;
-            },
-            _disabledOptionClass: function(value) {
-                return value ?? Select[this.type].disabledOptionClass;
-            },
-            
-            requiredText: '',
-            invalidText: '',
-            validText: '',
-            successText: '',
-            failureText: '',
-            exceptionText: '',
-
-            //button only
-            _scale: SelectButtonScale.NORMAL,
-
-            optGroup: 'OPTGROUP',  //选项元素组的标签选择器
-            option: 'OPTION', //选项元素的标签选择器
-            cols: 1,
-
-            multiple: false,
-   
-            data: '',
-            await: '',
-            
-            _disabled: false,
-            _enabled: true,
-
-            onload: null,
-            onreload: null,
-            onchange: null, //function(index, ev) { },
-            'onchange+': null, //server side event
-            'onchange+success': null,
-            'onchange+failure': null,
-            'onchange+exception': null,
-            'onchange+completion': null,
-
-            status: 'none',
-            hint: null,
-            callout: null,
-            message: null
-        })
-        .elementify(element => {
-            if (this.type == 'beauty') {
-                //this.box =           
-            }
-            else if (this.type != 'original') {
-                this.container = $create(Select[this.type].container, { id: this.id, className: this._frameClass }, { }, { name: this._name, value: this._value || '' });
-                if (element.getAttribute('style') != null) {
-                    this.container.setAttribute('style', element.getAttribute('style'));
-                }
-                element.insertAdjacentElement('beforeBegin', this.container);
-
-                //transfer attributes
-                let excludings = new Set(['id', 'type', 'data']);
-                element.getAttributeNames()
-                    .forEach(attr => {
-                        if (!excludings.has(attr)) {
-                            let value = element[attr] != null ? element[attr] : element.getAttribute(attr);
-                            if (this.container[attr] != null) {
-                                this.container[attr] = value;
-                            }
-                            else if (!attr.includes('+') && !attr.includes('-')) {
-                                this.container.setAttribute(attr, value);
-                            }
-                        }
-                    });
-
-                element.id = '';
-            }
-            else {
-                this.container = element;
-            }
-
-            if (this.type == 'checkbox' && !this.multiple) {
-                this.multiple = true;
-            }
-            
-            this.$value = element.getAttribute('value') ?? '';
-            this.element = element;
-        });        
-
-        let select = this;
-        if (this.type != 'original') {
-            this.container.onclick = function(ev) {
-                if (!select.disabled) {
-                    let target = ev.target;
-                    let allowed = true;
-                    if (select.type == 'radio' || select.type == 'checkbox') {
-                        allowed = target.nodeName == 'INPUT' || target.nodeName == 'LABEL';
-                    }
-                    while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
-                        target = target.parentNode;
-                    }
-                    if (allowed && target.nodeName != 'BODY') {
-                        let index = target.getAttribute('index').toInt();
-                        if (select.initialized) {
-                            select.container.setAttribute('value-', select.getComingValue(index));
-                            if (select.execute('onchange', index, ev)) {
-                                if (select.multiple) {
-                                    select.options[index].selected = !select.options[index].selected;
-                                }
-                                else if (!select.options[index].selected) {
-                                    select.options[index].selected = true;
-                                }
-                                select._fireChange();
-                            }
-                            select.container.removeAttribute('value-');
-                        }                    
-                    }
-                }
-            }
-        }
-        else {
-            if (this.container.onchange != null && this['onchange+'] != null) {
-                this.onchange_ = this.container.onchange;
-                this.container.onchange = null;
-            }
-
-            this.container.on('change', function(ev) {
-                if (select.execute(select.onchange_ != null ? 'onchange_' : 'onchange', this.selectedIndex, ev)) {
-                    select._fireChange();
-                }
-            });
-        }
+        if (this.type == 'checkbox' && !this.multiple) {
+            this.multiple = true;
+        }        
     }
 
-    get name() {
-        return this._name;
+    #options = [];
+    #selectedIndex = -1;
+    #selectedIndexes = [];
+    #source = 'none'; // 触发 selected 的来源 value/text/index/none
+    #initialized = false;
+    #container = null; //容器元素
+
+    #value_ = '';
+    #onchange_ = null; //原生 onchange 事件
+    #for = null; //as a for loop
+    
+    get container() {
+        return this.#container;
     }
 
-    set name(name) {
-        if (name != this._name) {
-            this.container.id = name;
-            document.components.delete(this._name);
-            document.components.set(name, this);
-            this.id = name;
-            this._name = name;
-        }
+    get type() {
+        return Enum('original|beauty|button|image|checkbox|radio').validate(this.getAttribute('type'));
+    }
+
+    get options() {
+        return this.#options;
     }
     
     get selectedIndex() {
-        return this._selectedIndex;
+        return this.#selectedIndex;
     }
 
     set selectedIndex(index) {
         if (index < -1) {
             index = -1;
         }
-        if (index > this.options.length - 1) {
-            index = this.options.length - 1;
+        if (index > this.#options.length - 1) {
+            index = this.#options.length - 1;
         }
 
         if (!this.multiple) {            
-            if (index != this._selectedIndex) {
+            if (index != this.#selectedIndex) {
                 if (this.initialized) {
                     this.container.setAttribute('value-', select.getComingValue(index));
                     if (this.execute('onchange', index)) {
-                        this._source = 'index';
+                        this.#source = 'index';
                         if (index == -1) {
-                            this.options[this._selectedIndex].selected = false;                        
+                            this.options[this.#selectedIndex].selected = false;                        
                         }
                         else {                        
                             this.options[index].selected = true;                
                         }
-                        this._source = 'none';
-                        this._selectedIndex = index;  
-                        this._fireChange();
+                        this.#source = 'none';
+                        this.#selectedIndex = index;  
+                        this.#fireChange();
                     }
                     this.container.removeAttribute('value-');
                 }
                 else {
-                    this._source = 'index';
+                    this.#source = 'index';
                     if (index == -1) {
-                        this.options[this._selectedIndex].selected = false;                        
+                        this.options[this.#selectedIndex].selected = false;                        
                     }
                     else {                        
                         this.options[index].selected = true;                
                     }
-                    this._selectedIndex = index;
-                    this._source = 'none';
+                    this.#selectedIndex = index;
+                    this.#source = 'none';
                 }
             }            
         }
@@ -301,37 +174,43 @@ class Select {
     }
 
     get selectedIndexes() {
-        return this._selectedIndexes;
+        return this.#selectedIndexes;
     }
 
     set selectedIndexes(indexes) {
-        if (JSON.stringify(indexes) != JSON.stringify(this._selectedIndexes)) {
+        if (JSON.stringify(indexes) != JSON.stringify(this.#selectedIndexes)) {
             if (this.initialized) {
                 this.container.setAttribute('value-', select.getComingValue(indexes));
                 if (this.execute('onchange', indexes)) {
-                    this._source = 'indexes';
-                    this._selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
-                    indexes.filter(index => !this._selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
-                    this._source = 'none';
-                    this._selectedIndexes = indexes;
-                    this._selectedIndex = indexes[0] ?? -1;
-                    this._fireChange();
+                    this.#source = 'indexes';
+                    this.#selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
+                    indexes.filter(index => !this.#selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
+                    this.#source = 'none';
+                    this.#selectedIndexes = indexes;
+                    this.#selectedIndex = indexes[0] ?? -1;
+                    this.#fireChange();
                 }
                 this.container.removeAttribute('value-');
             }
             else {
-                this._source = 'indexes';
-                this._selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
-                indexes.filter(index => !this._selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
-                this._source = 'none';
-                this._selectedIndexes = indexes;
-                this._selectedIndex = indexes[0] ?? -1;
+                this.#source = 'indexes';
+                this.#selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
+                indexes.filter(index => !this.#selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
+                this.#source = 'none';
+                this.#selectedIndexes = indexes;
+                this.#selectedIndex = indexes[0] ?? -1;
             }
         }
     }
 
+    get source() {
+        return this.#source;
+    }
+
+    #disabled = null;
+
     get disabled() {
-        return this._disabled;
+        return this.#disabled;
     }
 
     set disabled(disabled) {
@@ -339,11 +218,11 @@ class Select {
             disabled = $parseBoolean(disabled, true, this);
         }        
         this.options.forEach(option => option.disabled = disabled);
-        this._disabled = disabled;        
+        this.#disabled = disabled;
     }
 
     get enabled() {
-        return !this._disabled;
+        return !this.#disabled;
     }
 
     set enabled(enabled) {
@@ -383,6 +262,7 @@ class Select {
 
     get value() {
         if (this.type != 'original') {
+            //value- = coming value
             if (this.container.hasAttribute('value-')) {
                 return this.container.getAttribute('value-');
             }
@@ -414,13 +294,31 @@ class Select {
         }
     }
 
+    get data() {
+        return this.getAttribute('data', '');
+    }
+
+    set data(data) {
+        this.setAttribute('data', data);
+    }
+
+    get await() {
+        return this.getAttribute('await', '');
+    }
+
+    set await(await) {
+        this.setAttribute('await', await);
+    }
+
+    #className = null;
+
     get className() {
-        return this._className;
+        return this.#className;
     }
 
     set className(className) {
-        this._className = className;
-        if (this.type != 'BEAUTY') {
+        this.#className = className;
+        if (this.type != 'beauty') {
             this.container.className = className;
         }
         else {
@@ -428,61 +326,138 @@ class Select {
         }
     }
 
+    //for beauty only
     get frameClass() {
-        return this._frameClass;
+        return this.getAttribute('frame-class') ?? this.#className;
     }
 
-    set frameClass(frameClass) {
-        this._frameClass = frameClass;
-        this.container.className = this.className;
+    set frameClass(className) {
+        this.setAttribute('frame-class', className)
+        this.container.className = className;
+    }
+
+    //for beauty only
+    get labelClass() {
+        return this.getAttribute('label-class');
+    }
+
+    set labelClass(className) {
+        this.setAttribute('label-class', className);
     }
 
     get optionClass() {
-        return this._optionClass;
+        return this.getAttribute('option-class') ?? HTMLSelectPlusElement[this.type].optionClass;
     }
 
     set optionClass(className) {
-        if (className != this._optionClass) {
-            this._optionClass = className;
-            this.updateAppearances();
+        if (className != this.optionClass) {
+            this.setAttribute('option-class', className);
+            this.#updateAppearances();
         }
     }
 
     get selectedOptionClass() {
-        return this._selectedOptionClass;
+        return this.getAttribute('selected-option-class') ?? HTMLSelectPlusElement[this.type].selectedOptionClass;
     }
 
     set selectedOptionClass(className) {
-        if (className != this._selectedOptionClass) {
-            this._selectedOptionClass = className;
-            this.updateAppearances();
+        if (className != this.selectedOptionClass) {
+            this.setAttribute('selected-option-class', className)
+            this.#updateAppearances();
         }
     }
 
     get disabledOptionClass() {
-        return this._disabledOptionClass;
+        return this.getAttribute('disabled-option-class') ?? HTMLSelectPlusElement[this.type].disabledOptionClass;
     }
 
     set disabledOptionClass(className) {
-        if (className != this._disabledOptionClass) {
-            this._disabledOptionClass = className; 
-            this.updateAppearances();
+        if (className != this.disabledOptionClass) {
+            this.setAttribute('disabled-option-class', className);
+            this.#updateAppearances();
         }
     }
 
+    #status = 'none';
+    #hintElement = undefined;
+
+    get hintElement() {
+        if (this.#hintElement === undefined) {
+            this.hintElement = this.getAttribute('hint') ?? this.getAttribute('hint-element');
+        }
+        return this.#hintElement;
+    }
+
+    set hintElement(element) {
+        this.#hintElement = $parseElement(element, 'hintElement');
+    }
+
+    get calloutPosition() {
+        return this.getAttribute('callout-position') ?? this.getAttribute('callout');
+    }
+
+    set calloutPosition(position) {
+        this.setAttribute('callout-position', position);
+    }
+
+    get messageDuration() {
+        return this.getAttribute('message-duration') ?? this.getAttribute('message');
+    }
+
+    set messageDuration(duration) {
+        this.setAttribute('message-duration', duration);
+    }
+
+    get successText() {
+        return this.getAttribute('success-text', '');
+    }
+
+    set successText(text) {
+        this.setAttribute('success-text', text);
+    }
+
+    get failureText() {
+        return this.getAttribute('failure-text', '');
+    }
+
+    set failureText(text) {
+        this.setAttribute('failure-text', text);
+    }
+
+    get exceptionText() {
+        return this.getAttribute('exception-text', '');
+    }
+
+    set exceptionText(text) {
+        this.setAttribute('exception-text', text);
+    }
+
+    //optGroup: 'OPTGROUP',  //选项元素组的标签选择器
+    //option: 'OPTION', //选项元素的标签选择器
+    //cols: 1,
+    
+    get multiple() {
+        return $parseBoolean(this.getAttribute('multiple'), false, this);
+    }
+    
+    set multiple(multiple) {
+        this.setAttribute('multiple', multiple);
+    }
+
+    //select button only
     get scale() {
-        return this._scale;
+        return this.getAttribute('scale') ?? SelectButtonScale.NORMAL;
     }
 
     set scale(scale) {
-        if (scale != this._scale) {
-            this._scale = scale;
-            this.updateAppearances();
+        if (scale != this.scale) {
+            this.setAttribute('scale', scale);
+            this.#updateAppearances();
         }
     }
 
     get initialized() {
-        return this._initialized;
+        return this.#initialized;
     }
 
     get hidden() {
@@ -496,26 +471,338 @@ class Select {
     set hintText(text) {
         if (this.hintSpan != null) {
             this.hintSpan.innerHTML = text;
-            if (this.status == 'success') {
-                this.hintSpan.className = this.validTextClass;
+            if (this.#status == 'success') {
+                this.hintSpan.className = 'correct';
             }
             else {
-                this.hintSpan.className = this.errorTextClass;
+                this.hintSpan.className = 'error';
             }                    
             this.hintSpan.hidden = text == '';
         }
         
         if (text != '') {
-            if (this.callout != null) {
+            if (this.calloutPosition != null) {
                 Callout(text).position(this.container, this.callout).show();
             }
             
-            if (this.message != null) {
-                window.Message?.[this.status != 'success' ? 'red' : 'green'](text).show(this.message.toFloat(0));
+            if (this.messageDuration != null) {
+                window.Message?.[this.#status != 'success' ? 'red' : 'green'](text).show(this.message.toFloat(0));
             }
         }
     }
+
+    initialize() {
+
+        if (this.type == 'beauty') {
+            //this.box =           
+        }
+        else if (this.type != 'original') {
+            this.#container = $create(HTMLSelectPlusElement[this.type].container, { className: this.frameClass });
+            this.#container.setAttribute('style', this.element.getAttribute('style', ''));
+            this.element.insertAdjacentElement('beforeBegin', this.#container);
+        }
+        else {
+            this.#container = this.element;
+        }
+        
+        let select = this;
+        if (this.type != 'original') {
+            this.#container.onclick = function(ev) {
+                if (!select.disabled) {
+                    let target = ev.target;
+                    let allowed = true;
+                    if (select.type == 'radio' || select.type == 'checkbox') {
+                        allowed = target.nodeName == 'INPUT' || target.nodeName == 'LABEL';
+                    }
+                    while (target.getAttribute('index') == null && target.nodeName != 'BODY') {
+                        target = target.parentNode;
+                    }
+                    if (allowed && target.nodeName != 'BODY') {
+                        let index = target.getAttribute('index').toInt();
+                        if (select.initialized) {
+                            select.#container.setAttribute('value-', select.#getComingValue(index));
+                            if (select.dispatch('onchange', { index: index, ev: ev })) {
+                                if (select.multiple) {
+                                    select.options[index].selected = !select.options[index].selected;
+                                }
+                                else if (!select.options[index].selected) {
+                                    select.options[index].selected = true;
+                                }
+                                select.#fireChange();
+                            }
+                            select.#container.removeAttribute('value-');
+                        }                    
+                    }
+                }
+            }
+        }
+        else {
+            if (this.#container.onchange != null && this['onchange+'] != null) {
+                this.#onchange_ = this.container.onchange;
+                this.#container.onchange = null;
+            }
+
+            this.#container.on('change', function(ev) {
+                if (select.dispatch(select.onchange_ != null ? 'onchange_' : 'onchange', { selectedIndex: this.selectedIndex, ev: ev })) {
+                    select.#fireChange();
+                }
+            });
+        }
+
+        if (this.type != 'original') {
+            this.element.hidden = true; 
+        }
+        
+        if (this.data != '') {        
+            this.#for = HTMLForElement.from(this.element, this);
+            this.#for.onload = function(data) {
+                this.owner.completeLoading(data);
+            }
+    
+            if (this.await == '') {
+                this.load();
+            }
+            else {
+                Event.await(this, this.await);
+            }
+        }
+    
+        Event.interact(this, this.element);
+    
+        if (this.data == '') {
+            this.completeLoading();
+        }
+    
+        if (this.#disabled) {
+            this.disabled = true;
+        }
+    
+        if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+            if (this.hintElement == null && this.calloutPosition == null && this.messageDuration == null) {
+                this.hintElement = $create('SPAN', { innerHTML: '', className: 'error' }, { marginLeft: '30px' });
+                this.insertAdjacentElement('afterEnd', this.hintElement);            
+            }    
+        }
+    }
+
+    load() {
+        this.#for?.load();
+    }
+
+    completeLoading (data) {
+
+        if (this.type != 'original') {
+            for (let option of this.element.querySelectorAll('option')) {
+                this.add(option);
+            }
+        }
+        else {
+            //同步属性
+            this.#selectedIndex = this.container.selectedIndex;
+            this.options.push(...this.container.options);
+        }
+    
+        if (!this.#initialized) {
+            if (this.#value_ != '' && this.value != this.#value_) {
+                this.value = this.#value_;
+            }
+        }
+
+        if (this.data == '') {
+            this.#initialized = true;
+            this.dispatch('onload');
+        }
+        else {
+            if (this.#initialized) {
+                this.dispatch('onreload', { data: data });
+            }
+            else {
+                this.#initialized = true;
+                this.setAttribute('loaded', '');
+                this.dispatch('onload', { data: data });
+            }
+        }
+    }
+
+    #getComingValue = function(index) {
+        if (this.multiple) {
+            if (index instanceof Array) {
+                return index.map(i => this.options[i].value).join(',');
+            }
+            else {
+                let indexes = new Set(this.selectedIndexes);
+                if (indexes.has(index)) {
+                    index.delete(index);
+                }
+                else {
+                    indexes.add(index);
+                }
+                return [...indexes].map(i => this.options[i].value).join(',');
+            }
+        }
+        else {
+            return this.options[index].value;
+        }
+    }
+
+    #fireChange = function() {
+        if (this['onchange+'] != null) {
+            $FIRE(this, 'onchange+',
+                    function(data) {
+                        this.#status = 'success';
+                        this.hintText = this.successText.$p(this, data);
+                    }, 
+                    function(data) {
+                        this.#status = 'failure';
+                        this.hintText = this.failureText.$p(this, data);
+                    },
+                    function(error) {
+                        this.#status = 'exception';
+                        this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
+                    });
+        }
+    }
+
+    enable () {
+        this.disabled = false;
+    }
+    
+    disable () {
+        this.disabled = true;
+    }
+    
+    
+    load () {
+        this.#for?.load();
+    }
+    
+    reload () {
+        if (this.data != '') {
+            this.clear();
+            this.load();
+        }    
+    }
+
+    add (optionElement) {
+
+        let option = new SelectPlusOption(optionElement).populate(this);
+        this.#container.appendChild(option.container);
+        this.#options.push(option);
+    
+        if (option.selected) {
+            if (this.multiple) {
+                this.#selectedIndexes.push(option.index);
+                this.#selectedIndex = this.#selectedIndexes[0];
+            }
+            else {
+                if (this.#selectedIndex > -1) {
+                    this.#options[this.#selectedIndex].deselect();
+                }
+                this.#selectedIndex = option.index;
+            }
+    
+            option.doselect();
+            option.hideAndShow();
+        }
+        
+        if (option.disabled) {
+            option.disabled = true;
+        }
+    
+        option.updateAppearance();
+    };
+
+    delete = function(option) {
+
+        //原索引位置
+        let index = option.index;
+        
+        //更新select的value和text
+        option.selected = false;
+    
+        //删除元素和数组项
+        option.container.remove();
+        this.options.splice(index, 1);
+        
+        //更新其他option的index
+        for (let i = index + 1; i < this.options.length; i++) {
+            this.options[i].index -= 1;
+        }
+    
+        this.#updateAppearances();
+    }
+
+    clear () {
+        this.container.innerHTML = '';
+        this.element.innerHTML = '';
+        this.#selectedIndex = -1;
+        this.text = '';
+        this.value = '';
+        this.options.length = 0;
+    };
+
+    indexOf (value) {
+        let index = -1;
+        if (value != '') {
+            for (let option of this.options) {
+                if (option.value == value) {
+                    index = option.index;
+                    break;
+                }
+            }
+        }
+        return index;
+    };
+
+    indexesOf (values) {
+        let indexes = [];
+        if (values.length > 0) {
+            for (let option of this.options) {
+                if (values.includes(option.value)) {
+                    indexes.push(option.index);
+                }
+            }
+        }
+        return indexes;
+    }
+
+    indexTextOf (text) { 
+        let index = -1;
+        for (let option of this.options) {
+            if (option.text == text) {
+                index = option.index;
+            }
+        }
+        return index;
+    };
+
+    indexesTextOf (texts) {
+        let indexes = [];
+        if (texts.length > 0) {
+            for (let option of this.options) {
+                if (texts.includes(option.text)) {
+                    indexes.push(option.index);
+                }
+            }
+        }
+        return indexes;
+    }
+
+    #updateAppearances = function() {
+        for (let i = 0; i < this.options.length; i++) {
+            this.options[i].updateAppearance(); 
+        }
+    }
+
+    resetSelectedIndexes() {
+        if (this.#source == 'none') {
+            this.#selectedIndexes = this.options.filter(option => option.selected).map(option => option.index);
+            this.#selectedIndex = this.#selectedIndexes[0] ?? -1;
+        }
+    }
 }
+
+HTMLCustomElement.defineEvents(HTMLSelectPlusElement.prototype, ['onload', 'onreload', 'onchange', 'onchange+']);
 
 SelectButtonScale = {
     LARGE: 'large',
@@ -526,450 +813,144 @@ SelectButtonScale = {
     MINI: 'mini'
 }
 
-$select = function(name) {
-    let select = $t(name);
-    if (select != null && select.tagName == 'SELECT') {
-        return select;
-    }
-    else {
-        return null;
-    }
-}
-
-// Select.prototype.onchange = function(beforeOption, ev) { };
-// Select.prototype.onerror = function(status, statusText) { };
-// Select.prototype.onsuccess = function(result) { };
-
-Select.prototype.$value = null; //初始值
-Select.prototype.onchange_ = null; //原生 onchange 事件
-Select.prototype.element = null; //保存配置的元素
-Select.prototype.container = null; //容器元素
-Select.prototype.$for = null; //as a for loop
-Select.prototype._initialized = false;
-Select.prototype._source = 'none'; // 触发 selected 的来源 value/text/index/none
-
-Select.prototype.getComingValue = function(index) {
-    if (this.multiple) {
-        if (index instanceof Array) {
-            return index.map(i => this.options[i].value).join(',');
-        }
-        else {
-            let indexes = new Set(this.selectedIndexes);
-            if (indexes.has(index)) {
-                index.delete(index);
-            }
-            else {
-                indexes.add(index);
-            }
-            return [...indexes].map(i => this.options[i].value).join(',');
-        }
-    }
-    else {
-        return this.options[index].value;
-    }
-}
-
-Select.prototype.apply = function() {
-
-    if (this.type != 'original') {
-        for (let option of this.element.querySelectorAll('option')) {
-            this.add(option);
-        }
-    }
-    else {
-        //同步属性
-        this._selectedIndex = this.container.selectedIndex;
-        this.options = [...this.container.options];
-    }
-
-    if (!this._initialized) {
-        if (this.$value != '' && this.value != this.$value) {
-            this.value = this.$value;
-        }
-    }
-}
-
-Select.prototype.enable = function() {
-    this.disabled = false;
-}
-
-Select.prototype.disable = function() {
-    this.disabled = true;
-}
-
-Select.prototype.initialize = function() {
-
-    if (this.type != 'original') {
-        this.element.hidden = true; 
-    }
-    
-    if (this.data != '') {        
-        this.$for = new For(this.element);
-        this.$for.owner = this;
-        this.$for.onload = function(data) {
-            this.owner.apply();            
-            if (this.owner._initialized) {
-                Event.execute(this.owner, 'onreload', data);
-            }
-            else {
-                this.owner._initialized = true;
-                this.owner.element.setAttribute('loaded', '');
-                Event.execute(this.owner, 'onload', data);                
-            }
-        }
-
-        if (this.await == '') {
-            this.$for.load();
-        }
-        else {
-            Event.await(this, this.await);
-        }
-    }
-
-    Event.interact(this, this.element);
-
-    if (this.data == '') {
-        this.apply();
-        this._initialized = true;
-        Event.execute(this, 'onload');
-    }
-
-    if (this._disabled || !this._enabled) {
-        this.disabled = true;
-    }
-
-    if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
-        if (this.hint != null) {
-            if (this.hintSpan == null) {
-                if (this.hint != '') {
-                    this.hintSpan = $s(this.hint);
-                }
-                else {
-                    this.hintSpan = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { display: 'none' });
-                    this.insertAdjacentElement('afterEnd', this.hintSpan);
-                }
-            }
-        }
-    }
-}
-
-Select.prototype.load = function() {
-    if (this.$for != null) {
-        this.$for.load();
-    }    
-}
-
-Select.prototype.reload = function() {
-    if (this.data != '') {
-        this.clear();
-        this.load();
-    }    
-}
-
-Select.prototype.add = function(settingsOrOptionElement) {
-
-    let option = new SelectOption(settingsOrOptionElement);
-    if (option.value != '' && option.text == '') {
-        option._text = option.value;
-    }
-    if (option.text != '' && option.value == '') {
-        option._value = option.text;
-    }
-    option.select = this;
-
-    option._index = this.options.length;
-    option.container = Select[this.type].populate.call(option);
-    this.container.appendChild(option.container);
-    this.options.push(option);    
-
-    if (option._selected) {
-        if (this.multiple) {
-            this._selectedIndexes.push(option.index);
-            this._selectedIndex = this._selectedIndexes[0];
-        }
-        else {
-            if (this.selectedIndex > -1) {
-                this.options[this.selectedIndex].container.removeClass(this.options[this.selectedIndex].selectedClass).addClass(this.options[this.selectedIndex].className);
-                this.options[this.selectedIndex]._selected = false;
-            }
-            this._selectedIndex = option.index;
-        }
-
-        option.container.removeClass(option.className).addClass(option.selectedClass);
-        option.hideAndShow();
-    }
-    
-    if ((option._disabled || !option._enabled) && !option.container.disabled) {
-        option.disabled = true;
-    }
-
-    option._updateAppearance();
-};
-
-Select.prototype.delete = function(option) {
-
-    //原索引位置
-    let index = option.index;
-    
-    //更新select的value和text
-    option.selected = false;
-
-    //删除元素和数组项
-    option.container.remove();
-    this.options.splice(index, 1);
-    
-    //更新其他option的index
-    for (let i = index + 1; i < this.options.length; i++) {
-        this.options[i]._index -= 1;
-    }
-
-    this.updateAppearances();
-}
-
-Select.prototype.updateAppearances = function() {
-    for (let i = 0; i < this.options.length; i++) {
-        this.options[i]._updateAppearance(); 
-    }
-}
-
-//Select.prototype.insertBefore = function(index, text, value, className) { };
-//Select.prototype.insertAfter = function(index, text, value, className) { };
-
-Select.prototype.clear = function() {
-    this.container.innerHTML = '';
-    this.element.innerHTML = '';
-    this._selectedIndex = -1;
-    this.text = '';
-    this.value = '';
-    this.options.length = 0;
-};
-
-Select.prototype.indexOf = function(value) {
-    let index = -1;
-    if (value != '') {
-        for (let option of this.options) {
-            if (option.value == value) {
-                index = option.index;
-                break;
-            }
-        }
-    }
-    return index;
-};
-
-Select.prototype.indexesOf = function(values) {
-    let indexes = [];
-    if (values.length > 0) {
-        for (let option of this.options) {
-            if (values.includes(option.value)) {
-                indexes.push(option.index);
-            }
-        }
-    }
-    return indexes;
-}
-
-Select.prototype.indexTextOf = function(text) { 
-    let index = -1;
-    for (let option of this.options) {
-        if (option.text == text) {
-            index = option.index;
-        }
-    }
-    return index;
-};
-
-Select.prototype.indexesTextOf = function(texts) {
-    let indexes = [];
-    if (texts.length > 0) {
-        for (let option of this.options) {
-            if (texts.includes(option.text)) {
-                indexes.push(option.index);
-            }
-        }
-    }
-    return indexes;
-}
-
-Select.prototype._fireChange = function() {
-    if (this['onchange+'] != null) {
-        $FIRE(this, 'onchange+',
-                function(data) {
-                    this.status = 'success';
-                    this.hintText = this.successText.$p(this, data);
-                }, 
-                function(data) {
-                    this.status = 'failure';
-                    this.hintText = this.failureText.$p(this, data);
-                },
-                function(error) {
-                    this.status = 'exception';
-                    this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
-                });
-    }
-}
-
-Select.prototype.set = function(item, value) {
-    $attr(this, item, value);
-}
-
-Select.prototype.setValue = function(value) {
-    this.value = value;
-}
-
-Select.prototype.setText = function(text) {
-    this.text = text;
-}
-
-Select.prototype.getAttribute = function(attr) {
-    return this[attr] || this.container.getAttribute(attr) || this.options[this.selectedIndex].getAttribute(attr);  
-}
-
-Select.prototype.setAttribute = function(attr, value) {
-    if (this[attr] != undefined) {
-        this[attr] = value;
-    }
-    else {
-        this.container.setAttribute(attr, value);
-    }
-}
-
-class SelectOptGroup {
+class SelectPlusOptGroup {
+    #select = null;
     constructor(element) {
-        this.select = null;
         this.label = '';
         this.data = '';
     }
 }
 
-class SelectOption {
+class SelectPlusOption extends HTMLCustomElement {
 
-    constructor(settings) {
-        
-        this.attributes = { };
+    constructor(element) {
+        super(element);
 
-        $initialize(this)
-            .with(settings)
-            .declare({
-                _value: '',
-                _text: 'html',
-                _title: '',
-                _src: null, //image only
-                _selectedClass: '', //默认从Select继承
-                _className: '', //默认从Select继承
-                _disabledClass: '', //默认从Select继承
-                _selected: false,
-                _disabled: false,
-                _enabled: true,
-                toShow: '', //切换到当前选项时显示哪些元素
-                toHide: '' //切换到当前选项时隐藏哪些元素
-            })
-            .elementify(element => {
-                this.element = element;
-                element.getAttributeNames().forEach(attr => {
-                    if (this[attr] === undefined) {
-                        this.attributes[attr] = element.getAttribute(attr);
-                    }
-                });
-            });
+        if (element.value != '' && element.text == '') {
+            element.text = element.value;
+        }
 
-        this._index = -1; //readOnly
-        this.group = null; //readOnly
-        this.container = null;
+        if (element.text != '' && element.value == '') {
+            element.value = element.text;
+        }
     }
     
+    #index = -1;
+    #group = null;
+    #container = null;
+    #select = null; 
+
+    get select() {
+        return this.#select;
+    }
+
     get text() {
-        return this._text;
+        return this.element.text;
     }
 
     set text(text) {
-        if (text != this._text) {
-            this._text = text;
-            Select[this.select.type].setText.call(this, text);
+        if (text != this.element.text) {
+            this.element.text = text;
+            HTMLSelectPlusElement[this.#select.type].setText.call(this, text);
         }        
     }
 
     get value() {
-        return this._value;
+        return this.element.value;
     }
 
     set value(value) {
-        if (value != this._value) {
-            this.container.setAttribute('value', value);
-            this._value = value;
+        if (value != this.element.value) {
+            this.element.value = value;
+            this.#container.setAttribute('value', value);
         }        
     }
 
     get title() {
-        return this._title;
+        return this.element.title;
     }
 
     set title(title) {
-        this._title = title;
-        this.container.title = title;        
+        this.element.title = title;
+        this.#container.title = title;
     }
 
     get src() {
-        let img = this.container != null ? this.container.querySelector('IMG') : null;
-        if (img != null && this._src != img.src) {
-            this._src = img.src;
-        }
-        return this._src;
+        return this.element.getAttribute('src');
     }
 
     set src(src) {
-        this._src = src;
-        let img = this.container.querySelector('IMG');
-        if (img != null) {
-            img.src = src;
+        this.element.setAttribute('src', src);
+        this.#container?.querySelector('IMG')?.set('src', src);
+    }
+
+    get className() {
+        return this.element.className || this.#select?.optionClass;
+    }
+
+    set className(className) {
+        if (className != this.className) {
+            if (!this.selected) {
+                this.container.removeClass(this.className).addClass(className);
+            }            
+            this.element.className = className;
         }
     }
 
     get selectedClass() {
-        return this._selectedClass == '' && this.select != null ? this.select.selectedOptionClass : this._selectedClass;
+        return this.getAttribute('selected-class') ?? this.#select?.selectedOptionClass ?? '';
     }
 
     set selectedClass(className) {
-        if (className != this._selectedClass) {
+        if (className != this.selectedClass) {
             if (this.selected) {
-                this.container.className = this.container.className.replace(this._selectedClass, className);
+                this.container.removeClass(this.selectedClass).addClass(className);
             }            
-            this._selectedClass = className;
-        }
-    }
-
-    get className() {
-        return this._className == '' && this.select != null ? this.select.optionClass : this._className;
-    }
-
-    set className(className) {
-        if (className != this._className) {
-            if (!this.selected) {
-                this.container.className = this.container.className.replace(this._className, className);
-            }            
-            this._className = className;
+            this.setAttribute('selected-class', className);
         }
     }
 
     get disabledClass() {
-        return this._disabledClass == '' && this.select != null ? this.select.disabledOptionClass : this._disabledClass;
+        return this.getAttribute('disabled-class') ?? this.#select?.disabledOptionClass ?? '';
     }
 
     set disabledClass(className) {
-        if (className != this._disabledClass) {
+        if (className != this.disabledClass) {
             if (this.disabled) {
-                this.container.className = this.container.className.replace(this._disabledClass, className);
+                this.container.removeClass(this.disabledClass).addClass(className);
             }         
-            this._disabledClass = className;
+            this.setAttribute('disabled-class', className);
         }
     }
 
+    //切换到当前选项时显示哪些元素
+    get toShow() {
+        return this.getAttribute('to-show', '');
+    }
+
+    set toShow(selector) {
+        this.setAttribute('to-show', selector);
+    }
+    
+    //切换到当前选项时隐藏哪些元素
+    get toHide() {
+        return this.getAttribute('to-hide', '');
+    }
+    
+    set toHide(selector) {
+        this.setAttribute('to-hide', selector);
+    }
+
     get index() {
-        return this._index;
+        return this.#index;
+    }
+
+    set index(index) {
+        this.#index = index;
     }
 
     get selected() {
-        return this._selected;
+        return this.element.selected;
     }
 
     set selected(selected) {
@@ -977,73 +958,65 @@ class SelectOption {
             selected = $parseBoolean(selected);
         }
                 
-        if (selected != this._selected || (selected && this._selected && this.select.selectedIndex == -1)) {
+        if (selected != this.selected || (selected && this.selected && this.#select.selectedIndex == -1)) {
 
-            if (this.select.multiple) {
+            if (this.#select.multiple) {
                 if (selected) {
                     this.container.removeClass(this.selectedClass).addClass(this.className);
                 }
                 else {
                     this.container.removeClass(this.className).addClass(this.selectedClass);
                 }
-                this._selected = selected;
+                this.element.selected = selected;
 
                 if (selected) {
                     this.hideAndShow();
-                }
-
-                if (this.select._source == 'none') {
-                    this.select._selectedIndexes = this.select.options.filter(option => option.selected).map(option => option.index);
-                    this.select._selectedIndex = this.select._selectedIndexes[0] ?? -1;
                 }
             }
             else {
                 if (selected) {
-                    if (this.select._selectedIndex > -1) {
-                        this.select.options[this.select._selectedIndex].container.removeClass(this.select.options[this.select._selectedIndex].selectedClass).addClass(this.select.options[this.select._selectedIndex].className);
-                        this.select.options[this.select._selectedIndex]._selected = false;
+                    if (this.#select.selectedIndex > -1) {
+                        this.#select.options[this.#select.selectedIndex].deselect();
                     }        
                     this.container.removeClass(this.className).addClass(this.selectedClass);
-                    this._selected = true;
+                    this.element.selected = true;
 
                     this.hideAndShow();
                 }
                 else {
                     this.container.removeClass(this.selectedClass).addClass(this.className);
-                    this._selected = false;
+                    this.element.selected = false;
                 }
-
-                if (this.select._source == 'none') {
-                    this.select._selectedIndex = selected ? this.index : -1;
-                }
-            }            
+            }  
+            
+            this.#select.resetSelectedIndexes();
         }
         
-        Select[this.select.type].selectAop.call(this, selected);
+        HTMLSelectPlusElement[this.#select.type].selectAop.call(this, selected);
     }
 
     get disabled() {
-        return this._disabled;
+        return $parseBoolean(this.element.getAttribute('disabled'), true, this);
     }
 
     set disabled(disabled) {
         if (typeof(disabled) != 'boolean') {
             disabled = $parseBoolean(disabled, true, this);
         }
-        if (disabled != this._disabled) {                
+        if (disabled != this.disabled) {
             if (disabled) {
-                this.container.classList.add(this.disabledClass);
+                this.container.addClass(this.disabledClass);
             }
             else {
-                this.container.classList.remove(this.disabledClass);
+                this.container.removeClass(this.disabledClass);
             }
-            this._disabled = disabled;
-            Select[this.select.type].disableAop.call(this, disabled);
+            this.element.disabled = disabled;
+            HTMLSelectPlusElement[this.#select.type].disableAop.call(this, disabled);
         }        
     }
 
     get enabled() {
-        return !this._disabled;
+        return !this.disabled;
     }
 
     set enabled(enabled) {
@@ -1052,58 +1025,45 @@ class SelectOption {
         }
         this.disabled = !enabled;
     }
-}
 
-//button
-SelectOption.prototype.element = null;
-//parent
-SelectOption.prototype.select = null;
-//parent
-SelectOption.prototype.group = null;
-
-SelectOption.prototype.getAttribute = function(attr) {
-    if (this[attr] != undefined) {
-        return this[attr];
+    get container() {
+        return this.#container;
     }
-    else {
-        return this.attributes[attr];
+
+    populate(select) {
+        this.#select = select;
+        this.#index = select.options.length;
+        this.#container = HTMLSelectPlusElement[select.type].populate.call(this);
+
+        return this;
+    }
+
+    doselect() {
+        this.#container.removeClass(this.className).addClass(this.selectedClass);
+    }    
+
+    deselect() {
+        this.#container.removeClass(this.selectedClass).addClass(this.className);
+        this.element.selected = false;
+    }
+
+    remove () {
+        this.#select.delete(this);
+    };
+
+    hideAndShow () {
+        $a(this.toHide).forEach(e => e.hide());
+        $a(this.toShow).forEach(e => e.show());
+    }
+
+    // scale = normal
+    // selectedClass = 'new' 或 className = 'old' 或 disabled
+    updateAppearance = function(terminal) {
+        HTMLSelectPlusElement[this.#select.type].updateAppearance.call(this, terminal);
     }
 }
 
-SelectOption.prototype.setAttribute = function(attr, value) {
-    if (this[attr] != undefined) {
-        this[attr] = value;
-    }
-    else {
-        this.attributes[attr] = value;
-    }  
-}
-
-SelectOption.prototype.remove = function() {
-    this.select.delete(this);
-};
-
-SelectOption.prototype.insertBehind = function(text, value, className) {
-
-};
-
-SelectOption.prototype.insertFront = function(text, value, className) {
-
-};
-
-SelectOption.prototype.hideAndShow = function() {
-    $a(this.toHide).forEach(e => e.hide());
-    $a(this.toShow).forEach(e => e.show());
-}
-
-// scale = normal
-// selectedClass = 'new' 或 className = 'old' 或 disabled
-SelectOption.prototype._updateAppearance = function(terminal) {
-    Select[this.select.type].updateAppearance.call(this, terminal);
-}
-
-
-Select['original'] = {
+HTMLSelectPlusElement.original = {
     container: '',
     optionClass: '', 
     selectedOptionClass: '',
@@ -1123,7 +1083,7 @@ Select['original'] = {
     }
 }
 
-Select['button'] = {
+HTMLSelectPlusElement.button = {
     container: 'SPAN',
     optionClass: 'optional-button', 
     selectedOptionClass: 'blue-button',
@@ -1176,14 +1136,14 @@ Select['button'] = {
         }
 
         if (this.selected) {
-            css += ' ' + (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
+            css += ' ' + (this.selectedClass || this.select.selectedOptionClass);
         }
         else {
-            css += ' ' + (this.className == '' ? this.select.optionClass : this.className);
+            css += ' ' + (this.className || this.select.optionClass);
         }
 
         if (this.disabled) {
-            css += ' ' + (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
+            css += ' ' + (this.disabledClass || this.select.disabledOptionClass);
         }
 
         if (this.container.className != css) {
@@ -1192,16 +1152,16 @@ Select['button'] = {
 
         if (terminal == null) {
             if (this.index > 0) {
-                this.select.options[this.index - 1]._updateAppearance('terminal');
+                this.select.options[this.index - 1].updateAppearance('terminal');
             }
             if (this.index < length - 1) {
-                this.select.options[this.index + 1]._updateAppearance('terminal');
+                this.select.options[this.index + 1].updateAppearance('terminal');
             }
         }
     }
 }
 
-Select['image'] = {
+HTMLSelectPlusElement.image = {
     container: 'SPAN',
     optionClass: 'image-option', 
     selectedOptionClass: 'image-selected-option',
@@ -1226,19 +1186,19 @@ Select['image'] = {
     },
     updateAppearance: function(terminal) {
         if (this.selected) {
-            this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
+            this.container.className = this.selectedClass || this.select.selectedOptionClass;
         }
         else {
-            this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+            this.container.className = this.className || this.select.optionClass;
         }
 
         if (this.disabled) {
-            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
+            this.container.className = this.disabledClass || this.select.disabledOptionClass;
         }
     }
 }
 
-Select['radio'] = {
+HTMLSelectPlusElement.radio = {
     container: 'DIV',
     optionClass: 'item-option',
     selectedOptionClass: 'item-selected-option',
@@ -1264,19 +1224,19 @@ Select['radio'] = {
     },
     updateAppearance: function(terminal) {
         if (this.selected) {
-            this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
+            this.container.className = this.selectedClass || this.select.selectedOptionClass;
         }
         else {
-            this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+            this.container.className = this.className || this.select.optionClass;
         }
 
         if (this.disabled) {
-            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
+            this.container.className = this.disabledClass || this.select.disabledOptionClass;
         }
     }
 }
 
-Select['checkbox'] = {
+HTMLSelectPlusElement.checkbox = {
     container: 'DIV',
     optionClass: 'item-option',
     selectedOptionClass: 'item-selected-option',
@@ -1302,44 +1262,29 @@ Select['checkbox'] = {
     },
     updateAppearance: function(terminal) {
         if (this.selected) {
-            this.container.className = (this.selectedClass == '' ? this.select.selectedOptionClass : this.selectedClass);
+            this.container.className = this.selectedClass || this.select.selectedOptionClass;
         }
         else {
-            this.container.className = (this.className == '' ? this.select.optionClass : this.className);
+            this.container.className = this.className || this.select.optionClass;
         }
 
         if (this.disabled) {
-            this.container.className = (this.disabledClass == '' ? this.select.disabledOptionClass : this.disabledClass);
+            this.container.className = this.disabledClass || this.select.disabledOptionClass;
         }
     }
 }
 
-Select.initialize = function(button) {
-    if (typeof(button) == 'string') {
-        button = $s(button);
-    }
-    if (button != null) {
-        new Select(button).initialize();
-    }
-    else {
-        throw new Error('Must specify a SELECT element.');
-    }
-}
-
-Select.initializeAllIn = function(element) {
+HTMLSelectPlusElement.initializeAll = function(element) {
     if (typeof(element) == 'string') {
         element = $s(element);
     }
-    element.querySelectorAll('select').forEach(select => {
-        HTMLElement.boostPropertyValue(select, 'value');        
-        new Select(select).initialize();
+    (element ?? document).querySelectorAll('select:not([root-select])').forEach(select => {
+        HTMLElement.boostPropertyValue(select, 'value');
+        select.setAttribute('root-select', '');
+        new HTMLSelectPlusElement(select).initialize();
     });
 }
 
-Select.initializeAll = function() {
-    Select.initializeAllIn(document);
-}
-
 document.on('post', function () {
-    Select.initializeAll();
+    HTMLSelectPlusElement.initializeAll();
 });

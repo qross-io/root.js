@@ -1,73 +1,82 @@
 
-class Tab {
+class HTMLTabAttribute extends HTMLCustomAttribute {
+
 	constructor(element) {
-		$initialize(this)
-        .with(element)
-        .declare({
-			name: 'Tab_' + String.shuffle(7),
-			bindings: '',
-			excludes: '', //0, -1
-			defaultClass: '',
-			selectedClass: '',
+		super(element)
+		element.tab = this;
+	}
 
-			successText: '',
-			failureText: '',
-			exceptionText: '',
+	#bindings = null;
 
-			onchange: null, //function(beforeOption, ev) { },
-            'onchange+': null, //server side event
-            'onchange+success': null,
-            'onchange+failure': null,
-            'onchange+exception': null,
-            'onchange+completion': null,
-		})
-		.elementify(element => {
-			this.element = element;
-			if (this.bindings == '') {
+	get bindings() {
+		if (this.#bindings == null) {
+			let bindings = this.getAttribute('bindings', '');
+			if (bindings == '') {
 				if (this.element.nodeName == 'TABLE') {
-					this.bindings = [...this.element.querySelectorAll('TR')];
+					this.#bindings = [...this.element.querySelectorAll('TR')];
 				}
 				else {
-					this.bindings = [...this.element.children];
+					this.#bindings = [...this.element.children];
 				}
 			}
-			else if (typeof (this.bindings) == 'string') {
-				this.bindings = [...this.element.querySelectorAll(this.bindings)];
+			else if (typeof (bindings) == 'string') {
+				this.#bindings = [...this.element.querySelectorAll(bindings)];
 			}
-
-			if (this.bindings == null || this.bindings.length == 0) {
-				throw new Error('Must specify "bindings" property to bind Tab.');
+	
+			if (this.#bindings.length == 0) {
+				throw new Error('Must specify "bindings" property to bind a TAB attribute.');
 			}
+		}
+		return this.#bindings;
+	}
 
-			if (this.excludes != '') {
-				this.excludes = this.excludes.split(',').map(e => e.trim()).filter(e => e != '');
-				for (let i = 0; i < this.excludes.length; i++) {
-					let e = this.excludes[i];
-					if (/^odd$/i.test(e)) {
-						for (let j = 0; j < this.bindings.length; j++) {
-							if (j % 2 == 1) {
-								this.bindings[j] = null;
-							}
-						}
-					}
-					else  if (/^even$/i.test(e)) {
-						for (let j = 0; j < this.bindings.length; j++) {
-							if (j % 2 == 0) {
-								this.bindings[j] = null;
-							}
-						}
-					}
-					else {
-						e = parseInt(e);
-						if (e < 0) {
-							e = this.bindings.length + e;
-						}
-						this.bindings[e] = null;
-					}
-				}
+	#excludings = null;
 
-			}
-		});
+	get excludings() {
+		if (this.#excludings == null) {
+			this.#excludings = this.getAttribute('excludings', '')?.toLowerCase().split(',').map(e => e.trim()).filter(e => e != '') ?? [];
+		}
+		return this.#excludings;
+	}
+	
+	get defaultClass() {
+		return this.getAttribute('default-class', '');
+	}
+
+	set defaultClass(className) {
+		this.setAttribute('default-class', className);
+	}
+
+	get selectedClass() {
+		return this.getAttribute('selected-class', '');
+	}
+
+	set selectedClass(className) {
+		this.setAttribute('selected-class', className);
+	}
+
+	get successText() {
+		return this.getAttribute('success-text', '');
+	}
+
+	set successText(text) {
+		this.setAttribute('success-text', text);
+	}
+
+	get failureText() {
+		return this.getAttribute('failure-text', '');
+	}
+
+	set failureText(text) {
+		this.setAttribute('failure-text', text);
+	}
+
+	get exceptionText() {
+		return this.getAttribute('exception-text', 'Exception: {data}');
+	}
+
+	set exceptionText(text) {
+		this.setAttribute('exception-text', text);
 	}
 
 	get value () {
@@ -85,19 +94,128 @@ class Tab {
 	set text (text) {
 		return this.element.setAttribute('text', text);
 	}
+
+	get calloutPosition() {
+		return this.getAttribute('callout') ?? this.getAttribute('callout-position');
+	}
+
+	get messageDuration() {
+		return this.getAttribute('message') ?? this.getAttribute('message-duration');
+	}
+
+	status = 'success';
+
+	set hintText(text) {
+		if (text != '') {
+			if (this.calloutPosition != null || this.messageDuration == null) {
+				Callout(text).position(this.#selectedElement, this.calloutPosition).show();
+			}
+	
+			if (this.messageDuration != null) {
+				window.Message?.[this.status != 'success' ? 'red' : 'green'](text).show(this.messageDuration.toFloat(0));
+			}
+		}		
+	}
+
+	#selectedElement = null;
+
+	get selectedElement() {
+		return this.#selectedElement;
+	}
+
+	change (element, trigger = true) {
+
+		if (typeof(element) == 'string') {
+			element = $s(element);
+		}
+	
+		if (element != null && this.selectedElement != element) {
+			this.#selectedElement?.setClass(this.defaultClass.$css(this.#selectedElement));
+			element.className = this.selectedClass.$css(element);
+			this.#selectedElement = element;
+	
+			element.getAttribute('to-hide')?.$$().forEach(a => a.hide());
+			element.getAttribute('to-show')?.$$().forEach(a => a.show());
+
+			this.element.setAttribute('text', element.getAttribute('text'));
+			this.element.setAttribute('value', element.getAttribute('value'));
+	
+			if (trigger) {
+				this.dispatch('ontabchange', element);
+			}		
+		}
+	}
+
+	initialize() {
+
+		for (let i = 0; i < this.excludings.length; i++) {
+			let e = this.excludings[i];
+			if (e == 'odd') {
+				for (let j = 0; j < this.bindings.length; j++) {
+					if (j % 2 == 1) {
+						this.bindings[j] = null;
+					}
+				}
+			}
+			else  if (e == 'even') {
+				for (let j = 0; j < this.bindings.length; j++) {
+					if (j % 2 == 0) {
+						this.bindings[j] = null;
+					}
+				}
+			}
+			else {
+				e = parseInt(e);
+				if (e < 0) {
+					e = this.bindings.length + e;
+				}
+				this.bindings[e] = null;
+			}
+		}
+	
+		let tab = this;
+	
+		Event.interact(this.element);
+	
+		this.bindings.filter(e => e != null).forEach(element => {
+	
+			if ($parseBoolean(element.getAttribute('selected'), false, this) || element.className == tab.selectedClass.$css(element)) {
+				tab.change(element, false);
+			}
+			else if (element.className == '') {
+				element.className = tab.defaultClass;
+			}
+	
+			element.on('click', function(ev) {
+				if (ev.button == 0) {
+					tab.change(element);
+	
+					if (tab['ontabchange+'] != null) {			
+						$FIRE(tab, 'ontabchange+',
+							function(data) {
+								tab.status = 'success';
+								tab.hintText = tab.successText.$p(element, data);								
+							},
+							function(data) {
+								tab.status = 'failure';
+								tab.hintText = tab.failureText.$p(element, data);
+							},
+							function(error) {
+								tab.status = 'exception';
+								tab.hintText = tab.exceptionText.$p(element, { data: error, error: error });
+							});
+					}				
+				}
+			});
+		});
+	}
 }
 
-$tab = function(name) {
-	let tab = $t(name);
-    if (tab != null && tab.tagName == 'TAB') {
-        return tab;
-    }
-    else {
-        return null;
-    }
-}
+HTMLCustomElement.defineEvents(HTMLTabAttribute.prototype, {
+	'ontabchange': 'onTabChanged',
+	'ontabchange+': 'onTabChanged+'
+})
 
-Tab.prototype.selectedElement = null;
 
 //用某个元素的属性当值, 当使用子元素的样式切换时会用到
 String.prototype.$css = function(element) {
@@ -109,90 +227,13 @@ String.prototype.$css = function(element) {
     return css;
 }
 
-Tab.prototype.change = function(element, trigger = true) {
 
-	if (typeof(element) == 'string') {
-		element = $s(element);
-	}
-
-	if (element != null && this.selectedElement != element) {
-		if (this.selectedElement != null) {
-			this.selectedElement.className = this.defaultClass.$css(this.selectedElement);
-		}
-		element.className = this.selectedClass.$css(element);
-		this.selectedElement = element;
-
-		let hide = element.getAttribute('to-hide') || element.getAttribute('tohide');
-		if (hide != null) {
-			$a(hide).forEach(a => a.hide());
-		}
-		
-		let show = element.getAttribute('to-show') || element.getAttribute('to-show');
-		if (show != null) {
-			$a(show).forEach(a => a.show());
-		}
-
-		this.element.setAttribute('value', $value(element));
-		this.element.setAttribute('text', $text(element));
-
-		if (trigger) {
-			Event.execute(this.name, 'onchange', element);
-		}		
-	}
-}
-
-Tab.prototype.bind = function() {
-
-	let tab = this;
-
-	Event.interact(this, this.element);
-
-	this.bindings.filter(e => e != null).forEach(element => {
-
-		if ($parseBoolean(element.getAttribute('selected'), false) || element.className == tab.selectedClass.$css(element)) {
-			tab.change(element, false);
-		}
-		else if (element.className == '') {
-			element.className = tab.defaultClass;
-		}
-
-		element.on('click', function(ev) {
-			if (ev.button == 0) {
-				tab.change(element);
-
-				if (tab['onchange+'] != null) {			
-					$FIRE(tab, 'onchange+',
-						function(data) {
-							if (tab.successText != '') {
-								Callout(tab.successText.$p(element, data)).position(element, 'up').show();
-							}
-						},
-						function(data) {
-							if (tab.failureText != '') {
-								Callout(tab.failureText.$p(element, data)).position(element, 'up').show();
-							}
-						},
-						function(error) {
-							if (tab.exceptionText != '') {
-								Callout(tab.exceptionText.$p(element, error)).position(element, 'up').show();
-							}							
-						});
-				}				
-			}
-		});
-	});
-}
-
-Tab.initialize = function(selector) {
-   new Tab($s(selector)).bind();
-}
-
-Tab.initializeAll = function () {
+HTMLTabAttribute.initializeAll = function () {
 	for (let tab of document.querySelectorAll('[tab]')) {
-		new Tab(tab).bind();
+		new HTMLTabAttribute(tab).initialize();
 	}	
 };
 
 document.on('post', function() {
-	Tab.initializeAll();	
+	HTMLTabAttribute.initializeAll();	
 });

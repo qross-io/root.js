@@ -88,13 +88,15 @@ HTMLAnchorElement.prototype.go = function() {
         },
         function(error) {
             this.status = 'exception';
-            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
         },
         function() {
             // if (this._href != '') {
             //     this.href = this._href;
             // }
-        }
+        },
+        this,
+        { 'text': this.textContent }
     );
 }
 

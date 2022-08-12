@@ -176,6 +176,14 @@ class HTMLCoderElement extends HTMLCustomElement {
         this.#mirror.setValue(value);
     }
 
+    get code() {
+        return this.value;
+    }
+
+    set code(code) {
+        this.value = code;
+    }
+
     get readOnly() {
         return this.#readOnly;
     }
@@ -553,7 +561,7 @@ HTMLCoderElement.save = function(cm) {
                         this.errorText = this.failureText.$p(this, data);
                     },
                     function(error) {
-                        this.errorText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                        this.errorText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
                     });
             }
             else {

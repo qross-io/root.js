@@ -7,20 +7,40 @@
     <script type="text/javascript" src="/root.animation.js"></script>
     <script type="text/javascript" src="/root.model.js"></script>
     <script type="text/javascript" src="/root.treeview.gingko.js"></script>
-    <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
-    <link href="/css/root/treeview.css" rel="stylesheet" type="text/css" />
+    <link href="/css/root/main.css" rel="stylesheet" type="text/css" />    
+    <link href="/css/root/iconfont.css" rel="stylesheet" type="text/css" />    
     <style type="text/css">
+        .abc { font-weight: bold; }
     </style>
 </head>
 <body style="padding: 50px;">
-   
 
-    <select id="S" type="buton">
-        <option>text</option>
-        <option selected="0">value</option>
-    </select>
-    <button disabled="false">DEFG</button>
-    <div style="background-color: #FF0000; height: 100px;" hidden>ABCD</div>
+    <treeview id="Catalog" icons-visible="yes" node-cell-style="node" link-mode="node" target="WorkFrame"
+         expand-depth="2" node-indent="12" node-padding="5" node-spacing="1">
+    <treenode name="global" text="# global-settings #" icon="icon-setting" link="/system/global">
+        <treenode name="datasource" text="# datasource #" icon="icon-database" link="/system/properties"></treenode>
+        <treenode name="database" text="# database #" icon="icon-database" link="/system/connections"></treenode>
+        <treenode name="language" text="# mail-outbox #" icon="icon-mail" link="/system/email"></treenode>
+        <treenode name="language" text="语言/Language" icon="icon-language" link="/system/language"></treenode>
+        <treenode name="language" text="# login-mode #" icon="icon-login" link="/system/login"></treenode>
+    </treenode>
+    <treenode name="keeper" text="# keeper.keeper-monitor #" icon="icon-cluster" link="/keeper/nodes">
+        <treenode name="keeper-settings" text="# keeper.keeper-settings #" icon="icon-setting" link="/keeper/settings"></treenode>
+        <treenode name="keeper-command-templates" text="# keeper-command-tempaltes #" icon="icon-formatpainter" link="/system/command-templates"></treenode>                  
+        <treenode name="keeper-events" text="# keeper-events #" icon="icon-deploymentunit" link="/system/events"></treenode>
+        <treenode name="keeper-node-events" text="# keeper.keeper-node-events #" icon="icon-gateway" link="/keeper/node-events"></treenode>
+        <treenode name="keeper-errors" text="# keeper-errors #" icon="icon-error" link="/keeper/errors"></treenode>
+        <treenode name="calendar" text="# work-calendar #" icon="icon-calendar" link="/system/calendar"></treenode>
+        <treenode name="stuck-tasks" text="# keeper.keeper-stuck-tasks #" icon="icon-warning-circle" link="/keeper/stuck"></treenode>
+    </treenode>
+    <treenode name="pql" text="# pql-extensions #" icon="icon-puzzlepiece">
+        <treenode name="pql-variables" text="# pql-variables #" icon="icon-Field-String" link="/system/variables"></treenode>
+        <treenode name="pql-functions" text="# pql-functions #" icon="icon-Function" link="/system/functions"></treenode>
+    </treenode>
+    <treenode name="bug" text="# bug-feedback #" icon="icon-icon_fabu" link="/system/feedback"></treenode>
+    <treenode name="about" text="# about-qross #" icon="icon-about" link="/system/about"></treenode>
+</treeview>
+
 <div id="Message" style="position: fixed; top: 100px; width: 500px; margin: 0px auto; left: 0px; right: 0px;" visible="false">
     <div id="A" style="background-color: #FFDDDD; color: #CC0000; margin: 2px auto; border: 1px solid #FF9999; text-align: center; padding: 8px; border-radius: 3px; font-size: 0.875rem;">HELLO WORLD 1</div>
     <div id="B" style="background-color: #DDFFDD; color: #009900; margin: 2px auto; border: 1px solid #33CC33; text-align: center; padding: 8px; border-radius: 3px; font-size: 0.875rem;">HELLO WORLD 2</div>
@@ -28,32 +48,16 @@
     <div id="D" style="background-color: #FFFFCC; color: #CC9900; margin: 2px auto; border: 1px solid #FFCC33; text-align: center; padding: 8px; border-radius: 3px; font-size: 0.875rem;">HELLO WORLD 4</div>
     <div id="E" style="background-color: #FFCC99; color: #FF6633; margin: 2px auto; border: 1px solid #FF9966; text-align: center; padding: 8px; border-radius: 3px; font-size: 0.875rem;">HELLO WORLD 5</div>
 </div>
-<button>ABC</button>
-
-<treeview id="TV">
-    <treenode text="hello">
-        <treenode>子节点 1</treenode>
-        <treenode>子节点 2</treenode>
-    </treenode>
-    <treenode>world</treenode>
+<treeview id="TV" node-cell-style="node" node-padding="2">
+    <treenode icon="calendar4.png" text="根节点1 - All">
+        <treenode icon="calendar.png">-- Boys --</treenode>
+        <slot for="root" data="/example/data1.json"></slot>
+        <treenode icon="calendar0.png">-- Girls --<slot for="root" data="/example/data2.json"></slot></treenode>        
+    </treenode>    
+    <treenode icon="calendar1.png">根节点2 - Girls<slot for="root" data="/example/data2.json"></slot></treenode>
+    <template as="array" name="root">
+        <treenode icon="calendar2.png" name="child_@item.id" value="@item.age" tip="(@item.score)">@item.name</treenode>
+    </template>    
 </treeview>
-<tree-view id="VT"></tree-view>
-
-<div id="con">
-    没什么卵用的文字
-    <span slot="main1">坑位123</span>
-    <span slot="main2">坑位234</span>
-    没什么卵用的文字 
-</div>
-
-<template id="tpl">tpl begin
-    <slot name="main1"></slot>
-    <slot name="main2"></slot>
-    tpl end
-</template>
-
-<input id="N" type="text" />
-
-
 </body>
 </html>

@@ -109,10 +109,10 @@ $enhance(HTMLButtonElement.prototype)
             set (text) {                
                 if (this.hintElement != null) {
                     this.hintElement.innerHTML = text;
-                    if (this.status == $button.status.success) {
+                    if (this.status == 'success') {
                         this.hintElement.removeClass(this.textClass, this.errorTextClass).addClass(this.validTextClass);
                     }
-                    else if (this.status == $button.status.acting) {
+                    else if (this.status == 'acting') {
                         this.hintElement.removeClass(this.errorTextClass, this.validTextClass).addClass(this.textClass);
                     }
                     else {
@@ -121,14 +121,14 @@ $enhance(HTMLButtonElement.prototype)
                     this.hintElement.hidden = text == '';
                 }
                 
-                if (this.status < $button.status.acting) {
+                if (this.status != 'acting') {
                     if (text != '') {
                         if (this.calloutPosition != null) {
                             Callout(text).position(this, this.calloutPosition).show();
                         }
 
                         if (this.messageDuration != null) {
-                            window.Message?.[this.status != $button.status.success ? 'red' : 'green'](text).show(this.messageDuration.toFloat(0));
+                            window.Message?.[this.status != 'success' ? 'red' : 'green'](text).show(this.messageDuration.toFloat(0));
                         }
 
                         if (this.alert != null) {
@@ -187,18 +187,9 @@ $enhance(HTMLButtonElement.prototype)
     })
     .defineEvents('onclick+', 'onclick-enabled', 'onclick-disabled', 'onclick-confirm', 'onclick-cancel'); //for switch & confirm
 
-$button = {
-    status: {
-        "acting": 2,
-        "success": 1,
-        "failure": 0,
-        "exception": -1
-    }
-}
-
 HTMLButtonElement.prototype.onclick_ = null; // onclick 属性的值
 HTMLButtonElement.prototype._hintElement = undefined;
-HTMLButtonElement.prototype.status = $button.status.success;
+HTMLButtonElement.prototype.status = 'success';
 HTMLButtonElement.prototype._relations = null;
 
 HTMLButtonElement.prototype.enable = function() {
@@ -263,11 +254,11 @@ HTMLButtonElement.prototype.go = function() {
     this.text = this.clickText.$p(this);
 
     if (this['onclick+'] != null) {
-        this.status = $button.status.acting;
+        this.status = 'acting';
         this.hintText = this.actionText.$p(this);
         $FIRE(this, 'onclick+',
             function(data) {
-                this.status = $button.status.success;
+                this.status = 'success';
                 this.hintText = this.successText.$p(this, data);            
                 if (this.href != '') {
                     this.text = this.jumpingText.$p(this, data);
@@ -281,7 +272,7 @@ HTMLButtonElement.prototype.go = function() {
                 }
             }, 
             function(data) {
-                this.status = $button.status.failure;
+                this.status = 'failure';
                 this.hintText = this.failureText.$p(this, data);            
                 this.text = this.defaultText;
                 if (this.enableOnFailure) {
@@ -289,8 +280,8 @@ HTMLButtonElement.prototype.go = function() {
                 }                
             },
             function(error) {
-                this.status = $button.status.exception;  
-                this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                this.status = 'exception';
+                this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
                 this.text = this.defaultText;
                 if (this.enableOnException) {
                     this.enable();
@@ -377,7 +368,7 @@ HTMLButtonElement.prototype.initialize = function() {
                             this.switch(ev);
                         },
                         function(error) {
-                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);
+                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });
                             this.switch(ev);
                         },
                         function() {
@@ -447,7 +438,7 @@ HTMLButtonElement.prototype.initialize = function() {
                         },
                         function(error) {
                             this.enable();
-                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, error);                            
+                            this.hintText = this.exceptionText == '' ? error : this.exceptionText.$p(this, { data: error, error: error });                            
                         }
                     );
                 }

@@ -88,17 +88,15 @@ $enhance(HTMLTextAreaElement.prototype)
         }
     });
 
-$textarea = {
-    status: {
-        "filled": 3, //有值初始状态
-        "valueless": 2, //无值初始状态
-        "valid": 1, //正确的
-        "empty": 0, //空值
-        "incorrect": -1 //错误的值
-    }
-}
+HTMLTextAreaElement.STATUS = {
+    "FILLED": 3, //有值初始状态
+    "VALUELESS": 2, //无值初始状态
+    "VALID": 1, //正确的
+    "EMPTY": 0, //空值
+    "INCORRECT": -1 //错误的值
+};
 
-HTMLTextAreaElement.prototype._status = $textarea.status.valueless; //无值初始状态
+HTMLTextAreaElement.prototype._status = HTMLTextAreaElement.STATUS.VALUELESS; //无值初始状态
 HTMLTextAreaElement.prototype._relations = null;
 
 HTMLTextAreaElement.prototype.find = function(strOrRegex, reset = false) {
@@ -188,15 +186,15 @@ HTMLTextAreaElement.prototype.replaceAll = function(strOrRegex, replacement) {
 HTMLTextAreaElement.prototype.initialize = function() {
     
     if (this.value != '') {
-        this._status = $input.status.filled; //有值初始状态
+        this._status = HTMLTextAreaElement.STATUS.FILLED; //有值初始状态
         if (this.required) {
-            this.status = $textarea.status.valid;
+            this.status = HTMLTextAreaElement.STATUS.VALID;
         }
     }
 
     this.on('input,change', function(ev) {
         if (this.required) {
-            this.status = this.value != '' ? $textarea.status.valid : $textarea.status.empty;
+            this.status = this.value != '' ? HTMLTextAreaElement.STATUS.VALID : HTMLTextAreaElement.STATUS.EMPTY;
         }        
     });
 

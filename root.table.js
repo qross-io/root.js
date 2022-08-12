@@ -20,7 +20,7 @@
 */
 
 $enhance(HTMLTableElement.prototype)
-    .declare({
+    .defineProperties({
         name: 'Table_' + String.shuffle(7),
         excludes: '', //0, -1
 
@@ -55,30 +55,28 @@ $enhance(HTMLTableElement.prototype)
         
         reloadOnFilterOrSorting: false, //如果为true, 则到后端请求数据, 如果为false, 则仅在前端过滤和筛选
         reloadOnFilter: false,
-        reloadOnSort: false
-    })
-    .defineEvents('onrowdblclick+',
-        onrowhover, //function(row) { },
-        onrowleave, //function(row) { },
-        onrowfocus, //function(row) { },
-        onrowblur, //function(row) { },
-        onrowdblclick, //function(row) { },
-        onrowdelete, //function(row) { },
-        onload, //function() { },
-        onreload, //function() { },
-        onmeet,
-        onmiss,
-        onfilter, //function() {},
-        onsort, //function() {},
-        onfiltercancel //function() {}
-    )
-    .define({
+        reloadOnSort: false,
         'value': {
             get () {            
                 return '';
             }
         }
-    });
+    })
+    .defineEvents('onrowdblclick+',
+        'onrowhover',
+        'onrowleave',
+        'onrowfocus',
+        'onrowblur',
+        'onrowdblclick',
+        'onrowdelete',
+        'onload',
+        'onreload',
+        'onmeet',
+        'onmiss',
+        'onfilter',
+        'onsort',
+        'onfiltercancel'
+    );
 
 HTMLTableElement.prototype.template = null;
 HTMLTableElement.prototype.cols = null; //表格的列数组
@@ -100,15 +98,11 @@ HTMLTableElement.prototype.initialize = function() {
         this.id = this.name;
     }
 
-    if (this.querySelector('template') != null) {
-        this.template = new Template(this.querySelector('template'))
-                            .of(this, this)
-                            .asArray();
-    }
-
     if (this.tBodies.length == 0) {
         this.appendChild($create('TBODY'));        
     }
+
+    this.template = this.querySelector('template')?.of(this).asArray().initialize();
     
     Event.interact(this, this);
 
@@ -117,7 +111,7 @@ HTMLTableElement.prototype.initialize = function() {
         this.__initializeAllRows();
         this.loaded = true;
 
-        this.execute('onload');
+        this.dispatch('onload');
 
         this.__formatCellData(); //初始化列的值 map
     }
@@ -149,10 +143,10 @@ HTMLTableElement.prototype.initialize = function() {
                 
                 if (table.meet != null) {
                     if (table.meet.toBoolean(false, table)) {
-                        table.execute('onmeet');
+                        table.dispatch('onmeet');
                     }
                     else {
-                        table.execute('onmiss');
+                        table.dispatch('onmiss');
                     }
                 }
             }, this.interval);
@@ -171,7 +165,7 @@ HTMLTableElement.prototype.hover = function (ev) {
                 this.hoverRow = row.tr;
                 row.tr.className = this.hoverRowClass;
             }
-            this.execute('onrowhover', row.tr);
+            this.dispatch('onrowhover', { tr: row.tr });
         }
     }
 }
@@ -179,7 +173,7 @@ HTMLTableElement.prototype.hover = function (ev) {
 HTMLTableElement.prototype.leave = function (ev) {
     if (this.hoverRow != null) {
         this.hoverRow.className = Number.parseInt(this.hoverRow.getAttribute('index')) % 2 == 0 ? this.rowClass : this.alternativeRowClass;
-        this.execute('onrowleave', this.hoverRow);
+        this.dispatch('onrowleave', { tr: this.hoverRow });
         this.hoverRow = null;
     }
 }
@@ -196,20 +190,20 @@ HTMLTableElement.prototype.focus = function (ev) {
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow && !row.isFocusRow) {
         this.hoverRow = null;
         if (this.focusRow != null) {
-            this.execute('onrowblur', this.focusRow);
+            this.dispatch('onrowblur', { tr: this.focusRow });
             this.focusRow.className = Number.parseInt(this.focusRow.getAttribute('index')) % 2 == 0 ? this.rowClass : this.alternativeRowClass;
         }
         this.focusRow = row.tr;        
         row.tr.className = this.focusRowClass;
 
-        this.execute('onrowfocus', row.tr);
+        this.dispatch('onrowfocus', { tr: row.tr });
     }
 }
 
 HTMLTableElement.prototype.dblclick = function (ev) {
     let row = this.__bubbleRow(ev);
     if (row.nodeName == 'TR' && row.isContent && !row.isExcludedRow) {
-        if (this.execute('onrowdblclick', row.tr)) {
+        if (this.dispatch('onrowdblclick', row.tr)) {
             if (this['onrowdblclick+'] != null) {
                 $FIRE(this, 'onrowdblclick+', 
                     function(data) {
@@ -219,7 +213,7 @@ HTMLTableElement.prototype.dblclick = function (ev) {
                         window.Message?.red(this.failureText.$p(this, data)).show();
                     },
                     function(error) {
-                        window.Message?.red(this.exceptionText.$p(this, error) || `Exeption: ${error}`).show();
+                        window.Message?.red(this.exceptionText.$p(this, { data: error, error: error }) || `Exeption: ${error}`).show();
                     },
                     null,
                     row.tr
@@ -235,7 +229,7 @@ HTMLTableElement.prototype.delete = function(row) {
     }
 
     if (row != null) {
-        if (this.execute('onrowdelete', row)) {
+        if (this.dispatch('onrowdelete', { tr: row })) {
             row.remove();
             this.__initializeAllRows();
         }        
@@ -392,7 +386,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                         .forEach(tr => {//清除过滤词
                             if (text == '') {
                                 DataTable.clearFilter(tr, col.name);
-                                table.execute('onfiltercancel');
+                                table.dispatch('onfiltercancel');
                             }
                             //添加或替换过滤词
                             else {
@@ -442,7 +436,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                             }
                         });
 
-                    table.execute('onfilter');
+                    table.dispatch('onfilter');
 
                     //设置行样式或加载数据后设置行样式
                     if (table.data == '') {
@@ -488,7 +482,7 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                         DataTable.clearFilter(tr, col.name);
                     });
                 
-                table.execute('onfiltercancel');
+                table.dispatch('onfiltercancel');
 
                 //设置行样式或加载数据后设置行样式
                 if (table.data == '') {
@@ -634,7 +628,7 @@ HTMLTableElement.prototype.appendOrRenew = function(index, data) {
         let tr = $create('TR');
         for (let i = 0; i < this.cols.length; i++) {
             let col = this.cols[i];
-            tr.appendChild($create('TD', { innerHTML: col.template.placeData({"data": data}), className: col.className.placeData({"data": data}) }));
+            tr.appendChild($create('TD', { innerHTML: col.dataFormat.placeData({"data": data}), className: col.className.placeData({"data": data}) }));
         }
         this.tBodies[0].appendChild(tr);
     }
@@ -642,7 +636,7 @@ HTMLTableElement.prototype.appendOrRenew = function(index, data) {
         let tr = this.tBodies[0].children[index];
         for (let i = 0; i < this.cols.length; i++) {
             let col = this.cols[i];
-            tr.cells[i].innerHTML = col.template.placeData({"data": data});
+            tr.cells[i].innerHTML = col.dataFormat.placeData({"data": data});
             tr.cells[i].className = col.className.placeData({"data": data});
             tr.cells[i].removeAttribute('formatted');
         }
@@ -664,13 +658,13 @@ HTMLTableElement.prototype.load = function() {
                     //仅第一次加载初始化设置
                     this.__initializeSettings();
                     //第一次加载执行事件
-                    this.execute('onload');
+                    this.dispatch('onload');
                     this.loaded = true;
                     this.setAttribute('loaded', ''); //if
                 }
                 else {
                     //reload 执行事件
-                    this.execute('onreload');
+                    this.dispatch('onreload');
                 }
                 
                 this.__formatCellData(); //初始化列的值 map
@@ -704,13 +698,13 @@ HTMLTableElement.prototype.load = function() {
                         
             if (!this.loaded) {                
                 //第一次加载执行事件
-                this.execute('onload');
+                this.dispatch('onload');
                 this.loaded = true;
                 this.setAttribute('loaded', ''); //if
             }
             else {
                 //reload 执行事件
-                this.execute('onreload');
+                this.dispatch('onreload');
             }
 
             this.__formatCellData(); //初始化列的值 map
@@ -726,7 +720,7 @@ HTMLTableElement.prototype.reload = function() {
 }
 
 $enhance(HTMLTableColElement.prototype)
-    .declare({
+    .defineProperties({
         name: '',
         editable: false,
         filterable: false,
@@ -735,21 +729,22 @@ $enhance(HTMLTableColElement.prototype)
         sortingStyle: 'link|list',
         type: 'text|integer|float|percent', //未实现
         percision: 2, //未实现
-        template: function(value) {
-            if (value != null) {
-                if (value.startsWith('#')) {
-                    return $s(value).innerHTML;
+        dataFormat: {
+            get() {
+                let value = this.getAttribute('data-format');
+                if (value != null) {
+                    if (value.startsWith('#')) {
+                        return $s(value).innerHTML;
+                    }
+                    else {
+                        return value;
+                    }
                 }
                 else {
-                    return value;
+                    return '';
                 }
             }
-            else {
-                return '';
-            }            
-        }
-    })
-    .define({
+        },
         'map': {
             get() {
                 if (this.mapping == null) {
