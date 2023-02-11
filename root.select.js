@@ -482,7 +482,7 @@ class HTMLSelectPlusElement extends HTMLCustomElement {
         
         if (text != '') {
             if (this.calloutPosition != null) {
-                Callout(text).position(this.container, this.callout).show();
+                Callout(text).position(this.container, this.calloutPosition).show();
             }
             
             if (this.messageDuration != null) {

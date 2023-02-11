@@ -759,7 +759,7 @@ $root.prompt = function(message, input, confirmButton, cancelButton, title, ev) 
             textBox[name] = input[name];
         }
         else {
-            textBox.setAttribute(name, inputOptions[name]);
+            textBox.setAttribute(name, input[name]);
         }
     }    
     textBox.initializeInputable?.();

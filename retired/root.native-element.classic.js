@@ -176,7 +176,7 @@ NativeElement.prototype.define = function(properties) {
 NativeElement.prototype.defineEvents = function(...eventNames) {
     eventNames.forEach(eventName => {
         if (eventName.endsWith('+')) {
-            HTMLElement.defineSeverEvent(this.object, eventName);
+            HTMLElement.defineServerEvent(this.object, eventName);
         }
         else {
             HTMLElement.defineCustomEvent(this.object, eventName);

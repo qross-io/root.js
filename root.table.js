@@ -85,7 +85,6 @@ HTMLTableElement.prototype.hoverRow = null;
 //HTMLTableElement.prototype.hoverColumn = -1;
 HTMLTableElement.prototype.focusRow = null;
 //HTMLTableElement.prototype.focusRows = new Array();
-//HTMLTableElement.prototype.focusColumn = -1;
 //数据源数据是否已经加载完成
 HTMLTableElement.prototype.loaded = false;
 
@@ -241,11 +240,12 @@ HTMLTableElement.prototype.__bubbleRow = function (ev) {
     let tr = ev.target;
     let td = null;
     while (tr.nodeName != 'TR' && tr.nodeName != 'BODY') {
-        if (tr.nodeName == 'TD') {
+        if (tr.nodeName != null && tr.nodeName == 'TD') {
             td = tr;
             isContent = true;
         }
-        tr = tr.parentNode;
+
+        tr = tr.parentNode;        
     }
 
     return {
@@ -314,7 +314,8 @@ HTMLTableElement.prototype.__initializeSettings = function () {
                 }
                 col.index = i;
                 if (col.editable) {
-                    col.editor = new Editor(col).apply('#' + (col.parentNode.nodeName == 'COLGROUP' ? col.parentNode.parentNode.id : col.parentNode.id) + ' tbody td:nth-child(' + (i + 1) + ')');
+                    col.editor = new HTMLEditorAttribute(col);
+                    col.editor.apply(...col.cells);
                 }
 
                 this.cols[i] = col;                
@@ -607,7 +608,7 @@ HTMLTableElement.prototype.__formatCellData = function(row) {
 HTMLTableElement.prototype.clear = function(index = 0) {
     for (let i = this.tBodies[0].children.length - 1; i >= index; i--) {
         let element = this.tBodies[0].children[i];
-        if (element.getAttribute('irremovable') == null) {
+        if (!element.hasAttribute('irremovable') && element.nodeName != 'TEMPLATE') {
             element.remove();
         }        
     }
@@ -663,7 +664,11 @@ HTMLTableElement.prototype.load = function() {
                     this.setAttribute('loaded', ''); //if
                 }
                 else {
-                    //reload 执行事件
+                    this.cols.forEach(col => {
+                        col.editor?.apply(...col.cells);
+                    });
+
+                    //reload 执行事件                    
                     this.dispatch('onreload');
                 }
                 
@@ -703,6 +708,9 @@ HTMLTableElement.prototype.load = function() {
                 this.setAttribute('loaded', ''); //if
             }
             else {
+                this.cols.forEach(col => {
+                    col.editor?.apply(...col.cells);
+                });
                 //reload 执行事件
                 this.dispatch('onreload');
             }
@@ -799,6 +807,11 @@ $enhance(HTMLTableColElement.prototype)
                     this.mapping = '';                                    
                 }                             
             }
+        },
+        'cells': {
+            get() {
+                return $$('#' + (this.parentNode.nodeName == 'COLGROUP' ? this.parentNode.parentNode.id : this.parentNode.id) + ' tbody td:nth-child(' + (this.index + 1) + ')');
+            }
         }
     });
 
@@ -809,6 +822,7 @@ HTMLTableColElement.prototype.filtering = false;
 HTMLTableColElement.prototype.sorting = false;
 HTMLTableColElement.prototype.editor = null;
 HTMLTableColElement.prototype.index = -1;
+HTMLTableColElement.prototype.__columnSelector = 
 
 document.on('post', function () {
     for (let table of $a('table[data]')) {

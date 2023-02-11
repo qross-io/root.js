@@ -128,8 +128,16 @@ class HTMLCoderElement extends HTMLCustomElement {
         return 'CODER';
     }
 
+    set nodeName(name) {
+
+    }
+
     get tagName() {
         return 'CODER';
+    }
+
+    set tagName(name) {
+        
     }
 
     get name() {

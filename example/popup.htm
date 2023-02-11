@@ -10,11 +10,36 @@
 </head>
 <body>
 <pop-up id="P">HELLO WORLD</pop-up>
-<div style="padding: 100px 200px">
-    <input id="T" type="text" /> &nbsp; <span id="S">TEST</span>    
+<div>WORLD</div>
+<div id="A" style="padding: 100px 200px" onclick="alert('click0');" onabc="alert(2)">
+    <input id="T" type="text" value="TSET" /> &nbsp; <span id="S">TEST</span>    
+    <input id="C" type="checkbox" value="yes" />
 </div>
 <script type="text/javascript">
-$('#P').open();
+//$('#P').open();
+
+let eventName = 'click';
+
+let t = $('#A');
+
+//HTMLElement.defineCustomEvent(t, 'on' + eventName);
+
+t.onclick = function() {
+    alert('click1');
+}
+
+t.on(eventName, function() {
+    alert('click2');
+});
+
+//t.dispatch(eventName);
+
+// t.dispatchEvent(new CustomEvent(eventName, {
+//         detail: { },
+//         bubbles: false, //不向父级元素冒泡
+//         cancelable: true, //可取消
+//         composed: false //不跨越 Shadow DOM
+//     }));
 </script>
 </body>
 </html>

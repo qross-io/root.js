@@ -78,6 +78,14 @@ class HTMLModelElement extends HTMLCustomElement {
     #loading = false;
     #timer = null;
 
+    get loaded() {
+        return this.#loaded;
+    }
+
+    get loading() {
+        return this.#loading;
+    }
+
     #refresh = function() {
         let model = this;
         this.#timer = window.setInterval(
@@ -139,15 +147,15 @@ class HTMLModelElement extends HTMLCustomElement {
     }
 
     reload() {
-        if (this.loaded && !this.loading) {
-            this.loading = true;
+        if (this.#loaded && !this.#loading) {
+            this.#loading = true;
             $TAKE(this.data, this.element, this, function(data) {
                 $model[this.name] = data;
                 this.followers.forEach(follower => $s(follower)?.reload?.());
-                $model(this.name).#set(data);
+                this.#set(data);
 
                 this.dispatch('onreload', { 'data': data });
-                this.loading = false;
+                this.#loading = false;
             });      
         }
     }

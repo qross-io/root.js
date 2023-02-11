@@ -230,6 +230,7 @@ Object.defineProperties(HTMLElement.prototype, {
             return this['#serverEvents'];
         }
     },
+    //仅用于判断是否添加了某个监听事件
     'eventListeners': {
         // eventName -> eventFunc
         get() {
@@ -445,6 +446,11 @@ HTMLElement.prototype.set = function(attr, value) {
     let prime = null;
     let camel = null;
     let hyphen = null;
+
+    if (value === undefined) {
+        value = attr;
+        attr = this.value === undefined ? 'text' : 'value';
+    }
 
     if (attr.includes(':')) {
         prime = attr.takeBefore(':').toCamel();
@@ -693,6 +699,7 @@ HTMLElement.prototype.inElement = function(nodeName) {
 }
 
 HTMLElement.customEventsMap = {}; // upperName -> lowerName
+HTMLElement.customEvents = new Map(); //保存自定义客户端事件名
 
 //useCapture false 在冒泡阶段执行（从子级到父级）  true 在捕获阶段执行（从父级到子级）
 HTMLElement.prototype.on = function(eventNames, func, attach = true, useCapture = false) {
@@ -751,6 +758,12 @@ HTMLElement.hasEventListener = function(element, eventName, func) {
 //事件名必须以`on`开头
 HTMLElement.defineCustomEvent = function(element, lowerName, upperName) {
 
+    let elementName = element.constructor.name;
+    if (!HTMLElement.customEvents.has(elementName)) {
+        HTMLElement.customEvents.set(elementName, new Set());
+    }
+    HTMLElement.customEvents.get(elementName).add(lowerName);
+
     const property = {
         get() {
             return this.clientEvents[lowerName] ?? this.getAttribute(lowerName);
@@ -769,7 +782,7 @@ HTMLElement.defineCustomEvent = function(element, lowerName, upperName) {
 }
 
 //事件名必须以`on`开头且以`+`结尾
-HTMLElement.defineSeverEvent = function(element, lowerName, upperName) {
+HTMLElement.defineServerEvent = function(element, lowerName, upperName) {
 
     const property = {
         get() {
@@ -798,8 +811,9 @@ HTMLElement.prototype.dispatch = function(eventName, eventArgs) {
     eventName = eventName.prefix('on');
     let onLowerName = (/[A-Z]/.test(eventName) ? (HTMLElement.customEventsMap[eventName] ?? eventName.toLowerCase()) : eventName);
 
+    //仅触发自定义属性事件
     let final = Event.fire(this, onLowerName, { detail: eventArgs ?? {} });
-
+    //仅触发原生和自定义监听事件，原生属性事件也可以触发，未通过 defineCustomEvent 注册的自定义事件也可以触发
     this.dispatchEvent(new CustomEvent(onLowerName.drop('on'), {
         detail: eventArgs ?? { },
         bubbles: false, //不向父级元素冒泡
@@ -1124,8 +1138,8 @@ String.prototype.dropRight = function(lengthOrSuffix) {
         }
     }
     else {
-        if (this.endsWith(lengthOrPrefix)) {
-            return this.substring(0, this.length - lengthOrPrefix.length)
+        if (this.endsWith(lengthOrSuffix)) {
+            return this.substring(0, this.length - lengthOrSuffix.length)
         }
         else {
             return this.toString();
@@ -1394,7 +1408,7 @@ String.prototype.toMap = function(delimiter = '&', separator = '=') {
 
     if (this.startsWith('#')) {
         //select
-        let select = $s(this.toString());
+        let select = $(this.toString());
         if (select.nodeName != undefined && select.nodeName == 'SELECT') {
             for (let option of select.options) {
                 map[option.value] = option.text;
@@ -1501,27 +1515,54 @@ String.prototype.replaceHolder = function(element, data, follower) {
             content = content.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : (match[4] ?? 'null').encodeURIComponent(match[0].endsWith('%')));
         });
 
-    //$(selector)+-><[n][attr]?(1)
-    // + next
-    // - prev
-    // > firdt child
-    // < parent
-    // \d child \d
-    // n last child
-    /\$\((.+?)\)([+><bfnpl\d-]+)?(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(content)
-    .forEach(match => {
-        content = content.replace(match[0], $root.__$select($s(match[1]), match[2], match[4], match[6]).encodeURIComponent(match[0].endsWith('%')));    
-    });
+    //$(selector).property[index][attr].method()?(defaultValue)%
+    /\$(\((.*?)\))((\.\w+\([^\)]*\)|\.\w+|\[-?\d+\]|\[\S+?\])*)(\?\(([^\(\)]*?)\))?([!%])?/ig.findAllMatchIn(content).forEach(match => {
+        let selector = match[2].trim();
+        let v = selector == '' ? element : $(selector);
 
-    //parse element
-    // $:<0
-    // $:[attr]
-    if (element != null) {
-        /\$:([+-><bfnpl\d]*)(\[([a-z0-9_-]+?)\])?(\?\((.*?)\))?[!%]?/ig.findAllMatchIn(content)
-            .forEach(match => {
-                content = content.replace(holder, $root.__$select(element, match[1], match[3], match[5]).encodeURIComponent(match[6] == '%'));
-            });        
-    }
+        let path = match[3];
+        let defaultValue = match[6];
+        let encode = match[7] == '%';
+
+        if (path != '') {
+            path = path.replace(/\[/g, '.')
+                .replace(/\]/g, '')
+                .replace(/\.\./g, '.')
+                .replace(/^\.|\.$/g, '');
+
+            let stones = path.split('.');
+            for (let i = 0; i < stones.length; i++) {
+                if (v != null) {
+                    let a = stones[i];
+                    if (/^\d+$/.test(a)) {
+                        v = v.children?.[a.toInt()] ?? v[a.toInt()];
+                    }
+                    else if (/^-\d+$/.test(a)) {
+                        v = v.children?.[v.children.length + a.toInt()] ?? v[v.length + a.toInt()];
+                    }
+                    else if (a.endsWith(')')) {
+                        v = v[a.takeBefore('(')](...a.takeAfter('(').dropRight(1).if(s => s != '')?.split(',').map(r => r.recognize()) ?? []);
+                    }
+                    else {
+                        v = v[a.includes('-') ? a.toCamel() : a] ?? v.getAttribute(a);
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
+        if (v == null && defaultValue != null) {
+            v = defaultValue;
+        }
+
+        if (v != null) {
+            v = (v.value ?? v.text ?? v).encodeURIComponent(encode);
+        }
+
+        content = content.replaceAll(match[0], v);
+    });
 
     //@data place holder
     //@data.property[index]|column|.method()?(defaultValue)!
@@ -1551,7 +1592,7 @@ String.prototype.replaceHolder = function(element, data, follower) {
                 n = 'data'; 
             }
             let v = null; //value
-            if ((data == null || data[n] == null) && $model[n] != null) {
+            if ((data == null || data[n] == null) && window.$model?.[n] != null) {
                 if (follower != null && follower != '') {
                     $('#' + n)?.followers?.add(follower.prefix('#'));
                 }
@@ -1574,8 +1615,8 @@ String.prototype.replaceHolder = function(element, data, follower) {
                             break;
                         }
                     }
-                    else if (/^-\d+$/.test(a) && v instanceof Array) {
-                        v = v[eval(v.length + a).ifNegative(0)];
+                    else if (/^-\d+$/.test(a)) {
+                        v = v[eval(v.length + a)];
                     }
                     else if (a.endsWith(')')) {
                         v = v[a.takeBefore('(')](...a.takeAfter('(').dropRight(1).if(s => s != '')?.split(',').map(r => r.recognize()) ?? []);
@@ -1598,9 +1639,8 @@ String.prototype.replaceHolder = function(element, data, follower) {
                 v = v.replace(/"/g, '&quot;')
             }
 
-            if (v != null) {
-                content = content.replaceAll(holder, JSON.stringifo(v));
-            }
+            
+            content = content.replaceAll(holder, JSON.stringifo(v));            
         });
 
         
@@ -1927,7 +1967,7 @@ $root.$else = null;
 //private method
 $root.__offsetLeft = function(element) {
     if (typeof(element) == 'string') {
-        element = $s(element);
+        element = $(element);
     }
 
     let parent = element.parentNode;
@@ -1944,7 +1984,7 @@ $root.__offsetLeft = function(element) {
 //private method
 $root.__offsetTop = function(element) {
     if (typeof(element) == 'string') {
-        element = $s(element);
+        element = $(element);
     }
 
     let parent = element.parentNode;
@@ -1958,54 +1998,6 @@ $root.__offsetTop = function(element) {
     return top;
 }
 
-//t = element target
-//p = <>+-\dn pointer
-//a = [attr]
-//d = default value
-$root.__$select = function(t, p, a, d = 'null') {
-    let v = null;
-    if (t != null) {
-        if (p != null && p != '') {
-            p = p.replace(/&lt;/g, '<').replace(/&gt;/g, '>').toLowerCase();
-            for (let c of p) {
-                switch(c) {
-                    case '<':
-                    case 'b': //back
-                        t = t.parentNode != null ? t.parentNode : null;
-                        break;
-                    case '>':
-                    case 'f': //forward/first
-                        t = t.firstElementChild != null ? t.firstElementChild : null;
-                        break;
-                    case '+':
-                    case 'n': //next
-                        t = t.nextElementSibling != null ? t.nextElementSibling : null;
-                        break;
-                    case '-':
-                    case 'p': //previous
-                        t = t.previousElementSibling != null ? t.previousElementSibling : null;
-                        break;
-                    case 'l': //last
-                        t = t.lastElementChild != null ? t.lastElementChild : null;
-                        break;
-                    default:
-                        if (/^\d+$/.test(c)) {
-                            c = c.toInt(0);
-                            t = t.children[c] != null ? t.children[c] : null; 
-                        }
-                        break;
-                }
-            }
-        }
-        if (t != null) {
-            // [attr] or value
-            v = a != null ? t.get(a) : (t.value ?? t.text);
-        }                    
-    }
-
-    return v != null ? v : d;
-}
-
 $root.__bulidDataArgs = function(data, element) {
 
     if (element == null && data != null) {
@@ -2013,16 +2005,16 @@ $root.__bulidDataArgs = function(data, element) {
     }
     else if (element != null && data == null) {
         return {
-            data: element.data ?? element.value ?? element.text,
-            text: element.text ?? element.value,
-            value: element.value ?? element.text
+            data: element.data ?? element.value ?? element.getAttribute('value') ?? element.text,
+            text: element.text ?? element.value ?? element.getAttribute('value'),
+            value: element.value ?? element.getAttribute('value') ?? element.text
         };
     }
     else if (element != null && data != null) {
         return Object.assign({ 
-            data: element.data ?? element.value ?? element.text,
-            text: element.text ?? element.value,
-            value: element.value ?? element.text
+            data: element.data ?? element.value ?? element.getAttribute('value') ?? element.text,
+            text: element.text ?? element.value ?? element.getAttribute('value'),
+            value: element.value ?? element.getAttribute('value') ?? element.text
         }, data);
     }
     else {
@@ -2648,7 +2640,7 @@ $FIRE = function (element, event, succeed, fail, except, complete, actualElement
         let expection = '';
         if (!/^[a-z]+\s+/i.test(action) || /^(get|post|delete|put)\s*:/i.test(action)) {
             if (action.includes('->')) {
-                expection = action.takeAfter('->').trim();
+                expection = action.takeAfter('->').trim().replace(/\s+/, '-');
                 action = action.takeBefore('->').trim();
             }
         }
@@ -2869,7 +2861,7 @@ Enum.Entity.prototype.validate = function(value, toUpper = false) {
 Event.await = function(tag, await) {
     await.split(',')
     .forEach(a => {
-        $s(a).on('load', function() {
+        $(a).on('load', function() {
             tag.await = tag.await.replace(new RegExp(a + '\\b'), '').trimPlus(',');
             if (tag.await == '') {
                 tag.load();
@@ -2881,27 +2873,30 @@ Event.await = function(tag, await) {
 //执行某一个具体对象的事件非监听事件，再比如对象没有name，如for和if标签
 Event.fire = function(tag, onLowerName, args) {
     let final = true;
-    let func = tag[onLowerName] ?? tag.instance?.[onLowerName];
-    if (func != null) {
-        if (typeof (func) == 'function') {
-            final = func.call(tag, args);
-        }
-        else if (typeof (func) == 'string') {
-            if (/^\s*function\(\s*\)\s*{/.test(func)) {
-                final = eval('final = ' + func).call(tag, args);
+    //仅通过 defineCustomEvents 注册的自定义事件可以触发
+    if (HTMLElement.customEvents.get(tag.constructor.name)?.has(onLowerName)) {
+        let func = tag[onLowerName] ?? tag.instance?.[onLowerName];
+        if (func != null) {
+            if (typeof (func) == 'function') {
+                final = func.call(tag, args);
             }
-            else {
-                final = eval('final = function() {' + func + '}').call(tag, args);
-            }            
+            else if (typeof (func) == 'string') {
+                if (/^\s*function\(\s*\)\s*{/.test(func)) {
+                    final = eval('final = ' + func).call(tag, args);
+                }
+                else {
+                    final = eval('final = function() {' + func + '}').call(tag, args);
+                }            
+            }
+            if (typeof (final) != 'boolean') { final = true; };
         }
-        if (typeof (final) != 'boolean') { final = true; };
-    }
+    }    
     
     return final;
 }
 
 Event.express = function(exp) {
-    for (let sentence of exp.split(';')) {
+    for (let sentence of exp.trim().replace(/;$/, '').split(';')) {
         let value = '';
         if (sentence.includes('<-')) {
             value = sentence.takeAfter('<-').trimLeft();
@@ -2946,7 +2941,7 @@ Event.express = function(exp) {
                 .map(v => v.trim())
                 .forEach(r => {
                     if (r.startsWith('#')) {
-                        let s = $s(r);
+                        let s = $(r);
                         if (s != null) {
                             if (s[method] != null) {
                                 if (item != '') {
@@ -3043,7 +3038,7 @@ Event.watch = function(element, name, watcher) {
                     .map(s => s.trim())
                     .filter(s => s != '')
                     .forEach(s => {
-                        $s(s).on(watch.event, func);                        
+                        $(s).on(watch.event, func);                        
                     });
             }
             else {
@@ -3099,7 +3094,7 @@ NativeElement.prototype.defineProperties = function(properties) {
             }
             else if (typeof(defaultValue) == 'boolean') {
                 getFunc = function(propertyValue, defaultValue) {
-                        return $parseInt(propertyValue, defaultValue);
+                        return $parseBoolean(propertyValue, defaultValue);
                     };
             }
             else if (typeof(defaultValue) == 'function')  {
@@ -3136,12 +3131,22 @@ NativeElement.prototype.defineProperties = function(properties) {
 //绑定事件，单个参数支持数组格式，第一项全小写，第二项 Camel
 NativeElement.prototype.defineEvents = function(...eventNames) {
     eventNames.forEach(eventName => {
-        if (eventName.endsWith('+')) {
-            HTMLElement.defineSeverEvent(this.object, eventName.first ?? eventName, eventName.last);
+        if (eventName instanceof Array) {
+            if (eventName.first.endsWith('+')) {
+                HTMLElement.defineServerEvent(this.object, eventName.first, eventName.last);
+            }
+            else {
+                HTMLElement.defineCustomEvent(this.object, eventName.first, eventName.last);
+            }
         }
         else {
-            HTMLElement.defineCustomEvent(this.object, eventName.first ?? eventName, eventName.last);
-        }
+            if (eventName.endsWith('+')) {
+                HTMLElement.defineServerEvent(this.object, eventName);
+            }
+            else {
+                HTMLElement.defineCustomEvent(this.object, eventName);
+            }
+        }        
     });  
     return this;
 }
@@ -3187,8 +3192,7 @@ class HTMLCustomElement {
         return this.element.eventListeners;
     }
 
-    on(eventName, func){
-        console.log(1234);
+    on (eventName, func) {
         this.element.on(eventName, func);
         return this;
     }
@@ -3268,11 +3272,12 @@ for (const name in HTMLElement.prototype) {
 
 class HTMLCustomAttribute {
 	constructor(element) {
+        //所属元素
 		this.element = element;
 	}
 
-	getAttribute(attr) {
-		return this.element.getAttribute(attr);
+	getAttribute(attr, defaultValue) {
+		return this.element.getAttribute(attr, defaultValue);
 	}
 
 	setAttribute(attr, value) {
@@ -3297,12 +3302,26 @@ class HTMLCustomAttribute {
     }
 }
 
+// customAttrName -> TagName
+HTMLCustomAttribute.relativeTags = new Map();
+HTMLCustomAttribute.defineEvents = function(attrName, element, customEvents) {
+    if (!HTMLCustomAttribute.relativeTags.has(attrName)) {
+        HTMLCustomAttribute.relativeTags.set(attrName, new Set());
+    }
+
+    if (!HTMLCustomAttribute.relativeTags.get(attrName).has(element.tagName)) {
+        $enhance(element.constructor.prototype).defineEvents(...customEvents);
+    }
+            
+    HTMLCustomAttribute.relativeTags.get(attrName).add(element.tagName);
+}
+
 //eventMap 可以是对象或数组
 HTMLCustomElement.defineEvents = function(object, eventMap) {
     if (eventMap instanceof Array) {
         eventMap.forEach(eventName => {
             if (eventName.endsWith('+')) {
-                HTMLElement.defineSeverEvent(object, eventName);
+                HTMLElement.defineServerEvent(object, eventName);
             }
             else {
                 HTMLElement.defineCustomEvent(object, eventName);
@@ -3312,7 +3331,7 @@ HTMLCustomElement.defineEvents = function(object, eventMap) {
     else {
         Object.keys(eventMap).forEach(lowerName => {
             if (lowerName.endsWith('+')) {
-                HTMLElement.defineSeverEvent(object, lowerName, eventMap[lowerName]);
+                HTMLElement.defineServerEvent(object, lowerName, eventMap[lowerName]);
             }
             else {
                 HTMLElement.defineCustomEvent(object, lowerName, eventMap[lowerName]);
@@ -3340,7 +3359,7 @@ Callout.Entity.prototype.offset = function(x, y) {
 }
 
 Callout.Entity.prototype.position = function(element, pos = 'up') {
-    this.reference = typeof(element) == 'string' ? $s(element) : element;
+    this.reference = typeof(element) == 'string' ? $(element) : element;
     switch (pos.toLowerCase()) {
         case 'left':
         case 'leftside':
@@ -3413,7 +3432,7 @@ Callout.Entity.prototype.show = function(seconds = 0) {
         }
     }
 
-    $s('#__Callout').style.visibility = 'visible';
+    $('#__Callout').style.visibility = 'visible';
     if (seconds > 0) {
         if (Callout.Entity.$timer != null) {
             window.clearTimeout(Callout.Entity.$timer);
@@ -3478,15 +3497,20 @@ document.on('ready', function() {
     }
 });
 
-//will be call in template
 $root.initialize = function() {
     $a('[visible],[hidden]').forEach(e => {
-        if (e.tagName != 'SET' && !e.inElement('TEMPLATE')) {
+        if (!e.id.startsWith('__') && e.tagName != 'SET' && !(e.inElement?.('TEMPLATE') ?? e.element.inElement?.('TEMPLATE'))) {
             if (e.hasAttribute('hidden')) {
-                e.hidden = e.getAttribute('hidden');
+                let hidden = e.getAttribute('hidden');
+                if (hidden != '') {
+                    e.hidden = hidden;
+                }                 
             }
             else if (e.hasAttribute('visible')) {
-                e.visible = e.getAttribute('visible');
+                let visible = e.getAttribute('hidden');
+                if (visible != '') {
+                    e.visible = visible;
+                }
             }
         }
     });
@@ -3505,7 +3529,7 @@ document.on('post', function() {
         let layout = function() {
             document.body.getAttribute('self-adaption')
             .split(',')
-            .map(frame => $s(frame))
+            .map(frame => $(frame))
             .forEach(frame => {            
                 frame.height = window.innerHeight - frame.top;
             });
@@ -3519,7 +3543,7 @@ document.on('post', function() {
     //iframe
     if (document.body.getAttribute('iframe') != null) {
         let flex = function() {
-            parent.$s(document.body.getAttribute('iframe')).height = $root.documentHeight;
+            parent.$(document.body.getAttribute('iframe')).height = $root.documentHeight;
         };
         flex();
         window.setInterval(flex, 2000);

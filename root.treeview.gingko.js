@@ -4,7 +4,6 @@
 // v9.0 Gingko
 //-----------------------------------------------------------------------
 // http://www.qross.cn
-// Any problem, question, idea or bug, please email to wu@qross.io
 //-----------------------------------------------------------------------
 // Created at 2022/05/10 21:40
 
@@ -1513,7 +1512,7 @@ class HTMLTreeNodeElement extends HTMLCustomElement {
     }
 
     get parentNode() {
-        return this.element.parentNode.if(e => e.nodeName == 'TREENODE-CHILDREN')?.$previous('treenode')?.instance;
+        return this.element.parentNode?.if(e => e.nodeName == 'TREENODE-CHILDREN')?.$previous('treenode')?.instance;
     }
 
     get nextSibling() {
@@ -2334,15 +2333,13 @@ class HTMLTreeNodeElement extends HTMLCustomElement {
         this.#dispatch('onLoaded');
     }
 
-    reload() {
+    reload(completely) {
 
         if (completely === false) {
             //仅重新装备节点
             this.load(true);
         }
         else {
-            //记录展开状态
-            let expanded = this.expanded;
             //移除所有节点
             this.removeAll();
             //重置done属性
@@ -2350,7 +2347,7 @@ class HTMLTreeNodeElement extends HTMLCustomElement {
                 this.templateObject.done = false;
             }        
             //如果之前是展开状态，还是展开; 反之则只加载
-            if (expanded) {
+            if (this.expanded) {
                 this.expand(false);
             }
             else {         

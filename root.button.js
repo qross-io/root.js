@@ -197,7 +197,7 @@ HTMLButtonElement.prototype.enable = function() {
         this.disabled = false;
     }
 
-    if (this.type == 'confirm') {
+    if (this.type == 'twice') {
         this.slideIn(-100);
     }
 }
@@ -212,7 +212,7 @@ HTMLButtonElement.prototype.show = function() {
     if (this.hidden) {
         this.hidden = false;
     }
-    if (this.type == 'confirm') {
+    if (this.type == 'twice') {
         this.previousElementSibling.hidden = true;
         this.nextElementSibling.hidden = true;
     }
@@ -222,7 +222,7 @@ HTMLButtonElement.prototype.hide = function() {
     if (!this.hidden) {
         this.hidden = true;
     }
-    if (this.type == 'confirm') {
+    if (this.type == 'twice') {
         this.previousElementSibling.hidden = true;
         this.nextElementSibling.hidden = true;
     }
@@ -291,9 +291,9 @@ HTMLButtonElement.prototype.go = function() {
     }
 }
 
-HTMLButtonElement.prototype.switch = function() {
+HTMLButtonElement.prototype.switch = function(ev) {
     if (this.value == this.enabledValue) {
-        this.text = this.disbaledText;
+        this.text = this.disabledText;
         this.value = this.disabledValue;
         this.className = this.disabledClass;
 
@@ -307,9 +307,6 @@ HTMLButtonElement.prototype.switch = function() {
         this.dispatch('onclick-enabled', { 'event': ev });
     }
 }
-
-// input -> buttons
-HTMLButtonElement.relationByInput = new Map();
 
 HTMLButtonElement.prototype.initialize = function() {
 
@@ -384,7 +381,7 @@ HTMLButtonElement.prototype.initialize = function() {
             }
         });
     }
-    else if (this.type == 'confirm') {
+    else if (this.type == 'twice') {
         let button = this;
         let confirm = $create('BUTTON', { innerHTML: this.confirmButtonText, className: this.confirmButtonClass });
         let cancel = $create('BUTTON', { innerHTML: this.cancelButtonText, className: this.cancelButtonClass });
@@ -468,17 +465,38 @@ HTMLButtonElement.prototype.initialize = function() {
                 .map(tag => tag.trimPlus('$(', ')')).forEach(tag => todo.push(tag));
         }
 
-        todo.forEach(tag => {
-            if (!HTMLButtonElement.relationByInput.has(tag)) {
-                HTMLButtonElement.relationByInput.set(tag, new Set());
-            }
-            HTMLButtonElement.relationByInput.get(tag).add(this);
-            this.relations.set(tag, 0);
-        });
-
-        if (this.relations.size > 0) {
+        //observe
+        if (todo.length > 0) {
             this.disable();
+
+            todo.forEach(name => {
+                this.relations.set(name, 0);
+                
+                let tag = $(name);
+                if (tag != null) {
+                    if (tag.$required ?? tag.required) {
+                        tag.relations.add(this);
+                        window[tag.constructor.name].setterX.set('status', function(value) {
+                            this.relations.forEach(button => button.response('#' + this.id, value));
+                        });
+
+                        if (tag.status == 1) {
+                            this.response(name, 1);
+                        }
+                    }
+                    else {
+                        this.relations.set(name, 1);
+                        if (this.satisfied) {
+                            this.enable();
+                        }
+                    }
+                }
+                else {
+                    console.warn('Selector "' + name + '" may be incorrect.');
+                }
+            })
         }
+
 
         if (this['onclick+'] != null) {
             this.on('click', function(ev) {
@@ -517,52 +535,10 @@ HTMLButtonElement.prototype.initialize = function() {
         this.disabled = $parseBoolean(this.getAttribute('disabled'), false, this);
     }
     else if (this.hasAttribute('enabled')) {
-        this.enabled = $parseBoolean(this.getAttribute('enabled'), true, this);
-    }
+        this.enabled = $parseBoolean(this.getAttribute('enabled'), true, this);    }
 }
 
-HTMLButtonElement._observed = 0;
-HTMLButtonElement.observe = function() {
-    //为每个自定义标签添加监控
-    for (let [name, buttons] of HTMLButtonElement.relationByInput) {
-        let tag = $s(name);
-        
-        if (tag != null && (tag.$required ?? tag.required)) {
-            buttons.forEach(button => tag.relations.add(button));
-            window[tag.constructor.name].setterX.set('status', function(value) {
-                this.relations.forEach(button => button.response('#' + this.id, value));
-            });
-            
-            if (tag.status == 1) {
-                buttons.forEach(button => button.response(name, 1));
-            }
-        }
-        else {
-            buttons.forEach(button => {
-                button.relations.set(name, 1);
-                if (button.satisfied) {
-                    button.enable();
-                }
-            });
-        }            
 
-        HTMLButtonElement.relationByInput.delete(name);        
-    }
-
-    //retry times
-    HTMLButtonElement._observed += 1;
-
-    if (HTMLButtonElement.relationByInput.size > 0) {
-        if (HTMLButtonElement._observed < 10) {
-            window.setTimeout(HTMLButtonElement.observe, 200);
-        }
-        else {
-            [...HTMLButtonElement.relationByInput.keys()].forEach(input => {
-                console.warn('Selector "' + input + '" may be incorrect.');
-            });
-        }
-    }
-}
 
 HTMLButtonElement.initializeAll = function(container) {
     for (let button of (container ?? document).querySelectorAll('button')) {
@@ -580,8 +556,6 @@ HTMLButtonElement.initializeAll = function(container) {
             }
         }
     }
-
-    HTMLButtonElement.observe();
 }
 
 document.on('load', function () {    

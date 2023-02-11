@@ -4,6 +4,7 @@ HTMLTextAreaElement.prototype.cursor = 0;
 $enhance(HTMLTextAreaElement.prototype)
     .defineEvents('onmatch')
     .defineProperties({
+
         'readonly': {
             get() {
                 return $parseBoolean(this.getAttribute('readonly'), false, this);

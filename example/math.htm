@@ -45,7 +45,7 @@ HTMLElement.prototype.$ = function(o) {
     return this.querySelector(o);
 }
 
-function Generate() {
+function Generate1() {
     for (let i = 0; i < 10; i++) {
         let a = Math.randomNext(0, 99);
         let b = Math.randomNext(0, 99);
@@ -81,6 +81,21 @@ function Generate() {
                 $('#E' + i).$('.s').setAttribute('s', '-');
             }        
         }
+    }
+
+    $('#Total').innerHTML = window.localStorage.getItem('kuangkuang-math') ?? '0';
+    $('#Total').setAttribute('base', $('#Total').textContent);
+}
+
+function Generate() {
+    for (let i = 0; i < 10; i++) {
+        let a = Math.randomNext(1, 9);
+        let b = Math.randomNext(1, 9);
+
+        $('#E' + i).$('.a').innerHTML = a;
+        $('#E' + i).$('.b').innerHTML = b;
+        $('#E' + i).$('.s').innerHTML = '×';
+        $('#E' + i).$('.s').setAttribute('s', '*');
     }
 
     $('#Total').innerHTML = window.localStorage.getItem('kuangkuang-math') ?? '0';

@@ -18,7 +18,8 @@ $enhance(HTMLInputElement.prototype)
         $required: {
             get () {
                 //required 是原生属性  $required 有更多要求
-                return this.required || this.pattern != '' || this.patternIgnoreCase != '' || this.validator != '' || this.requiredText != '' || this.invalidText != '' || this.minLength > 0 || this.min != '' || this.max != '';
+                return this.required || this.requiredText != '' || this.invalidText != '' || this.minLength > 0 || this.min != '' || this.max != '';
+                //this.pattern != '' || this.patternIgnoreCase != '' || this.validator != '' ||
             }
         },
 
@@ -28,8 +29,8 @@ $enhance(HTMLInputElement.prototype)
 
         ifEmpty: '',
 
-        successText: '',        
-        failureText: '', 
+        successText: '',
+        failureText:  '',
         exceptionText: '',
 
         focusClass: '', //获得焦点样式
@@ -443,6 +444,14 @@ HTMLInputElement.prototype.ajust = function() {
 
 HTMLInputElement.prototype.update = function(value) {
     this.set('value', value);
+}
+
+HTMLInputElement.prototype.reset = function() {
+    this.value = this.defaultValue;
+}
+
+HTMLInputElement.prototype.empty = function() {
+    this.value = '';
 }
 
 HTMLInputElement.prototype.copy = function() {

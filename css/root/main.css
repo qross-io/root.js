@@ -198,6 +198,7 @@ editor { display: none; }
 .editor-icon-edit:hover { opacity: 0.8; text-shadow: 1px 2px 4px #CCCCCC; }
 .editor-link-button { font-size: 0.75rem; color: #999999; }
 .editor-link-button:hover { color: #777777; }
+.editor-placeholder { color: #999999 !important; }
 
 /* Marker */
 .marker-frame { margin: 30px 36px; background-color: #FFFFFF; }

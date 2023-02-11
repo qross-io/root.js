@@ -11,22 +11,19 @@ HTMLElement.prototype.edit = function(ev) {
         if (this.editor.editable && !this.editor.editing && this.editor.dispatch('onedit', { 'editor': this.editor, 'ev': ev })) {
             this.editor.editing = true;
             if (this.editor.editInPrompt) {
-                HTMLEditorElement[this.editor.typeName].editInPrompt(this.editor, this);
+                HTMLEditorAttribute[this.editor.typeName].editInPrompt(this.editor, this);
             }
             else {
-                HTMLEditorElement[this.editor.typeName].edit(this.editor, this);
+                HTMLEditorAttribute[this.editor.typeName].edit(this.editor, this);
             }
         }
     }
 }
 
-class HTMLEditorElement extends HTMLCustomElement {
+class HTMLEditorAttribute extends HTMLCustomAttribute {
 
     constructor(element) {
         super(element)
-        if (this.element.tagName != 'EDITOR') {
-            this.element.instance = undefined;
-        }        
 
         if (this.type == 'select') {
             this.#typeName = 'SELECT';
@@ -58,7 +55,7 @@ class HTMLEditorElement extends HTMLCustomElement {
             element.removeAttribute('edit-on');
         }
 
-        Event.interact(this, this.element);
+        Event.interact(this.element, this.element);
     }
 
     #controllerAttributes = new Object()
@@ -92,7 +89,7 @@ class HTMLEditorElement extends HTMLCustomElement {
     }
 
     set type(type) {
-        this.setAttribute('type', type);
+        this.setAttribute('editor-type', type);
     }
 
     #typeName = 'INPUT';
@@ -236,19 +233,19 @@ class HTMLEditorElement extends HTMLCustomElement {
     }
 
     get promptText() {
-        return this.getAttribute('prompty-text', '');
+        return this.getAttribute('prompt-text', '');
     }
 
     set promptText(text) {
-        this.setAttribute('prompty-text', text);
+        this.setAttribute('prompt-text', text);
     }
 
     get promptTitle() {
-        return this.getAttribute('prompty-title', '');
+        return this.getAttribute('prompt-title', '');
     }
 
     set promptTitle(text) {
-        this.setAttribute('prompty-title', text);
+        this.setAttribute('prompt-title', text);
     }
 
     #options = null;
@@ -274,21 +271,104 @@ class HTMLEditorElement extends HTMLCustomElement {
         }
     }
 
+    get successText() {
+        return this.getAttribute('success-text') ?? this.controller?.successText ?? '';
+    }
+
+    set successText(text) {
+        this.setAttribute('success-text', text);
+    }
+
+    get failureText() {
+        return this.getAttribute('failure-text') ?? this.controller?.failureText ?? '';
+    }
+
+    set failureText(text) {
+        this.setAttribute('failure-text', text);
+    }
+
+    get exceptionText() {
+        return this.getAttribute('exception-text') ?? this.controller?.exceptionText ?? '';
+    }
+
+    set exceptionText(text) {
+        this.setAttribute('exception-text', text);
+    }
+
+    get calloutPosition() {
+        return this.getAttribute('callout-position') ?? this.getAttribute('callout') ?? this.controller?.calloutPosition;
+    }
+
+    set calloutPosition(position) {
+        this.setAttribute('callout-position', position);
+    }
+
+    #value = '';
+
+    get value() {
+        return this.controller?.value ?? this.#value;
+    }
+
+    set value(value) {
+        this.#value = value;
+    }
+
     controller = null;
 
     #editing = false;
     #updating = false;
 
+    get editing() {
+        return this.#editing;
+    }
+
+    set editing(bool) {
+        this.#editing = bool;
+    }
+
+    get updating() {
+        return this.#updating;
+    }
+
+    set updating(bool) {
+        this.#updating = bool;
+    }
 
     #editButton = null;
     #confirmButton = null;
     #cancelButton = null;
 
+    get editButton() {
+        return this.#editButton;
+    }
+
+    set editButton(button) {
+        this.#editButton = button;
+    }
+
+    get confirmButton() {
+        return this.#confirmButton;
+    }
+
+    set confirmButton(button) {
+        this.#confirmButton = button;
+    }
+
+    get cancelButton() {
+        return this.#cancelButton;
+    }
+
+    set cancelButton(button) {
+        this.#cancelButton = button;
+    }
+
     apply (...elements) {
+
+        HTMLEditorAttribute.defineEvents(this.element);
 
         elements.forEach(element => {
             if (typeof(element) == 'string') {
-                $a(element).forEach(e => {
+                $$(element).forEach(e => {
                     this.bindings.push(e);
                 });
             }
@@ -304,14 +384,14 @@ class HTMLEditorElement extends HTMLCustomElement {
         this.bindings.forEach(binding => {
             if (binding != null && !binding.hasAttribute('editor-bound')) {
                 binding.editor = this;            
-                binding.setAttribute('editor-bound', '');
+                binding.setAttribute('editor-bound', '');                
     
                 if (binding.textContent == '') {
                     this.setPlaceHolder(binding);
                 }
     
                 if (this.editButtonStyle != 'none') {
-                    this.editButton = HTMLEditorElement.getButton(this.editButtonStyle, this.editButtonIcon, this.editButtonText, this.editButtonClass);
+                    this.editButton = HTMLEditorAttribute.getButton(this.editButtonStyle, this.editButtonIcon, this.editButtonText, this.editButtonClass);
                     if (this.editButton != null) {
                         binding.insertAdjacentElement('afterEnd', this.editButton);
                         this.editButton.on('click', function(ev) {
@@ -323,7 +403,7 @@ class HTMLEditorElement extends HTMLCustomElement {
     
                 Event.watch(binding, 'edit-on', this.editOn);
     
-                HTMLEditorElement[this.typeName].initialize(this, binding);
+                HTMLEditorAttribute[this.typeName].initialize(this, binding);
             }
         });
     }
@@ -334,12 +414,16 @@ class HTMLEditorElement extends HTMLCustomElement {
         }
     
         if (this.placeHolder != '') {
-            element.innerHTML = '';
-            element.appendChild($create('SPAN', { innerHTML: this.placeHolder, className: 'gray' }, { }, { 'sign': 'placeholder' }));
+            element.classList.add('editor-placeholder');
+            element.innerHTML = this.placeHolder;
         }
         else {
             element.innerHTML = '&nbsp;';
         }
+    }
+
+    hidePlaceHolder(element) {
+        element.$('span[sign=placeholder]')?.hide();
     }
 
     initializeControllerAttributes (controller) {
@@ -349,7 +433,7 @@ class HTMLEditorElement extends HTMLCustomElement {
     }
 
     appendButtons (element) {
-        let confirmButton = HTMLEditorElement.getButton(this.confirmButtonStyle, this.confirmButtonIcon, this.confirmButtonText, this.confirmButtonClass || 'small-compact-button blue-button');
+        let confirmButton = HTMLEditorAttribute.getButton(this.confirmButtonStyle, this.confirmButtonIcon, this.confirmButtonText, this.confirmButtonClass || 'small-compact-button blue-button');
         if (confirmButton != null) {
             confirmButton.onclick = function(ev) {
                 element.editor.update(element);
@@ -358,7 +442,7 @@ class HTMLEditorElement extends HTMLCustomElement {
             element.appendChild(confirmButton);
         } 
     
-        let cancelButton = HTMLEditorElement.getButton(this.cancelButtonStyle, this.cancelButtonIcon, this.cancelButtonText, this.cancelButtonClass || 'editor-link-button');
+        let cancelButton = HTMLEditorAttribute.getButton(this.cancelButtonStyle, this.cancelButtonIcon, this.cancelButtonText, this.cancelButtonClass || 'editor-link-button');
         if (cancelButton != null) {
             cancelButton.onclick = function(ev) {
                 element.editor.cancel(element, ev);
@@ -369,11 +453,11 @@ class HTMLEditorElement extends HTMLCustomElement {
     }
 
     update (element, ev, after) {    
-        HTMLEditorElement[this.typeName].update(this, element, after, ev);
+        HTMLEditorAttribute[this.typeName].update(this, element, after, ev);
     }
     
     cancel (element, ev) {    
-        HTMLEditorElement[this.typeName].cancel(this, element, ev);
+        HTMLEditorAttribute[this.typeName].cancel(this, element, ev);
     }
 }
 
@@ -381,9 +465,12 @@ class HTMLEditorElement extends HTMLCustomElement {
 // oneditcancel 取消之前触发，支持 return
 // oneditconfirm 或 ontextchange 更新之前，支持 return false
 
-HTMLCustomElement.defineEvents(HTMLEditorElement.prototype, ['onedit', 'oneditconfirm', 'oneditcancel', 'ontextchange', 'ontextchange+']);
+HTMLEditorAttribute.defineEvents = function(element) {
+    HTMLCustomAttribute.defineEvents('EDITOR', element, ['onedit', 'oneditconfirm', 'oneditcancel', ['ontextchange', 'onTextChanged'], ['ontextchange+', 'onTextChanged+']]);    
+}
 
-HTMLEditorElement.getButton = function(style, icon, text, className) {
+
+HTMLEditorAttribute.getButton = function(style, icon, text, className) {
     let content = '';    
     let button = null;
 
@@ -427,12 +514,9 @@ String.prototype.concatValue = function(value) {
     }
 }
 
-
-
-
-HTMLEditorElement.INPUT = {
+HTMLEditorAttribute.INPUT = {
     initialize: function(editor, element) {
-        if (element.innerHTML == '') {
+        if (element.innerHTML == '' || element.innerHTML == '&nbsp;') {
             editor.setPlaceHolder(element);
         }
         else if (editor.kilo) {
@@ -462,7 +546,7 @@ HTMLEditorElement.INPUT = {
                     "icon": editor.cancelButtonIcon
                 }, editor.promptTitle)
                 .on('confirm', function(ev) {
-                    editor.controller = $s('#PromptTextBox');
+                    editor.controller = $('#PromptTextBox');
                     if (editor.controller.status == 1) {
                         editor.update(element, ev);
                     }
@@ -553,11 +637,11 @@ HTMLEditorElement.INPUT = {
             }            
             if (editor.editing && editor.dispatch('ontextchange', { 'text': after, 'value': after }) && editor.dispatch('oneditconfirm', { 'text': after , 'value': after })) {
                 //update
-                if (editor['ontextchange+'] != null) {
+                if (editor.element['ontextchange+'] != null) {
                     editor.controller.disabled = true;
                     editor.updating = true;
     
-                    $FIRE(editor, 'ontextchange+',
+                    $FIRE(editor.element, 'ontextchange+',
                         function(data) {
                             if (after == '') {
                                 editor.setPlaceHolder(element);
@@ -565,40 +649,49 @@ HTMLEditorElement.INPUT = {
                             else {
                                 element.innerHTML = editor.kilo ? after.toFloat().kilo() : after;
                             }
+
                             if (editor.editButtonStyle != 'none') {
                                 element.nextElementSibling.hidden = false;
                             }
-                            editor.editing = false;
-                            $s('#PromptPopup')?.close?.();
+
+                            $('#PromptPopup')?.close?.();
+                            if (editor.successText != '') {
+                                Callout(editor.successText.$p(editor.element, data)).position(element, editor.calloutPosition).show();
+                            }
+
+                            editor.controller =  null;
+
+                            editor.value = after;
                         }, 
                         function(data) {
                             editor.controller.disabled = false;
                             editor.controller.focus();
-                            let text = editor.controller.failureText.$p(editor.controller, data);
+                            let text = editor.failureText.$p(editor.element, data);
                             if (text != '') {
                                 if (editor.editInPrompt && $root.prompt != null) {
-                                    $s('#PromptTextBox').status = HTMLInputElement.STATUS.UNEXPECTED;
-                                    $s('#PromptTextBox').hintText = text;
+                                    $('#PromptTextBox').status = HTMLInputElement.STATUS.UNEXPECTED;
+                                    $('#PromptTextBox').hintText = text;
                                 }
                                 else {
-                                    Callout(text).position(element, 'up').show();
+                                    Callout(text).position(editor.element, editor.calloutPosition).show();
                                 }
                             }
                         },
                         function(error) {                            
                             editor.controller.disabled = false;
                             editor.controller.focus();
-                            let text = editor.controller.exceptionText.$p(editor.controller, { data: error, error: error }) || `Exception: ${error}`;
+                            let text = editor.exceptionText.$p(editor.element, { data: error, error: error }) || `Exception: ${error}`;
                             if (editor.editInPrompt && $root.prompt != null) {
-                                $s('#PromptTextBox').status = HTMLInputElement.STATUS.EXCEPTION;
-                                $s('#PromptTextBox').hintText = text;
+                                $('#PromptTextBox').status = HTMLInputElement.STATUS.EXCEPTION;
+                                $('#PromptTextBox').hintText = text;
                             }
                             else {
-                                Callout(text).position(element, 'up').show();
+                                Callout(text).position(editor.element, editor.calloutPosition).show();
                             }                            
                         },
-                        function() {
+                        function() {                            
                             editor.updating = false;
+                            editor.editing = false;                            
                         },
                         element,
                         { 'text': after, 'value': after }
@@ -610,6 +703,7 @@ HTMLEditorElement.INPUT = {
                         editor.setPlaceHolder(element);
                     }
                     else {
+                        //element.innerHTML = '';
                         element.innerHTML = editor.kilo ? after.toFloat().kilo() : after;
                     }
 
@@ -617,18 +711,17 @@ HTMLEditorElement.INPUT = {
                         element.nextElementSibling.hidden = false;
                     }
     
-                    editor.editing = false;
+                    editor.value = after;
+                    editor.editing = false;                    
                 }
             }
         }
         else {
-            if (!editor.editInPrompt) {
-                editor.cancel(element);
-            }
+            editor.cancel(element);
         }
     },    
     cancel: function(editor, element) {
-        //cancel                    
+                   
         if (editor.editing && !editor.updating && editor.dispatch('oneditcancel')) {
             editor.editing = false;
 
@@ -639,6 +732,7 @@ HTMLEditorElement.INPUT = {
                 else {
                     element.innerHTML = editor.kilo ? editor.controller.defaultValue.toFloat().kilo() : editor.controller.defaultValue;
                 }
+
                 editor.controller = null;
                 
                 if (editor.editButtonStyle != 'none') {
@@ -649,7 +743,7 @@ HTMLEditorElement.INPUT = {
     }
 }
 
-HTMLEditorElement.SELECT = {
+HTMLEditorAttribute.SELECT = {
     initialize: function(editor, element) {
         //auto convert value to text
         let value = element.textContent.trim();
@@ -725,32 +819,44 @@ HTMLEditorElement.SELECT = {
             if (editor.editing && editor.dispatch('ontextchange', { 'text': afterText, 'value': afterValue })  && editor.dispatch('oneditconfirm', { 'text': afterText, 'value': afterValue })) {
                 element.setAttribute('text', afterText);
                 element.setAttribute('value', afterValue);
-                if (editor['ontextchange+'] != null) {
+                if (editor.element['ontextchange+'] != null) {
                     editor.controller.disabled = true;
                     editor.updating = true;
 
-                    $FIRE(editor, 'ontextchange+',
+                    $FIRE(editor.element, 'ontextchange+',
                         function(data) {
                             element.innerHTML = ''; //must set empty first
                             if (afterText == '') {
                                 editor.setPlaceHolder(element);
                             }
-                            else {                                
+                            else {       
                                 element.innerHTML = afterText;
                             }
+
                             if (editor.editButtonStyle != 'none') {
                                 element.nextElementSibling.hidden = false;
                             }
+
+                            element.controller = null;
+
+                            editor.value = afterValue;
+
+                            if (editor.successText != '') {
+                                Callout(editor.successText.$p(editor.element, data)).position(element, editor.calloutPosition).show();
+                            }
                         }, 
                         function(data) {
-                            Callout('Failed: ' + data).position(element, 'up').show();
+                            Callout(editor.failureText.$p(editor.element, data)).position(element, 'up').show();
+
                             element.setAttribute('text', beforeText);
                             element.setAttribute('value', beforeValue);
+
                             element.innerHTML = '';
                             element.innerHTML = element.getAttribute('text');
                         },
                         function(error) {
-                            Callout('Exception: ' + error).position(element, 'up').show();
+                            Callout(editor.exceptionText.$p(editor.element, { data: error, error: error }) || `Exception: ${error}`).position(element, 'up').show();
+
                             editor.controller.disabled = false;
                             editor.controller.focus();
                         },
@@ -770,7 +876,8 @@ HTMLEditorElement.SELECT = {
                     else {                                
                         element.innerHTML = afterText;
                     }
-                    editor.dispatch('ontextchange+completion', { 'text': afterText, 'value': afterValue });
+
+                    editor.value = afterValue;
                     editor.editing = false;
                 }
             }
@@ -791,6 +898,8 @@ HTMLEditorElement.SELECT = {
             else {
                 element.innerHTML = element.getAttribute('text');
             }
+
+            editor.controller.remove();
             editor.controller = null;
             
             if (editor.editButtonStyle != 'none') {
@@ -800,15 +909,173 @@ HTMLEditorElement.SELECT = {
     }
 }
 
+HTMLEditorAttribute.TEXTAREA = {
+    textToHtml: function(text) {
+        return text.replace(/\n/g, '<br>').replace(/\t/g, '&nbsp; &nbsp; ').replace(/  /g, '&nbsp; ')
+    },
+    initialize: function(editor, element) {
+        element.innerHTML = element.textContent.trim();
+        if (element.innerHTML == '') {
+            editor.setPlaceHolder(element);
+        }
+        else {
+            element.innerHTML = HTMLEditorAttribute.TEXTAREA.textToHtml(element.textContent);
+        }
+    },
+    editInPrompt: function(editor, element) {
 
-HTMLEditorElement.reapplyAll = function() {
+    },
+    edit: function (editor, element) {
+            let before = element.classList.contains('editor-placeholder') ? '' : element.innerHTML.replace(/&nbsp;/g, ' ')
+                                                                                                    .replace(/<br>/g, '\r\n')
+                                                                                                    .replace(/\&lt;/g, '<')
+                                                                                                    .replace(/\&gt;/g, '>')
+                                                                                                    .replace(/&amp;/g, '&'); //html decode
+            let textArea = $create('TEXTAREA', { value: before, defaultValue: before, rows: 5 }, { width: '96%', resize: 'none', overflow: 'hidden' });
+            editor.initializeControllerAttributes(textArea);
+            editor.controller = textArea;
+
+            //添加事件不支持return，只能直接指定
+            textArea.onkeydown = function (ev) {
+                // Enter
+                if (ev.ctrlKey) {
+                    if (ev.keyCode == 13) {
+                        this.blur();
+                        return false;
+                    }                    
+                }
+                // ESC
+                else if (ev.keyCode == 27) {
+                    this.value = this.defaultValue;
+                    this.blur();
+                    return false;
+                }
+            }
+
+            textArea.onfocus = function (ev) {
+                if (this.scrollTop > 0) {
+                    this.style.height = this.offsetHeight + this.scrollTop + 'px';
+                }
+            }
+
+            textArea.onkeyup = function (ev) {
+                if (this.scrollTop > 0) {
+                    this.style.height = this.offsetHeight + this.scrollTop + 'px';
+                }
+            }
+
+            textArea.onblur = function (ev) {
+                editor.update(element, ev);
+            }
+
+            element.classList.remove('editor-placeholder');
+            element.innerHTML = '';
+            element.appendChild(textArea);
+
+            textArea.focus();
+    },
+    update: function (editor, element, after) {
+
+        if (editor.controller != null && editor.controller.value != editor.controller.defaultValue) {
+            if (after == undefined) {
+                after = editor.controller.value;
+            }            
+            if (editor.editing && editor.dispatch('ontextchange', { 'text': after, 'value': after }) && editor.dispatch('oneditconfirm', { 'text': after , 'value': after })) {
+                
+                if (editor.element['ontextchange+'] != null) {
+                    editor.controller.disabled = true;
+                    editor.updating = true;
+
+                    $FIRE(editor.element, 'ontextchange+',
+                        function(data) {
+                            //finish                            
+                            if (after == '') {
+                                editor.setPlaceHolder(element);
+                            }
+                            else {
+                                element.innerHTML = HTMLEditorAttribute.TEXTAREA.textToHtml(after);
+                            }
+
+                            editor.value = after;
+
+                            if (editor.editButtonStyle != 'none') {
+                                element.nextElementSibling.hidden = false;
+                            }
+                            
+                            if (editor.successText != '') {
+                                Callout(editor.successText.$p(editor.element, data)).position(element, editor.calloutPosition).show();
+                            }
+                        }, 
+                        function(data) {
+                            editor.controller.disabled = false;
+                            editor.controller.focus();
+
+                            Callout(editor.failureText.$p(editor.element, data)).position(element, editor.calloutPosition).show();
+                        },
+                        function(error) {    
+                            editor.controller.disabled = false;
+                            editor.controller.focus();
+
+                            Callout(editor.exceptionText.$p(editor.element, { data: error, error: error }) || `Exception: ${error}`).position(element, editor.calloutPosition).show();
+                        },
+                        function() {
+                            editor.updating = false;
+                            editor.editing = false;                            
+                        },
+                        element,
+                        { 'text': after, 'value': after }
+                    );
+                }
+                else {
+                    //needn't updating, but will update display text  
+                    if (after == '') {
+                        editor.setPlaceHolder(element);
+                    }
+                    else {
+                        element.innerHTML = HTMLEditorAttribute.TEXTAREA.textToHtml(after);
+                    }
+
+                    editor.value = after;
+                    editor.editing = false;
+                }
+            }
+            else {
+                return false;
+            }
+        }
+        else {               
+           this.cancel(editor, element);
+        }
+    },
+    cancel: function (editor, element) {
+        if (editor.editing && !editor.updating && editor.dispatch('oneditcancel')) {
+            editor.editing = false;
+
+            if (editor.controller.defaultValue == '') {
+                editor.setPlaceHolder(element);
+            }
+            else {
+                element.innerHTML = '';
+                element.innerHTML = HTMLEditorAttribute.TEXTAREA.textToHtml(editor.controller.defaultValue);
+            }
+            editor.controller.remove();
+            editor.controller = null;
+            
+            if (editor.editButtonStyle != 'none') {
+                element.nextElementSibling.hidden = false;
+            }
+        }        
+    }
+}
+
+HTMLEditorAttribute.reapplyAll = function() {
     for (let component of document.components.values()) {
         if (component.tagName == 'EDITOR') {
             component.apply();
         }
     }
 
-    for (let table of $a('table[data]')) {
+    for (let table of $$('table[data]')) {
         for (let col of table.cols) {
             if (col.editor != null) {
                 col.ediotr.apply();
@@ -817,18 +1084,18 @@ HTMLEditorElement.reapplyAll = function() {
     }
 }
 
-HTMLEditorElement.initializeAll = function () {
+HTMLEditorAttribute.initializeAll = function () {
 
     // <editor bindings="selector" />
     // <tag editable />
-    $a('editor,[editable]').forEach(element => {
+    $$('editor,[editable]').forEach(element => {
         if (element.nodeName != 'COL' && !element.hasAttribute('root-editor')) {
             element.setAttribute('root-editor', '');
-            new HTMLEditorElement(element).apply(element.getAttribute('bindings') ?? element);        
+            new HTMLEditorAttribute(element).apply(element.getAttribute('bindings') ?? element);        
         }
     });
 }
 
 document.on('post', function () {
-    HTMLEditorElement.initializeAll();
+    HTMLEditorAttribute.initializeAll();
 });

@@ -21,9 +21,8 @@ HTMLDivElement.layColumn = function(frame) {
 }
 
 HTMLDivElement.initializeAll = function() {
-    $a('div[display]').forEach(p => {
-        let display = p.getAttribute('display');
-        switch(display) {
+    $$('div[display]').forEach(p => {
+        switch(p.getAttribute('display')) {
             case 'panel':
                 HTMLDivElement.layPanel(p);
                 break;

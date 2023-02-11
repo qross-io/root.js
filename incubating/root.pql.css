@@ -1,7 +1,0 @@
-.pql { border: 1px solid var(--primary); padding: 12px; border-radius: 3px; font-family: Consolas, "Microsoft YaHei"; font-size: 14px; color: #333333; letter-spacing: 1px; }
-.comment { font-style: italic; color: #007700; }
-.reserved { color: #F92672; font-weight: bold; }
-.string { color: #FF9900; }
-.sharp { background-color: #F0F0F0; border-radius: 3px; }
-.query { background-color: #FFFFCC; border-radius: 3px; }
-.variable { color: #8800FF; }

@@ -126,7 +126,7 @@ class HTMLTabAttribute extends HTMLCustomAttribute {
 	change (element, trigger = true) {
 
 		if (typeof(element) == 'string') {
-			element = $s(element);
+			element = $(element);
 		}
 	
 		if (element != null && this.selectedElement != element) {
@@ -172,6 +172,8 @@ class HTMLTabAttribute extends HTMLCustomAttribute {
 				this.bindings[e] = null;
 			}
 		}
+
+		HTMLTabAttribute.defineEvents(this.element);
 	
 		let tab = this;
 	
@@ -190,19 +192,19 @@ class HTMLTabAttribute extends HTMLCustomAttribute {
 				if (ev.button == 0) {
 					tab.change(element);
 	
-					if (tab['ontabchange+'] != null) {			
-						$FIRE(tab, 'ontabchange+',
+					if (tab.element['ontabchange+'] != null) {			
+						$FIRE(tab.element, 'ontabchange+',
 							function(data) {
 								tab.status = 'success';
-								tab.hintText = tab.successText.$p(element, data);								
+								tab.hintText = tab.successText.$p(tab.element, data);								
 							},
 							function(data) {
 								tab.status = 'failure';
-								tab.hintText = tab.failureText.$p(element, data);
+								tab.hintText = tab.failureText.$p(tab.element, data);
 							},
 							function(error) {
 								tab.status = 'exception';
-								tab.hintText = tab.exceptionText.$p(element, { data: error, error: error });
+								tab.hintText = tab.exceptionText.$p(tab.element, { data: error, error: error });
 							});
 					}				
 				}
@@ -211,10 +213,9 @@ class HTMLTabAttribute extends HTMLCustomAttribute {
 	}
 }
 
-HTMLCustomElement.defineEvents(HTMLTabAttribute.prototype, {
-	'ontabchange': 'onTabChanged',
-	'ontabchange+': 'onTabChanged+'
-})
+HTMLTabAttribute.defineEvents = function(element) {
+    HTMLCustomAttribute.defineEvents('TAB', element, [['ontabchange', 'onTabChanged'], ['ontabchange+', 'onTabChanged+']]);
+}
 
 
 //用某个元素的属性当值, 当使用子元素的样式切换时会用到
