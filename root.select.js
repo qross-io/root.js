@@ -140,8 +140,8 @@ class HTMLSelectPlusElement extends HTMLCustomElement {
         if (!this.multiple) {            
             if (index != this.#selectedIndex) {
                 if (this.initialized) {
-                    this.container.setAttribute('value-', select.getComingValue(index));
-                    if (this.execute('onchange', index)) {
+                    this.container.setAttribute('value-', this.#getComingValue(index));
+                    if (this.dispatch('onchange', index)) {
                         this.#source = 'index';
                         if (index == -1) {
                             this.options[this.#selectedIndex].selected = false;                        
@@ -180,8 +180,8 @@ class HTMLSelectPlusElement extends HTMLCustomElement {
     set selectedIndexes(indexes) {
         if (JSON.stringify(indexes) != JSON.stringify(this.#selectedIndexes)) {
             if (this.initialized) {
-                this.container.setAttribute('value-', select.getComingValue(indexes));
-                if (this.execute('onchange', indexes)) {
+                this.container.setAttribute('value-', this.#getComingValue(indexes));
+                if (this.dispatch('onchange', indexes)) {
                     this.#source = 'indexes';
                     this.#selectedIndexes.filter(index => !indexes.includes(index)).forEach(index => this.options[index].selected = false);
                     indexes.filter(index => !this.#selectedIndexes.includes(index)).forEach(index => this.options[index].selected = true);
@@ -425,7 +425,7 @@ class HTMLSelectPlusElement extends HTMLCustomElement {
     }
 
     get exceptionText() {
-        return this.getAttribute('exception-text', '');
+        return this.getAttribute('exception-text', 'Exception: {error}');
     }
 
     set exceptionText(text) {
@@ -577,7 +577,7 @@ class HTMLSelectPlusElement extends HTMLCustomElement {
             this.disabled = true;
         }
     
-        if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+        if (this.successText != '' || this.failureText != '') {
             if (this.hintElement == null && this.calloutPosition == null && this.messageDuration == null) {
                 this.hintElement = $create('SPAN', { innerHTML: '', className: 'error' }, { marginLeft: '30px' });
                 this.insertAdjacentElement('afterEnd', this.hintElement);            

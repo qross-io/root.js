@@ -8,7 +8,7 @@ $enhance(HTMLAnchorElement.prototype)
 
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
-        exceptionText: '', //请求发生错误的提醒文字
+        exceptionText: 'Exception: {error}', //请求发生错误的提醒文字
         'text': {
             get () {            
                 return this.innerHTML;

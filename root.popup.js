@@ -92,6 +92,102 @@ class HTMLPopupElement extends HTMLElement {
         this.setAttribute('no-scrolling', scrolling);
     }
 
+    get theme() {
+        return this.getAttribute('theme', '');
+    }
+
+    set theme(theme) {
+        this.setAttribute('theme', theme);
+    }
+
+    get minWidth() {
+        return $parseInt(this.getAttribute('min-width'), 0);
+    }
+
+    set minWidth(width) {
+        this.setAttribute('min-width', width);
+    }
+
+    get buttonMinWidth() {
+        return $parseInt(this.getAttribute('button-min-width'), 0);
+    }
+
+    set buttonMinWidth(width) {
+        this.setAttribute('button-min-width', width);
+    }
+
+    get titleBarText() {
+        return this.getAttribute('title-bar-text', '');
+    }
+
+    set titleBarText(text) {
+        this.setAttribute('title-bar-text', text);
+        this.$('span[sign=title]').innerHTML = text;
+    }
+
+    get titleBarIcon() {
+        return this.getAttribute('title-bar-icon');
+    }
+
+    set titleBarIcon(icon) {
+        this.setAttribute('title-bar-icon', icon);
+        this.$('div[sign=title]')?.setIcon(icon);
+    }
+
+    get confirmButtonText() {
+        return this.getAttribute('confirm-button-text', 'OK');        
+    }
+
+    set confirmButtonText(text) {
+        this.setAttribute('confirm-button-text', text);
+        this.confirmButton?.setHTML(text);
+    }
+
+    get confirmButtonClass() {
+        return this.getAttribute('confirm-button-class', 'normal-button gray-button');
+    }
+
+    set confirmButtonClass(className) {
+        this.setAttribute('confirm-button-class', className);
+        this.confirmButton?.setClass(className);
+    }
+
+    get confirmButtonIcon() {
+        return this.getAttribute('confirm-button-icon', '');
+    }
+
+    set confirmButtonIcon(icon) {
+        this.setAttribute('confirm-button-icon', icon);
+        this.confirmButton?.setIcon(icon);
+    }
+
+    get cancelButtonText() {
+        return this.getAttribute('cancel-button-text', '');
+    }
+
+    set cancelButtonText(text) {
+        this.setAttribute('cancel-button-text', text);
+        this.cancelButton?.setHTML(text);
+    }
+
+    get cancelButtonClass() {
+        return this.getAttribute('cancel-button-class', 'normal-button gray-button');
+    }
+
+    set cancelButtonClass(className) {
+        this.setAttribute('cancel-button-class', className);
+        this.cancelButton?.setClass(className);
+    }
+
+    get cancelButtonIcon() {
+        return this.getAttribute('cancel-button-icon', '');
+    }
+
+    set cancelButtonIcon(icon) {
+        this.setAttribute('cancel-button-icon', icon);
+        this.cancelButton?.setIcon(icon);
+    }
+
     get openButton() {
         return this.#openButton;
     }
@@ -110,7 +206,7 @@ class HTMLPopupElement extends HTMLElement {
 
     get confirmButton() {
         return this.#confirmButton;        
-    }
+    }        
 
     set confirmButton(button) {
         this.#confirmButton = $parseElement(button, 'confirmButton');
@@ -122,6 +218,30 @@ class HTMLPopupElement extends HTMLElement {
 
     set cancelButton(button) {
         this.#cancelButton = $parseElement(button, 'cancelButton');
+    }
+
+    get successText() {
+        return this.getAttribute('success-text', '');
+    }
+
+    set successText(text) {
+        this.setAttribute('success-text', text);
+    }
+
+    get failureText() {
+        return this.getAttribute('failure-text', '');
+    }
+
+    set failureText(text) {
+        this.setAttribute('failure-text', text);
+    }
+
+    get exceptionText() {
+        return this.getAttribute('exception-text', 'Exception: {error}');
+    }
+
+    set exceptionText(text) {
+        this.setAttribute('exception-text', text);
     }
 
     get hidings() {
@@ -158,11 +278,19 @@ class HTMLPopupElement extends HTMLElement {
 
     initialize() {
         if (!this.#initialize) {
-            this.hidden = true;
-            this.style.visibility = 'hidden';
-            this.style.overflow = (this.querySelector('div.popup-scroll') == null ? 'auto' : 'hidden');
 
-            this.#initialize = true;
+            if (this.id == '') {
+                this.id = 'Popup_' + String.shuffle(9);
+            }
+
+            if (this.theme != '') {
+                this.insertAfterBegin('DIV', { className: 'popup-bar', innerHTML: `<i sign="icon" class="iconfont ${this.titleBarIcon}"></i> <span sign="title" class="popup-title">${this.titleBarText}</span>` }, {}, { 'sign': 'title' });
+                this.insertAfterBegin('DIV', { id: this.id + '_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
+                this.insertBeforeEnd('DIV', { className: 'popup-button', 
+                    innerHTML: `<button id="${this.id}_ConfirmButton" class="${this.confirmButtonClass}">  ${this.confirmButtonText}  </button>` + 
+                        (this.cancelButtonText != '' ? ` &nbsp; &nbsp; <button id="${this.id}_CancelButton" class="${this.cancelButtonClass}">  ${this.cancelButtonText}  </button>` : '')
+                 });
+            }
 
             if (this.openButton == null) {
                 this.openButton = $('#' + (this.id || 'Popup') + '_OpenButton');
@@ -176,13 +304,29 @@ class HTMLPopupElement extends HTMLElement {
             if (this.cancelButton == null) {
                 this.cancelButton = $('#' + (this.id || 'Popup') + '_CancelButton');
             }
+
+            //button icon
+            if (this.theme != '') {
+                if (this.confirmButtonIcon != '') {
+                    this.confirmButton.setIcon(this.confirmButtonIcon);
+                }
+                if (this.cancelButtonIcon != '') {
+                    this.cancelButton.setIcon(this.cancelButtonIcon);
+                }
+            }
            
             if (this.openingAnimation == '') {
                 this.openingAnimation = this.animation;
             }
             if (this.closingAnimation == '') {
                 this.closingAnimation = 'direction: reverse; ' + this.openingAnimation;
-            }
+            }          
+
+            this.hidden = true;
+            this.style.visibility = 'hidden';
+            this.style.overflow = (this.querySelector('div.popup-scroll') == null ? 'auto' : 'hidden');
+
+            this.#initialize = true;
         
             let popup = this;
             this.openButton?.on('click', ev => popup.open(ev));
@@ -262,8 +406,18 @@ class HTMLPopupElement extends HTMLElement {
     
         //显示
         this.hidden = false;
+
+        if (this.minWidth > 0) {
+            if (this.width < this.minWidth) {
+                this.width = this.minWidth;
+            }
+        }
+        
+        this.confirmButton?.equalizeWidth(this.cancelButton, this.buttonMinWidth);
+
         this.locate(ev);
-        this.style.visibility = 'visible';		
+        this.style.visibility = 'visible';
+
         if(!quick) {
             if (window.Animation != null && Animation.Entity != null) {
                 Animation(this.#getOpeningAnimation(ev))
@@ -289,6 +443,16 @@ class HTMLPopupElement extends HTMLElement {
                 Animation(this.#getClosingAnimation(ev))
                     .apply(this)
                     .on('stop', function (popup) {
+
+                        if (popup.minWidth > 0) {
+                            popup.style.width = '';
+                        }
+        
+                        if (popup.confirmButton?.hasAttribute('equalize-width')) {
+                            popup.confirmButton?.setStyle('width', '');
+                            popup.cancelButton?.setStyle('width', '');
+                        }
+
                         popup.style.visibility = 'hidden';
                         popup.hidden = true;
                         //启用滚动
@@ -297,7 +461,16 @@ class HTMLPopupElement extends HTMLElement {
                         }                        
                     }).play(ev);
             }
-            else {		
+            else {
+                if (this.minWidth > 0) {
+                    this.style.width = '';
+                }
+        
+                if (this.confirmButton?.hasAttribute('equalize-width')) {
+                    this.confirmButton?.setStyle('width', '');
+                    this.cancelButton?.setStyle('width', '');
+                }
+        
                 //立即隐藏
                 this.hidden = true;
                 this.style.visibility = 'hidden';
@@ -346,9 +519,32 @@ class HTMLPopupElement extends HTMLElement {
     
     confirm (ev) {
         if(document.popup == null || document.popup.id == this.id) {
-            if(this.dispatch('onconfirm', { 'event': ev })) {
-                this.hide(false, ev);
-                this.dispatch('onhide', { 'event': ev });
+            if (this.dispatch('onconfirm', { 'event': ev })) {
+
+                if (this['onconfirm+'] != null) {
+                    $FIRE(this, 'onconfirm+',
+                        function(data) {
+                            if (this.successText != '') {
+                                Callout(this.successText.$p(this, data)).up(this.confirmButton).show();
+                            }                            
+
+                            this.hide(false, ev);
+                            this.dispatch('onhide', { 'event': ev });
+                        }, 
+                        function(data) {
+                            if (this.successText != '') {
+                                Callout(this.failureText.$p(this, data)).up(this.confirmButton).show();
+                            }
+                        },
+                        function(error) {
+                            Callout(this.exceptionText.$p(this, { data: error, error: error })).up(this.confirmButton).show();                           
+                        }
+                    );
+                }
+                else {
+                    this.hide(false, ev);
+                    this.dispatch('onhide', { 'event': ev });
+                }
             }
         }
         return this;
@@ -374,7 +570,7 @@ class HTMLPopupElement extends HTMLElement {
                 else if (this.position.y == 'bottom') {
                     return 'timing-function: ease; duration: 0.6s; from: x(0).y(' + this.height + ') 100% 10%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
                 }
-                else {
+                else { 
                     return 'timing-function: ease; duration: 0.5s; from: x(0).y(0) 100% 50%; to: x(0).y(0) 100% 100%; fill-mode: forwards;';
                 }
             }
@@ -650,110 +846,107 @@ PopupMask.resize = function() {
 
 
 $root.alert = function(message, confirmButton, title, ev) {
-    if ($('#AlertPopup') == null) {
-        let div = $create('POP-UP', { 'id': 'AlertPopup' }, {}, { 'position': 'center,middle', 'offsetY': -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.insertBeforeEnd('DIV', { id: 'AlertPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
-        div.insertBeforeEnd('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-warning-circle"></i> <span id="AlertPopupTitle" class="popup-title">Message</span>' });
-        div.insertBeforeEnd('DIV', { id: 'AlertContent', className: 'popup-content' }, { textAlign: 'center', color: 'var(--primary)' });
-        div.insertBeforeEnd('DIV', { className: 'popup-button', innerHTML: '<button id="AlertPopup_ConfirmButton" type="button" class="normal-button gray-button">  OK  </button' });
-        document.body.appendChild(div);
+    if ($('#__AlertPopup') == null) {
 
-        if ($('#AlertPopup_ConfirmButton').width < 80) {
-            $('#AlertPopup_ConfirmButton').width = 80;
-        }
+        document.body.appendChild($create('POP-UP', { 
+            'id': '__AlertPopup',
+            'position': 'center,middle',
+            'offsetY': -100,
+            'maskColor': '#999999',
+            'theme': 'root',
+            'animation': 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;',
+            'titleBarIcon': 'icon-warning-circle',
+            'minWidth': 360,
+            'buttonMinWidth': 80
+        }));
+        
+        $('#__AlertPopup').insertBeforeEnd('DIV', { className: 'popup-content', innerHTML: `<span sign="message" class="${message?.class ?? ''}">${message?.text ?? message}<span>` }, { 'textAlign': 'center', 'color': 'var(--primary)' }, { 'sign': 'content' });
+        $('#__AlertPopup').initialize();
+    }
+    else {
+        $('#__AlertPopup').$('span[sign=message]').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
     }
 
-    if (title != null) {
-        $('#AlertPopupTitle').html = title;
-    }
+    
+    $('#__AlertPopup').titleBarText = title ?? 'Message';
+    $('#__AlertPopup').confirmButtonText = confirmButton?.text ?? confirmButton ?? 'OK';
+    $('#__AlertPopup').confirmButtonClass = confirmButton?.class ??  'normal-button gray-button';
+    $('#__AlertPopup').confirmButtonIcon = confirmButton?.icon ??  '';
 
-    $('#AlertContent').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
-    $('#AlertPopup').style.display = '';
-    if ($('#AlertPopup').width < 360) {
-        $('#AlertPopup').width = 360;
-    }
-
-    if (confirmButton != null) {
-        if (typeof(confirmButton) == 'string') {
-            confirmButton = { text: confirmButton };
-        }
-        $('#AlertPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? ' OK ') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
-    }
-
-    return $('#AlertPopup').open(ev);
+    return $('#__AlertPopup').open(ev);
 }
 
 $root.confirm = function(message, confirmButton, cancelButton, title, ev = null) {
-    if ($('#ConfirmPopup') == null) {
-        let div = $create('POP-UP', { 'id': 'ConfirmPopup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.insertBeforeEnd('DIV', { id: 'ConfirmPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
-        div.insertBeforeEnd('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-question-circle"></i> <span id="ConfirmPopupTitle" class="popup-title">Confirm</span>' });
-        div.insertBeforeEnd('DIV', { id: 'ConfirmContent', className: 'popup-content' }, { textAlign: 'center' });
-        div.insertBeforeEnd('DIV', { className: 'popup-button', innerHTML: '<button id="ConfirmPopup_ConfirmButton" type="button" class="normal-button gray-button"> OK </button> &nbsp; &nbsp; <button id="ConfirmPopup_CancelButton" type="button" class="normal-button gray-button"> Cancel </button>' });
-        document.body.appendChild(div);
+    if ($('#__ConfirmPopup') == null) {
+        document.body.appendChild($create('POP-UP', { 
+            'id': '__ConfirmPopup',
+            'position': 'center,middle',
+            'offsetY': -100,
+            'maskColor': '#999999',
+            'theme': 'root',
+            'animation': 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;',
+            'titleBarIcon': 'icon-question-circle',
+            'cancelButtonText': 'Cancel',
+            'minWidth': 360,
+            'buttonMinWidth': 80
+        }));
 
-        let w = Math.max($('#ConfirmPopup_ConfirmButton').width, $('#ConfirmPopup_CancelButton').width);
-        $('#ConfirmPopup_ConfirmButton').width = w;
-        $('#ConfirmPopup_CancelButton').width = w;
+        $('#__ConfirmPopup').insertBeforeEnd('DIV', { className: 'popup-content', innerHTML: `<span sign="message" class="${message?.class ?? ''}">${message?.text ?? message}<span>` }, { 'textAlign': 'center', 'color': 'var(--primary)' }, { 'sign': 'content' });
+        $('#__ConfirmPopup').initialize();
+    }
+    else {
+        $('#__ConfirmPopup').$('span[sign=message]').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
     }
 
-    if (title != null) {
-        $('#ConfirmPopupTitle').html = title;
-    }
+    $('#__ConfirmPopup').titleBarText = title ?? 'Confirm';
+    $('#__ConfirmPopup').confirmButtonText = confirmButton?.text ?? confirmButton ?? 'OK';
+    $('#__ConfirmPopup').confirmButtonClass = confirmButton?.class ??  'normal-button gray-button';
+    $('#__ConfirmPopup').confirmButtonIcon = confirmButton?.icon ??  '';
+    $('#__ConfirmPopup').cancelButtonText = cancelButton?.text ?? cancelButton ?? 'Cancel';
+    $('#__ConfirmPopup').cancelButtonClass = cancelButton?.class ?? 'normal-button gray-button';
+    $('#__ConfirmPopup').cancelButtonIcon = cancelButton?.icon ??  '';
 
-    $('#ConfirmContent').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
-    $('#ConfirmPopup').style.display = '';
-    if ($('#ConfirmPopup').width < 360) {
-        $('#ConfirmPopup').width = 360;
-    }
-
-    if (confirmButton != null) {
-        if (typeof(confirmButton) == 'string') {
-            confirmButton = { text: confirmButton };
-        }
-        $('#ConfirmPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
-    }
-
-    if (cancelButton != null) {
-        if (typeof(cancelButton) == 'string') {
-            cancelButton = { text: cancelButton };
-        }
-        $('#ConfirmPopup_CancelButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
-    }
-
-    return $('#ConfirmPopup').open(ev);
+    return $('#__ConfirmPopup').open(ev);
 }
 
 $root.prompt = function(message, input, confirmButton, cancelButton, title, ev) {
-    if ($('#PromptPopup') == null) {
-        let div = $create('POP-UP', { 'id': 'PromptPopup' }, {}, { 'position': 'center,middle', offsetY: -100, 'maskColor': '#999999', animation: 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;' });
-        div.insertBeforeEnd('DIV', { id: 'PromptPopup_CloseButton', className: 'popup-close-button', innerHTML: '<i class="iconfont icon-close"></i>' });
-        div.insertBeforeEnd('DIV', { className: 'popup-bar', innerHTML: '<i class="iconfont icon-edit"></i> <span id="PromptPopupTitle" class="popup-title">Prompt</span>' });
-        div.insertBeforeEnd('DIV', { id: 'PromptContent', className: 'popup-content' });
-        div.insertBeforeEnd('DIV', { className: 'popup-button', innerHTML: '<button id="PromptPopup_ConfirmButton" watch="#PromptTextBox" class="normal-button gray-button"> OK </button> &nbsp; &nbsp; <button id="PromptPopup_CancelButton" type="button" class="normal-button gray-button"> Cancel </button' });
-        document.body.appendChild(div);
+    if ($('#__PromptPopup') == null) {
+        document.body.appendChild($create('POP-UP', 
+            { 
+                'id': '__PromptPopup',
+                'position': 'center,middle',
+                'offsetY': -100,
+                'maskColor': '#999999',
+                'animation': 'timing-function: ease; duration: 0.6s; from: x(0).y(100) 100% 0%; to: x(0).y(0) 100% 100%; fill-mode: forwards;',
+                'theme': 'root',
+                'titleBarIcon': 'icon-edit',
+                'cancelButtonText': 'Cancel',
+                'minWidth': 360,
+                'buttonMinWidth': 80
+             }));
 
-        $('#PromptContent').insertBeforeEnd('DIV', { id: 'PromptMessage' }, {})
-            .insertBeforeEnd('DIV', { id: 'PromptInput' }, { margin: '10px 0px 6px 0px' })
-            .insertBeforeEnd('DIV', { id: 'PromptHint' }, { fontSize: '0.875rem' });
-
-        let w = Math.max($('#PromptPopup_ConfirmButton').width, $('#PromptPopup_CancelButton').width);
-        $('#PromptPopup_ConfirmButton').width = w;
-        $('#PromptPopup_CancelButton').width = w;
+        $('#__PromptPopup').insertBeforeEnd('DIV', { className: 'popup-content',
+                 innerHTML: '<div id="__PromptMessage" style="color: var(--primary); padding: 10px 0px;"></div><div id="__PromptInput" style="margin: 10px 0px 6px 0px"><input id="__PromptTextBox" size="50" hint="#__PromptHint" /></div><div id="__PromptHint" style="font-size: 0.875rem"></div>' }, 
+                {  }, { 'sign': 'content' });
+        $('#__PromptPopup').initialize();
     }
 
-    if (title != null) {
-        $('#PromptPopupTitle').html = title;
-    }
+    $('#__PromptPopup').titleBarText = title ?? 'Prompt';
+    $('#__PromptPopup').confirmButtonText = confirmButton?.text ?? confirmButton ?? 'OK';
+    $('#__PromptPopup').confirmButtonClass = confirmButton?.class ??  'normal-button gray-button';
+    $('#__PromptPopup').confirmButtonIcon = confirmButton?.icon ??  '';
+    $('#__PromptPopup').cancelButtonText = cancelButton?.text ?? cancelButton ?? 'Cancel';
+    $('#__PromptPopup').cancelButtonClass = cancelButton?.class ?? 'normal-button gray-button';
+    $('#__PromptPopup').cancelButtonIcon = cancelButton?.icon ??  '';
 
-    $('#PromptMessage').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
-
+    $('#__PromptMessage').setHTML(message?.text ?? message).setClass(message?.class ?? '.');
+    
     input ??= 'text';
     if (typeof(input) != 'object') {
         input = { 'type': input };
     }
 
-    let textBox = $create('INPUT', { id: 'PromptTextBox', size: 50, hint: '#PromptHint' });
+    let textBox = $('#__PromptTextBox');
     for (let name in input) {
         if (textBox[name] !== undefined) {
             textBox[name] = input[name];
@@ -763,35 +956,18 @@ $root.prompt = function(message, input, confirmButton, cancelButton, title, ev) 
         }
     }    
     textBox.initializeInputable?.();
-    $('#PromptInput').innerHTML = '';
-    $('#PromptInput').appendChild(textBox);
 
-    if (confirmButton != null) {
-        if (typeof(confirmButton) == 'string') {
-            confirmButton = { text: confirmButton };
-        }
-        $('#PromptPopup_ConfirmButton').setHTML(' ' + (confirmButton.text ?? 'OK') + ' ').setClass(confirmButton.class || '.').setIcon(confirmButton.icon || '');
-    }
-    $('#PromptPopup_ConfirmButton').initialize?.();
-   
-    if (cancelButton != null) {
-        if (typeof(cancelButton) == 'string') {
-            cancelButton = { text: cancelButton };
-        }
-        $('#PromptPopup_CancelButton').setHTML(' ' + (cancelButton.text ?? 'Cancel') + ' ').setClass(cancelButton.class || '.').setIcon(cancelButton.icon || '');
-    }
-
-    return $('#PromptPopup').on('show', function() {
+    return $('#__PromptPopup').on('show', function() {
         textBox.focus();
     }).open(ev);
 }
 
 $root.prompt.getInputValue = function() {
-    return $('#PromptTextBox').value;
+    return $('#__PromptTextBox').value;
 }
 
 $root.prompt.setInputValue = function(value) {
-    $('#PromptTextBox').value = value;
+    $('#__PromptTextBox').value = value;
 }
 
 document.on('ready', function () {

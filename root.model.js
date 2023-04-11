@@ -422,8 +422,6 @@ class HTMLForElement extends HTMLCustomElement {
         this.setAttribute('result-position', position);
     }
 
-    onload = null;
-
     load(data) {
         
         this.#data = data ?? this.in;
@@ -536,7 +534,7 @@ class HTMLForElement extends HTMLCustomElement {
                 vars[this.var.key] = key;
                 vars[this.var.value] = value;
                 Object.assign(vars, this.#variables);
-                html.push(ths.#content.replaceHolder(this, vars));
+                html.push(this.#content.replaceHolder(this, vars));
             }
 
             i++;
@@ -545,6 +543,8 @@ class HTMLForElement extends HTMLCustomElement {
         return html.join('');
     }
 }
+
+HTMLCustomElement.defineEvents(HTMLForElement.prototype, ['onload']);
 
 HTMLForElement.from = function(element, owner) {
     let _for = document.createElement('FOR');

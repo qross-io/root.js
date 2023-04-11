@@ -51,7 +51,7 @@ $enhance(HTMLTableElement.prototype)
 
         successText: '',
         failureText: '',
-        exceptionText: '',
+        exceptionText: 'Exception: {error}',
         
         reloadOnFilterOrSorting: false, //如果为true, 则到后端请求数据, 如果为false, 则仅在前端过滤和筛选
         reloadOnFilter: false,

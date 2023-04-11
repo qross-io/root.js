@@ -102,7 +102,7 @@ Animation.Entity.prototype.on = function(eventName, func) {
     // }
 
     this[eventName.toLowerCase().prefix('on')] = func;
-    
+
     return this;
 }
 
@@ -114,8 +114,6 @@ Animation.Entity.prototype.resetOnStop = function(toBeReset = true) {
 
 Animation.Entity.prototype.play = function (ev) {
     /// <summary>播放动画</summary>
-
-    //this.element = $s(this.element);
 
     if (this.element != null) {
         //检查head中有没有样式单<style>
@@ -137,6 +135,7 @@ Animation.Entity.prototype.play = function (ev) {
             window.clearTimeout(Animation.timer[this.element.id]);
             delete Animation.timer[this.element.id];
         }
+
         Event.fire(this, 'onstart', this.element);
         
         let prefix = '';

@@ -131,7 +131,7 @@ Object.defineProperties(HTMLElement.prototype, {
             }
         },
         set(icon) {
-            this.$child('img,i')?.remove();
+            this.$child('img[sign=icon],i[sign=icon]')?.remove();
             this.insertAdjacentHTML('afterBegin', icon.iconToHTML());            
         }
     },
@@ -193,11 +193,17 @@ Object.defineProperties(HTMLElement.prototype, {
         }
     },
     'width': {
+        //不适用于 input
         get() {
             return this.offsetWidth;
         },
         set(width) {
-            this.style.width = width + 'px';
+            if (width > 0) {
+                this.style.width = width + 'px';
+            }
+            else {
+                this.style.width = '';
+            }
         }
     },
     'height': {
@@ -205,7 +211,12 @@ Object.defineProperties(HTMLElement.prototype, {
             return this.offsetHeight;
         },
         set(height) {
-            this.style.height = height + 'px';
+            if (height > 0) {
+                this.style.height = height + 'px';
+            }
+            else {
+                this.style.height = 0;
+            }
         }
     },
     'css': {
@@ -686,6 +697,44 @@ HTMLElement.prototype.hide = function() {
     if (this.getAttribute('visible') != 'always') {
         this.visible = false;
     }
+    return this;
+}
+
+HTMLElement.prototype.empty = function() {
+    if (this.value !== undefined) {
+        this.value = '';
+    }
+    else {
+        this.innerHTML = '';
+    }
+}
+
+HTMLElement.prototype.equalizeWidth = function(other, minWidth) {
+    let element2 = $(other);
+    let width = Math.max(this.offsetWidth, element2?.offsetWidth ?? 0, minWidth);
+    if (this.offsetWidth < width) {
+        this.style.width = width + 'px';
+        this.setAttribute('equalize-width', element2?.id ?? minWidth);
+    }
+    if (element2 != null && element2.offsetWidth < width) {
+        element2.style.width = this.width + 'px';        
+        element2.setAttribute('equalize-width', this.id);
+    }
+
+    return this;
+}
+
+HTMLElement.prototype.equalizeHeight = function(other) {
+    let element2 = $(other);
+    if (element2 != null) {
+        if (this.offsetHeight < element2.offsetHeight) {
+            this.style.height = element2.offsetHeight + 'px';
+        }
+        else if (this.offsetHeight > element2.offsetHeight) {
+            element2.style.height = this.offsetHeight + 'px';
+        }
+    }
+
     return this;
 }
 
@@ -1498,9 +1547,9 @@ String.prototype.recognize = function() {
 String.prototype.replaceHolder = function(element, data, follower) {
 
     let content = this.toString();
-    if (content == '') {
+    if (content == '' || !/[&$@~%{}]/.test(content)) {
         return content;
-    }
+    }    
 
     if (typeof (element) == 'string') {
         element = document.querySelector(element);
@@ -1515,58 +1564,9 @@ String.prototype.replaceHolder = function(element, data, follower) {
             content = content.replace(match[0], $query.has(match[2]) ? $query.get(match[2]).encodeURIComponent(match[0].endsWith('%')) : (match[4] ?? 'null').encodeURIComponent(match[0].endsWith('%')));
         });
 
-    //$(selector).property[index][attr].method()?(defaultValue)%
-    /\$(\((.*?)\))((\.\w+\([^\)]*\)|\.\w+|\[-?\d+\]|\[\S+?\])*)(\?\(([^\(\)]*?)\))?([!%])?/ig.findAllMatchIn(content).forEach(match => {
-        let selector = match[2].trim();
-        let v = selector == '' ? element : $(selector);
-
-        let path = match[3];
-        let defaultValue = match[6];
-        let encode = match[7] == '%';
-
-        if (path != '') {
-            path = path.replace(/\[/g, '.')
-                .replace(/\]/g, '')
-                .replace(/\.\./g, '.')
-                .replace(/^\.|\.$/g, '');
-
-            let stones = path.split('.');
-            for (let i = 0; i < stones.length; i++) {
-                if (v != null) {
-                    let a = stones[i];
-                    if (/^\d+$/.test(a)) {
-                        v = v.children?.[a.toInt()] ?? v[a.toInt()];
-                    }
-                    else if (/^-\d+$/.test(a)) {
-                        v = v.children?.[v.children.length + a.toInt()] ?? v[v.length + a.toInt()];
-                    }
-                    else if (a.endsWith(')')) {
-                        v = v[a.takeBefore('(')](...a.takeAfter('(').dropRight(1).if(s => s != '')?.split(',').map(r => r.recognize()) ?? []);
-                    }
-                    else {
-                        v = v[a.includes('-') ? a.toCamel() : a] ?? v.getAttribute(a);
-                    }
-                }
-                else {
-                    break;
-                }
-            }
-        }
-
-        if (v == null && defaultValue != null) {
-            v = defaultValue;
-        }
-
-        if (v != null) {
-            v = (v.value ?? v.text ?? v).encodeURIComponent(encode);
-        }
-
-        content = content.replaceAll(match[0], v);
-    });
-
     //@data place holder
     //@data.property[index]|column|.method()?(defaultValue)!
-    /@([a-z_]\w*)(\.\w+\([^\)]*\)|\.\w+|\[-?\d+\]|\[\S+?\]|\|\S+?\|)*(\?\([^\(\)]*?\))?\!?/ig.findAllIn(content)
+    /(?<!\\)@([a-z_]\w*)(\.\w+\([^\)]*\)|\.\w+|\[-?\d+\]|\[\S+?\]|\|\S+?\|)*(\?\([^\(\)]*?\))?\!?/ig.findAllIn(content)
         .forEach(holder => {
             let path = holder.replace(/\!$/, ''); //this is holder
             let defaultValue = null;
@@ -1640,10 +1640,12 @@ String.prototype.replaceHolder = function(element, data, follower) {
             }
 
             
-            content = content.replaceAll(holder, JSON.stringifo(v));            
+            content = content.replace(holder, JSON.stringifo(v));            
         });
 
-        
+    // \@ -> @
+    content = content.replaceAll('\\@', '@');
+
     //~{{complex expression}}
     //must return a value 
     /\~?\{\{(.+?)\}\}%?/sg.findAllMatchIn(content)
@@ -1673,6 +1675,58 @@ String.prototype.replaceHolder = function(element, data, follower) {
             }            
         });
 
+    //$(selector).property[index][attr].method()?(defaultValue)%
+    /(?<!\\)\$(\((.*?)\))((\.\w+\([^\)]*\)|\.\w+|\[-?\d+\]|\[\S+?\])*)(\?\(([^\(\)]*?)\))?([!%])?/ig.findAllMatchIn(content).forEach(match => {
+        let selector = match[2].trim();
+        let v = selector == '' || selector == 'this' ? $(element) : $(selector);
+
+        let path = match[3];
+        let defaultValue = match[6];
+        let encode = match[7] == '%';
+
+        if (path != '') {
+            path = path.replace(/\[/g, '.')
+                .replace(/\]/g, '')
+                .replace(/\.\./g, '.')
+                .replace(/^\.|\.$/g, '');
+
+            let stones = path.split('.');
+            for (let i = 0; i < stones.length; i++) {
+                if (v != null) {
+                    let a = stones[i];
+                    if (/^\d+$/.test(a)) {
+                        v = v.children?.[a.toInt()] ?? v[a.toInt()];
+                    }
+                    else if (/^-\d+$/.test(a)) {
+                        v = v.children?.[v.children.length + a.toInt()] ?? v[v.length + a.toInt()];
+                    }
+                    else if (a.endsWith(')')) {
+                        v = v[a.takeBefore('(')](...a.takeAfter('(').dropRight(1).if(s => s != '')?.split(',').map(r => r.recognize()) ?? []);
+                    }
+                    else {
+                        v = v[a.includes('-') ? a.toCamel() : a] ?? v.getAttribute(a);
+                    }
+                }
+                else {
+                    break;
+                }
+            }
+        }
+
+        if (v == null && defaultValue != null) {
+            v = defaultValue;
+        }
+
+        if (v != null) {
+            v = (v.value ?? v.text ?? v).encodeURIComponent(encode);
+        }
+
+        content = content.replace(match[0], v);
+    });
+
+    // \$ -> $
+    content = content.replaceAll('\\$', '$');
+       
     //% - for url only
     /(?<==)(.*?)%(?=(\?:&|#|$))/sg.findAllMatchIn(content)
         .forEach(match => {
@@ -1794,14 +1848,14 @@ String.prototype.do = function(exp) {
 String.prototype.iconToHTML = function(path) {
     let icon = this.toString();
     if (icon.startsWith('icon-')) {
-        return '<i class="iconfont ' + this.toString() + '"></i>';
+        return '<i sign="icon" class="iconfont ' + this.toString() + '"></i>';
     }
     else if (icon.isImageURL) {
         icon = icon.replaceAll('\\', '/');
         if (!icon.includes('/')) {
             icon = (path ?? $root.images).suffix('/') + icon;
         }
-        return `<img src="${icon}" align="absmiddle" /> `
+        return `<img sign="icon" src="${icon}" align="absmiddle" /> `
     }
     else {
         return icon;
@@ -1973,7 +2027,7 @@ $root.__offsetLeft = function(element) {
     let parent = element.parentNode;
     let left = element.offsetLeft;
     while (parent != null && parent.nodeName != 'BODY') {
-        if (parent.nodeName == 'TABLE' || parent.nodeName == 'TD') {
+        if (parent.nodeName == 'TABLE' || parent.nodeName == 'TD' || parent.nodeName == 'POP-UP') {
             left += parent.offsetLeft;
         }
         parent = parent.parentNode;
@@ -1990,7 +2044,7 @@ $root.__offsetTop = function(element) {
     let parent = element.parentNode;
     let top = element.offsetTop;
     while (parent != null && parent.nodeName != 'BODY') {
-        if (parent.nodeName == 'TABLE' || parent.nodeName == 'TD' || parent.style.position == 'fixed') {
+        if (parent.nodeName == 'TABLE' || parent.nodeName == 'TD' || parent.nodeName == 'POP-UP' || parent.style.position == 'fixed') {
             top += parent.offsetTop;
         }
         parent = parent.parentNode;
@@ -2303,7 +2357,7 @@ $s = function (o) {
         return s?.instance ?? s;        
     }    
     else {        
-        return o;
+        return o?.instance ?? o;
     }
 }
 
@@ -2873,8 +2927,8 @@ Event.await = function(tag, await) {
 //执行某一个具体对象的事件非监听事件，再比如对象没有name，如for和if标签
 Event.fire = function(tag, onLowerName, args) {
     let final = true;
-    //仅通过 defineCustomEvents 注册的自定义事件可以触发
-    if (HTMLElement.customEvents.get(tag.constructor.name)?.has(onLowerName)) {
+    //仅通过 defineCustomEvents 注册的自定义事件可以触发，构造器为空表示不是元素，如Animiation
+    if (HTMLElement.customEvents.get(tag.constructor.name)?.has(onLowerName) || tag.constructor.name == '') {
         let func = tag[onLowerName] ?? tag.instance?.[onLowerName];
         if (func != null) {
             if (typeof (func) == 'function') {
@@ -3418,6 +3472,7 @@ Callout.Entity.prototype.locate = function() {
 
 Callout.Entity.$timer = null;
 Callout.Entity.prototype.show = function(seconds = 0) {
+
     $('#__Callout').setHTML(this.content).show().setStyle('visibility', 'hidden');
     if ($('#__Callout').width > 360) {
         $('#__Callout').width = 360;

@@ -1,6 +1,5 @@
 /* TreeView */
 treeview { display: block; }
-treenode { display: none; }
 .treeView-default-class { background-color:transparent; }
 .treeNode-default-class { border: 1px solid transparent; border-radius: 3px; background-color: transparent; }
 .treeNode-default-class a { text-decoration: none; color: inherit; }

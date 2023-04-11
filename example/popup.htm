@@ -9,14 +9,19 @@
     <link href="/css/root/main.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
-<pop-up id="P">HELLO WORLD</pop-up>
-<div>WORLD</div>
+<pop-up id="P" theme="root" min-width="400" button-min-width="100">
+    <p>HELLO WORLD</p>
+    <p>WORLD HELLO NOOOOOOOOOOOOOOOOO!</p>
+</pop-up>
+<div id="D" style="border: 1px solid #000000;">WORLD</div>
 <div id="A" style="padding: 100px 200px" onclick="alert('click0');" onabc="alert(2)">
-    <input id="T" type="text" value="TSET" /> &nbsp; <span id="S">TEST</span>    
+    <input id="T" type="text" value="TSET" style="width: 200px;" /> &nbsp; <span id="S">TEST</span>    
     <input id="C" type="checkbox" value="yes" />
 </div>
 <script type="text/javascript">
-//$('#P').open();
+$('#P').open();
+
+//$root.confirm('HELLO, Cat Master.');
 
 let eventName = 'click';
 
@@ -24,13 +29,17 @@ let t = $('#A');
 
 //HTMLElement.defineCustomEvent(t, 'on' + eventName);
 
-t.onclick = function() {
-    alert('click1');
-}
+ t.onclick = function() {
+     alert('click1');
+ }
 
-t.on(eventName, function() {
-    alert('click2');
-});
+ t.on(eventName, function() {
+     alert('click2');
+ });
+
+ t.on(eventName, function() {
+     alert('click3');
+ });
 
 //t.dispatch(eventName);
 

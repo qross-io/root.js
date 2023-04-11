@@ -20,7 +20,7 @@ $enhance(HTMLButtonElement.prototype)
         actionText: '', //当开始执行服务器端事件时的提示这也
         successText: '', //执行成功后的提示文字
         failureText: '', //执行失败后的提醒文字
-        exceptionText: '', //请求发生错误的提醒文字
+        exceptionText: 'Exception: {error}', //请求发生错误的提醒文字
 
         textClass: '', //默认提醒文字的样式
         errorTextClass: 'error',
@@ -37,7 +37,7 @@ $enhance(HTMLButtonElement.prototype)
         enabledClass: '', //normal-button blue-button,
         enabledText: 'Enabled',
         enabledValue: 'yes',
-        disabledClass: '', //normal-button optional-button,
+        disabledClass: '', //normal-button optional-button
         disabledText: 'Disabled',
         disabledValue: 'no',
 
@@ -330,7 +330,7 @@ HTMLButtonElement.prototype.initialize = function() {
         this.onclick = null;
     }
 
-    if (this.successText != '' || this.failureText != '' || this.exceptionText != '') {
+    if (this.successText != '' || this.failureText != '') {
         if (this.hintElement == null && this.calloutPosition == null && this.alert == null && this.messageDuration == null) {
             this.hintElement = $create('SPAN', { innerHTML: '', className: this.errorTextClass }, { marginLeft: '30px' });
             this.insertAdjacentElement('afterEnd', this.hintElement);            
@@ -467,7 +467,9 @@ HTMLButtonElement.prototype.initialize = function() {
 
         //observe
         if (todo.length > 0) {
-            this.disable();
+            if (!this.hasAttribute('disabled')) {
+                this.disable();
+            }            
 
             todo.forEach(name => {
                 this.relations.set(name, 0);
@@ -487,7 +489,9 @@ HTMLButtonElement.prototype.initialize = function() {
                     else {
                         this.relations.set(name, 1);
                         if (this.satisfied) {
-                            this.enable();
+                            if (this.disabled) {
+                                this.enable();
+                            }                            
                         }
                     }
                 }
@@ -535,9 +539,9 @@ HTMLButtonElement.prototype.initialize = function() {
         this.disabled = $parseBoolean(this.getAttribute('disabled'), false, this);
     }
     else if (this.hasAttribute('enabled')) {
-        this.enabled = $parseBoolean(this.getAttribute('enabled'), true, this);    }
+        this.enabled = $parseBoolean(this.getAttribute('enabled'), true, this);
+    }
 }
-
 
 
 HTMLButtonElement.initializeAll = function(container) {
@@ -548,7 +552,7 @@ HTMLButtonElement.initializeAll = function(container) {
 
             HTMLElement.boostPropertyValue(button);            
 
-            if (button.hasAttribute('onclick+') || button.hasAttribute('watch') || button.hasAttribute('type') || button.hasAttribute('href')) {
+            if (button.hasAttribute('onclick+') || button.hasAttribute('watch') || button.hasAttribute('type') || button.hasAttribute('href') || button.hasAttribute('root')) {
                 button.initialize();
             }
             else {

@@ -297,7 +297,7 @@ class HTMLCoderElement extends HTMLCustomElement {
     }
 
     get exceptionText() {
-        return this.textArea.getAttribute('exception-text') ?? '';
+        return this.textArea.getAttribute('exception-text', 'Exception: {error}');
     }
 
     set exceptionText(text) {

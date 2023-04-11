@@ -288,7 +288,7 @@ class HTMLEditorAttribute extends HTMLCustomAttribute {
     }
 
     get exceptionText() {
-        return this.getAttribute('exception-text') ?? this.controller?.exceptionText ?? '';
+        return this.getAttribute('exception-text') ?? this.controller?.exceptionText ?? 'Exception: {error}';
     }
 
     set exceptionText(text) {

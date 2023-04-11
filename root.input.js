@@ -31,7 +31,7 @@ $enhance(HTMLInputElement.prototype)
 
         successText: '',
         failureText:  '',
-        exceptionText: '',
+        exceptionText: 'Exception: {error}',
 
         focusClass: '', //获得焦点样式
         errorClass: '', //值为空或验证无效时的样式
@@ -448,10 +448,6 @@ HTMLInputElement.prototype.update = function(value) {
 
 HTMLInputElement.prototype.reset = function() {
     this.value = this.defaultValue;
-}
-
-HTMLInputElement.prototype.empty = function() {
-    this.value = '';
 }
 
 HTMLInputElement.prototype.copy = function() {
